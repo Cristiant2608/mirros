@@ -3,9 +3,9 @@ import {createInput, coordinates, keyUsages} from '../input.js';
 import {devicePoint} from '../orientation.js';
 import {post} from '../transport.js';
 
-export function usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError, button, capture, setKeyboard, clipboardShortcut}) {
+export function usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError, button, capture, setKeyboard, clipboardShortcut, wake}) {
   const input = useRef(null), callbacks = useRef(null);
-  callbacks.current = {onError, button, capture, setKeyboard, clipboardShortcut};
+  callbacks.current = {onError, button, capture, setKeyboard, clipboardShortcut, wake};
   useEffect(() => {
     if (!canvas.current || !connected) return;
     const node = canvas.current;
@@ -36,6 +36,7 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
       }
       const shortcuts = {h: 'home', l: 'lock', '[': 'volume-down', ']': 'volume-up', s: 'siri'};
       if (event.type === 'keydown' && event.ctrlKey && shortcuts[event.key.toLowerCase()]) { event.preventDefault(); callbacks.current.button(shortcuts[event.key.toLowerCase()]); return; }
+      if (event.type === 'keydown' && event.ctrlKey && event.key.toLowerCase() === 'u') { event.preventDefault(); callbacks.current.wake?.(); return; }
       if (event.type === 'keydown' && event.ctrlKey && event.key.toLowerCase() === 'p') { event.preventDefault(); callbacks.current.capture(); return; }
       const usage = keyUsages[event.code]; if (!usage) return;
       event.preventDefault(); if (event.repeat) return;

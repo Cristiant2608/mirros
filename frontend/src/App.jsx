@@ -7,7 +7,7 @@ import {useConnection} from './hooks/useConnection.js';
 import {usePhoneVideo} from './hooks/usePhoneVideo.js';
 import {FrameRate} from './components/FrameRate.jsx';
 import React, {useEffect, useRef, useState} from 'react';
-import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Volume1, Camera, Mouse, ArrowLeft, ArrowRight, RefreshCw, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Check, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, Download, Send, RotateCw, ChevronLeft, LogOut} from 'lucide-react';
+import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Volume1, Camera, Mouse, ArrowLeft, ArrowRight, RefreshCw, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Check, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, Download, Send, RotateCw, ChevronLeft, LogOut, Moon, Sun} from 'lucide-react';
 import {rotateDevice} from './orientation.js';
 import './style.css';
 
@@ -75,7 +75,30 @@ export default function App() {
     };
     const observer = new ResizeObserver(fit); observer.observe(node); fit(); return () => observer.disconnect();
   }, [dimensions, floating, tab, controlsVisible]);
-  const input = usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError: setNotice, button, capture, setKeyboard, clipboardShortcut: runClipboardShortcut});
+  async function setDisplayMode(mode) {
+    try {
+      if (bridge) {
+        await native('displayMode', mode);
+      } else {
+        await post('/display-mode', {mode});
+        setState(v => ({...v, displayMode: mode}));
+      }
+      setNotice(connected ? (mode === 'aod' ? 'Reposo solicitado. La captura puede detenerse al bloquear el iPhone.' : 'Modo Pantalla Dual solicitado.') : 'Preferencia guardada para la próxima conexión.');
+    } catch (err) {
+      setNotice(err.message);
+    }
+  }
+  async function wakePhone() {
+    if (!connected) return;
+    try {
+      if (bridge) await native('wake');
+      else await post('/wake', {});
+      setNotice('Despertando iPhone…');
+    } catch (err) {
+      setNotice(err.message);
+    }
+  }
+  const input = usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError: setNotice, button, capture, setKeyboard, clipboardShortcut: runClipboardShortcut, wake: wakePhone});
   useEffect(() => { if (!notice) return; const timeout = setTimeout(() => setNotice(''), 4500); return () => clearTimeout(timeout); }, [notice]);
   function button(name) { if (connected) post('/button', {name, state: 'press'}).catch(error => setNotice(error.message)); }
   async function phoneAudioButton(name) {
@@ -123,6 +146,8 @@ export default function App() {
           <IconButton icon={VolumeX} label="Alternar silencio del iPhone" disabled={!connected} onClick={() => phoneAudioButton('mute')}/>
           <IconButton icon={Camera} label="Guardar captura · Ctrl+P" disabled={!live} onClick={capture}/>
           <span className="control-separator"/>
+          <IconButton icon={state.displayMode === 'aod' ? Sun : Moon} label={state.displayMode === 'aod' ? 'Modo actual: reposo experimental (clic para Pantalla Dual)' : 'Solicitar reposo experimental'} active={state.displayMode === 'aod'} disabled={!connected} onClick={() => setDisplayMode(state.displayMode === 'aod' ? 'dual' : 'aod')}/>
+          <IconButton icon={Sun} label="Solicitar despertar iPhone · Ctrl+U" disabled={!connected} onClick={wakePhone}/>
           <IconButton icon={LockKeyhole} label="Bloquear iPhone · Ctrl+L" disabled={!connected} onClick={() => button('lock')}/>
           <IconButton icon={LogOut} label="Desconectar de forma segura" disabled={!connected} onClick={() => native('disconnect')}/>
           <IconButton icon={Minus} label="Minimizar" onClick={() => native('minimize')} disabled={!bridge}/>
@@ -152,10 +177,32 @@ export default function App() {
           <div className="inspector-content" key={tab}>
           {tab === 'phone' && <>
             <section className="settings-group"><h2>Dispositivo</h2><div className="settings-box"><div className="info-row"><span>Nombre</span><strong>{state.device?.name || 'iPhone'}</strong></div><div className="info-row"><span>Conexión</span><strong>{connected ? 'USB' : 'No conectado'}</strong></div>{state.device?.version && <div className="info-row"><span>Versión</span><strong>iOS {state.device.version}</strong></div>}<button className="row-button" onClick={() => native('retry')}><RefreshCw size={15}/>Reconectar<ChevronRight size={14}/></button></div></section>
+            <section className="settings-group"><h2>Modo de pantalla física</h2>
+              <div className="settings-box">
+                <div className="stacked-row">
+                  <span>Modo</span>
+                  <div className="segmented" role="group" aria-label="Modo de pantalla física">
+                    <button className={state.displayMode !== 'aod' ? 'selected' : ''} aria-pressed={state.displayMode !== 'aod'} onClick={() => setDisplayMode('dual')}>Pantalla Dual</button>
+                    <button className={state.displayMode === 'aod' ? 'selected' : ''} aria-pressed={state.displayMode === 'aod'} onClick={() => setDisplayMode('aod')}>Reposo experimental</button>
+                  </div>
+                </div>
+                <button className="row-button" disabled={!connected} onClick={() => button('lock')}>
+                  <Moon size={15}/>Solicitar reposo del iPhone<ChevronRight size={14}/>
+                </button>
+                <button className="row-button" disabled={!connected} onClick={wakePhone}>
+                  <Sun size={15}/>Despertar pantalla del iPhone<ChevronRight size={14}/>
+                </button>
+              </div>
+              <p className="group-description">
+                {state.displayMode === 'aod'
+                  ? 'Solicita bloquear el iPhone y deja de renovar la prevención de reposo. La captura puede detenerse; todavía requiere validación física.'
+                  : 'Pantalla Dual: mantiene la pantalla del iPhone encendida simultáneamente con la ventana en tu PC.'}
+              </p>
+            </section>
             <section className="settings-group"><h2>Ventana</h2><div className="settings-box"><Toggle label="Siempre encima" detail="Mantener visible sobre otras ventanas" value={state.alwaysOnTop} onClick={() => native('pin', !state.alwaysOnTop)} disabled={!bridge}/><button className="row-button" onClick={() => native('mode', 'phone')} disabled={!bridge}><ExternalLink size={15}/>Abrir teléfono flotante<ChevronRight size={14}/></button></div></section>
             <section className="settings-group"><h2>Sesión</h2><div className="settings-box"><button className="row-button" disabled={!connected} onClick={() => native('disconnect')}><LogOut size={16}/>Desconectar de forma segura<ChevronRight size={14}/></button></div><p className="group-description">Libera teclado y toques antes de retirar el cable. Cerrar Mirros también termina la sesión.</p></section>
             <section className="settings-group"><h2>Orientación</h2><div className="settings-box"><button className="row-button" disabled={!connected || rotating} onClick={rotatePhone}><RotateCw size={16}/>Girar vista 90°<ChevronRight size={14}/></button></div><p className="group-description">La vista sigue la orientación de iOS. El botón también gira la imagen si la aplicación permanece vertical.</p></section>
-            <section className="settings-group"><h2>Acciones</h2><div className="action-grid">{[[Home,'Inicio','home'],[LockKeyhole,'Bloquear','lock'],[Camera,'Captura','capture']].map(([Icon,label,command]) => <button key={command} disabled={command === 'capture' ? !live : !connected} onClick={() => command === 'capture' ? capture() : button(command)}><Icon size={20}/><span>{label}</span></button>)}</div><p className="group-description">El iPhone debe permanecer desbloqueado y con la pantalla encendida. Puedes bajar su brillo desde el Centro de control. Bloquearlo interrumpe la imagen.</p></section>
+            <section className="settings-group"><h2>Acciones</h2><div className="action-grid">{[[Home,'Inicio','home'],[LockKeyhole,'Bloquear','lock'],[Camera,'Captura','capture']].map(([Icon,label,command]) => <button key={command} disabled={command === 'capture' ? !live : !connected} onClick={() => command === 'capture' ? capture() : button(command)}><Icon size={20}/><span>{label}</span></button>)}</div><p className="group-description">Mantén el iPhone despierto para una captura continua. Despertar no sustituye Face ID ni el código de iOS.</p></section>
             <div className="note"><Mouse size={16}/><p>Haz clic para tocar y arrastra para deslizar. El clic derecho vuelve a Inicio.</p></div>
           </>}
           {tab === 'audio' && <>
@@ -180,7 +227,7 @@ export default function App() {
             <section className="settings-group"><h2>Actualizaciones</h2><div className="settings-box"><div className="info-row"><span>Versión instalada</span><strong>{state.version || '—'}</strong></div><button className="row-button" disabled={['comprobando','descargando'].includes(state.update?.phase)} onClick={() => native('updatesCheck')}><RefreshCw size={15}/>Buscar actualizaciones<ChevronRight size={14}/></button>{state.update?.phase === 'disponible' && <button className="row-button" onClick={() => native('updatesDownload')}><Download size={15}/>Descargar {state.update.version}<ChevronRight size={14}/></button>}{state.update?.phase === 'lista' && <button className="row-button" onClick={() => native('updatesInstall')}><RefreshCw size={15}/>Reiniciar y actualizar<ChevronRight size={14}/></button>}</div><p className="group-description">{state.update?.message || 'Consulta automáticamente las versiones publicadas en GitHub.'}{state.update?.phase === 'descargando' ? ` ${state.update.progress || 0} %` : ''}</p></section>
             <section className="settings-group"><h2>Conectar el iPhone</h2><ol className="steps"><li><span>1</span><p>Conecta un cable USB de datos.</p></li><li><span>2</span><p>Desbloquea el iPhone y acepta «Confiar».</p></li><li><span>3</span><p>Activa Modo Desarrollador en Ajustes → Privacidad y seguridad.</p></li></ol></section>
             <section className="settings-group"><h2>Controles</h2><div className="settings-box">{[['Tocar','Clic'],['Deslizar','Clic y arrastrar'],['Desplazar','Rueda del ratón'],['Inicio','Clic derecho']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><strong>{b}</strong></div>)}</div></section>
-            <section className="settings-group"><h2>Atajos sobre la pantalla</h2><div className="settings-box">{[['Inicio','Ctrl + H'],['Bloquear','Ctrl + L'],['Guardar captura','Ctrl + P']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><kbd>{b}</kbd></div>)}</div></section><button className="secondary-button" onClick={() => native('logs')}>Abrir registro de conexión</button>
+            <section className="settings-group"><h2>Atajos sobre la pantalla</h2><div className="settings-box">{[['Inicio','Ctrl + H'],['Bloquear / Reposo','Ctrl + L'],['Solicitar despertar','Ctrl + U'],['Guardar captura','Ctrl + P']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><kbd>{b}</kbd></div>)}</div></section><button className="secondary-button" onClick={() => native('logs')}>Abrir registro de conexión</button>
           </>}
           </div>
         </aside>

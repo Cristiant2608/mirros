@@ -1,6 +1,7 @@
 // USB session lifecycle is independent of Electron windows.
 const {spawn} = require('node:child_process');
 const net = require('node:net');
+const {deviceRequest} = require('./device-request.cjs');
 const {stopProcess: stop, stopSession} = require('./runtime.cjs');
 
 function createSession({workerArgs, publish, getState, writeLog, fetchRequest = fetch, spawnProcess = spawn, stopWorker = stop, endSession = stopSession}) {
@@ -72,7 +73,20 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
           const response = await fetchRequest(`http://127.0.0.1:${backendPort}/codec`, {signal: AbortSignal.timeout(8000)});
           if (response.ok) {
             const codec = await response.json();
-            if (codec.codec && codec.description && token === generation && !quitting) { publish({phase: 'conectado', message: 'iPhone conectado por USB.'}); return; }
+            if (codec.codec && codec.description && token === generation && !quitting) {
+              let displayWarning = '';
+              if (getState().displayMode === 'aod') {
+                try {
+                  await deviceRequest(fetchRequest, backendPort, '/display-mode', {mode:'aod'});
+                } catch {
+                  displayWarning = ' No se pudo aplicar el reposo solicitado.';
+                  writeLog('No se pudo aplicar el modo de reposo al conectar.\n');
+                }
+              }
+              if (token !== generation || quitting) return;
+              publish({phase: 'conectado', message: 'iPhone conectado por USB.' + displayWarning});
+              return;
+            }
           }
         } catch {}
         await new Promise(resolve => setTimeout(resolve, 500));

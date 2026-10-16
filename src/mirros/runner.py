@@ -11,7 +11,7 @@ import tempfile
 import time
 from typing import Optional
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from mirros.processes import TerminationRequested, shutdown_signals, start_process, stop_process, stop_server
 
@@ -115,7 +115,8 @@ def device_instructions() -> None:
 @shutdown_signals
 def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                    userspace: bool = True, udid: Optional[str] = None,
-                   browser_bin: Optional[str] = None, diagnose: bool = False) -> int:
+                   browser_bin: Optional[str] = None, diagnose: bool = False,
+                   display_mode: str = "dual") -> int:
     if port is not None and not 1 <= port <= 65535:
         print("[!] El puerto debe estar entre 1 y 65535.")
         return 1
@@ -187,6 +188,15 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                 print("[!] El servidor no pudo iniciar. Revisa confianza, Modo Desarrollador y versión de iOS.")
                 print(log_path.read_text(encoding="utf-8", errors="replace")[-6000:])
                 return 1
+            if display_mode == "aod":
+                try:
+                    req = Request(f"http://127.0.0.1:{target_port}/display-mode",
+                                  data=json.dumps({"mode": "aod"}).encode("utf-8"),
+                                  headers={"Content-Type": "application/json"})
+                    with urlopen(req, timeout=3):
+                        pass
+                except Exception:
+                    pass
             if browser:
                 # Perfil propio: Edge no reutiliza una instancia ajena.
                 with tempfile.TemporaryDirectory(prefix="mirros-browser-", ignore_cleanup_errors=True) as profile:

@@ -54,8 +54,8 @@ test('closing cancels an outstanding scan and prevents future workers', async ()
   assert.equal(f.session.port, null);
 });
 
-function connectedFixture() {
-  let state = {phase:'buscando'}, healthy = true, serves = 0;
+function connectedFixture(options = {}) {
+  let state = {phase:'buscando', ...(options.state || {})}, healthy = true, serves = 0;
   let healthReply;
   const active = new Set();
   const stopWorker = async child => {
@@ -74,7 +74,8 @@ function connectedFixture() {
       });
       return child;
     },
-    fetchRequest: async url => {
+    fetchRequest: async (url, fetchOptions) => {
+      if (options.onFetch) options.onFetch(url, fetchOptions);
       if (url.endsWith('/health') && healthReply) return await healthReply();
       return {ok:true, json:async () => url.endsWith('/health') ? {healthy} : {codec:'fixture', description:'fixture'}};
     },
@@ -131,4 +132,23 @@ test('manual pause stays authoritative if an external status snapshot is stale',
   const f=fixture('console.log(JSON.stringify({devices:[]}))');
   try {await f.session.scan();await f.session.disconnect();f.state().phase='buscando';await f.session.scan();assert.equal(f.calls(),1);await f.session.retry();assert.equal(f.calls(),2);}
   finally {await f.session.close();}
+});
+
+test('session applies preferred aod displayMode upon connection', async () => {
+  let displayModeSent = null;
+  const f = connectedFixture({
+    state: {displayMode: 'aod'},
+    onFetch: (url, fetchOptions) => {
+      if (url.endsWith('/display-mode')) {
+        displayModeSent = JSON.parse(fetchOptions.body);
+      }
+    },
+  });
+  try {
+    await f.session.scan();
+    assert.equal(f.state().phase, 'conectado');
+    assert.deepEqual(displayModeSent, {mode: 'aod'});
+  } finally {
+    await f.session.close();
+  }
 });
