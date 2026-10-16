@@ -3,7 +3,7 @@ import {frameRotation} from './orientation.js';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation = () => {}}) {
   const abort = new AbortController();
-  let decoder, pending, lastFrame, raf, disposed = false, frames = 0, errors = 0, orientation = 'portrait', rotation = 0, manualAngle = null;
+  let decoder, pending, lastFrame, raf, disposed = false, frames = 0, errors = 0, software = false, orientation = 'portrait', rotation = 0, manualAngle = null;
   const context = canvas.getContext('2d', {alpha: false});
   const draw = frame => {
     const angle = manualAngle ?? frameRotation(orientation, frame.displayWidth, frame.displayHeight);
@@ -14,7 +14,7 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.translate(width / 2, height / 2);
     context.rotate(angle * Math.PI / 180);
-    context.drawImage(frame, -frame.displayWidth / 2, -frame.displayHeight / 2, frame.displayWidth, frame.displayHeight);
+    context.drawImage(frame.bitmap || frame, -frame.displayWidth / 2, -frame.displayHeight / 2, frame.displayWidth, frame.displayHeight);
     context.setTransform(1, 0, 0, 1, 0, 0);
   };
   const render = () => {
@@ -31,14 +31,32 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
     while (!disposed) {
       let reader;
       try {
+        if (software) {
+          onStatus('Conectando video compatible…');
+          const response = await fetch('/frames.bin', {signal:abort.signal,cache:'no-store'});
+          if (!response.ok) throw new Error('Esperando video del iPhone…');
+          reader = response.body.getReader();let buffer = new Uint8Array(0);
+          while (!disposed) {
+            const {done,value} = await reader.read();if (done) break;
+            const merged = new Uint8Array(buffer.length+value.length);merged.set(buffer);merged.set(value,buffer.length);buffer=merged;
+            while (buffer.length>=4) {
+              const size = new DataView(buffer.buffer,buffer.byteOffset).getUint32(0);
+              if (size<1 || size>16*1024*1024) throw new Error('Se interrumpió el video.');
+              if (buffer.length<4+size) break;
+              const bitmap = await createImageBitmap(new Blob([buffer.slice(4,4+size)],{type:'image/jpeg'}));buffer=buffer.subarray(4+size);
+              output({bitmap,displayWidth:bitmap.width,displayHeight:bitmap.height,close:()=>bitmap.close()});
+            }
+          }
+          continue;
+        }
         onStatus('Conectando con la pantalla…');
         const codecResponse = await fetch('/codec', {signal: abort.signal, cache: 'no-store'});
         if (!codecResponse.ok) throw new Error('Esperando video del iPhone…');
         const info = await codecResponse.json();
         const description = Uint8Array.from(atob(info.description), c => c.charCodeAt(0));
         let config = {codec: info.codec, description, ...iosScrcpyHevcDimensions(description), optimizeForLatency: true};
-        const support = await VideoDecoder.isConfigSupported(config);
-        if (!support.supported) throw new Error('Este equipo no pudo decodificar el video HEVC del iPhone.');
+        const support = typeof VideoDecoder !== 'undefined' && await VideoDecoder.isConfigSupported(config);
+        if (!support?.supported) { software = true; continue; }
         const createDecoder = () => {
           const result = new VideoDecoder({output, error: () => { errors++; onStatus('Recuperando imagen…'); }});
           result.configure(config); return result;
@@ -70,6 +88,7 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
                 decoder = createDecoder();
               }
             }
+            if (errors >= 2) { software = true; throw new Error('Cambiando a video compatible…'); }
             if (!key || decoder.state !== 'configured') continue;
             if (decoder.decodeQueueSize > 8) { key = false; fetch('/pli', {method: 'POST'}).catch(() => {}); continue; }
             decoder.decode(new EncodedVideoChunk({type: type === 0 || type === 2 ? 'key' : 'delta', timestamp, data}));

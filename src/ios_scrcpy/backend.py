@@ -84,7 +84,7 @@ async def read_orientation(server):
 async def orientation_connection(server, reader, writer, original):
     line = await reader.readline()
     request = line.split()[:2]
-    if request not in ([b'GET', b'/orientation'], [b'POST', b'/session/end']):
+    if request not in ([b'GET', b'/orientation'], [b'POST', b'/session/end'], [b'GET', b'/frames.bin']):
         return await original(server, PrefixedReader(line, reader), writer)
     headers = {}
     while True:
@@ -96,6 +96,9 @@ async def orientation_connection(server, reader, writer, original):
     refusal = server._refuse_request(headers)
     if refusal is not None:
         writer.write(refusal)
+    elif request == [b'GET', b'/frames.bin']:
+        from ios_scrcpy.video import software_stream
+        return await software_stream(server, writer)
     elif request == [b'POST', b'/session/end']:
         writer.write(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok')
         task = getattr(server, '_mirros_serve_task', None)

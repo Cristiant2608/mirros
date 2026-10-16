@@ -5,6 +5,7 @@ const path = require('node:path');
 const http = require('node:http');
 const net = require('node:net');
 const {shareClipboard} = require('./clipboard.cjs');
+const updates = require('./updates.cjs');
 const {workerArgs: buildWorkerArgs, stopProcess: stop, stopSession, resizeBounds, orientedBounds} = require('./runtime.cjs');
 
 app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport');
@@ -17,11 +18,19 @@ else { app.whenReady().then(start).catch(error => { dialog.showErrorBox('No se p
 let window, proxyServer, guiPort, backendPort, backend, preparing, logStream, timer;
 let quitting = false, switching = false, scanning = false, connecting = false, generation = 0;
 let preferences = {alwaysOnTop: false, mode: 'studio', size: 'mediano', theme: 'claro', floatingBounds: null, controlsVisible: true};
-let resizing = null;
-let state = {phase: 'buscando', message: 'Conecta tu iPhone por USB', device: null, ...preferences};
+let resizing = null, updateAsset = null, updateBusy = false, installUpdate = null;
+const version = app.getVersion();
+async function checkForUpdates() {
+  if (updateBusy) return; updateBusy = true;
+  publish({update:{phase:'comprobando',message:'Comprobando GitHub…'}});
+  try { const result = await updates.checkUpdates({version}); updateAsset = result.asset || null; const {asset, ...status} = result; publish({update:status}); }
+  catch(error) { publish({update:{phase:'error',message:error.message}}); }
+  finally { updateBusy = false; }
+}
+let state = {phase: 'buscando', message: 'Conecta tu iPhone por USB', device: null, version:app.getVersion(), update:{phase:'inactivo',message:'Actualizaciones desde GitHub'}, ...preferences};
 let aspectRatio = 1264 / 2752;
 const root = path.resolve(__dirname, '..');
-const routes = new Set(['/codec', '/stream.bin', '/audio.bin', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard']);
+const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard']);
 const assets = new Map([['/', ['index.html', 'text/html']], ['/viewer.js', ['viewer.js', 'application/javascript']], ['/viewer.css', ['viewer.css', 'text/css']]]);
 
 function publish(patch = {}) {
@@ -198,6 +207,23 @@ async function start() {
   ipcMain.handle('mirros:action', async (event, name, value) => {
     if (event.sender !== window?.webContents) throw new Error('Ventana no autorizada');
     switch (name) {
+      case 'updatesCheck': await checkForUpdates(); return;
+      case 'updatesDownload': {
+        if (updateBusy || !updateAsset) return; updateBusy = true;
+        try {
+          const directory = path.join(app.getPath('userData'), 'updates');
+          publish({update:{phase:'descargando',message:'Descargando actualización…',progress:0}});
+          const file = await updates.downloadUpdate(updateAsset, directory, {onProgress:progress=>publish({update:{phase:'descargando',message:'Descargando actualización…',progress}})});
+          const target = updates.portableTarget(process.platform);
+          if (!target) throw new Error('Abre el EXE portátil o el AppImage para instalar la actualización.');
+          const install = await updates.prepareInstaller({target,download:file,directory});
+          installUpdate = install;
+          publish({update:{phase:'lista',message:'Descarga verificada. Lista para instalar al reiniciar.'}});
+        } catch(error) { publish({update:{phase:'error',message:error.message}}); }
+        finally { updateBusy = false; }
+        return;
+      }
+      case 'updatesInstall': if (installUpdate) { installUpdate(); app.quit(); } return;
       case 'pin': preferences.alwaysOnTop = value === true; window.setAlwaysOnTop(preferences.alwaysOnTop, 'floating'); break;
       case 'theme': if (['claro', 'oscuro', 'lavanda', 'oceano', 'sistema'].includes(value)) preferences.theme = value; break;
       case 'mode': preferences.mode = value === 'phone' ? 'phone' : 'studio'; createWindow(); break;
@@ -263,7 +289,7 @@ async function start() {
     }
     savePreferences(); publish();
   });
-  createWindow(); scan(); timer = setInterval(scan, 5000);
+  createWindow(); scan(); timer = setInterval(scan, 5000); setTimeout(checkForUpdates, 5000).unref(); setInterval(checkForUpdates, 6*60*60*1000).unref();
 }
 app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
 app.on('before-quit', event => {
