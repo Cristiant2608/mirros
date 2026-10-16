@@ -1,0 +1,17 @@
+Mirros 1.1 — Windows y Linux
+
+Interfaz de escritorio y modificaciones del proyecto: licencia MIT, Cristian Torres.
+Backend: pymobiledevice3 11.32.0, licencia GPL-3.0.
+https://github.com/doronz88/pymobiledevice3
+
+Electron, React y las demás dependencias conservan sus respectivas licencias.
+El código fuente de esta adaptación se entrega junto con el ejecutable.
+Los controladores de Apple no se redistribuyen; se instalan desde Apple.
+La interfaz utiliza iconos Lucide (licencia ISC), tipografías del sistema y
+fondos hechos con CSS. No incluye logotipos, fondos, fuentes ni SF Symbols de Apple.
+El transporte incluye la biblioteca Wintun de pytun-pmd3; su licencia se conserva
+en backend/_internal/pytun_pmd3/wintun/LICENSE.txt.
+
+El paquete es portátil e incluye el runtime Python. El servicio USB de Apple
+debe estar instalado en Windows. El audio AAC-ELD se decodifica mediante
+PyAV/FFmpeg y se reproduce en la salida de audio predeterminada del PC.

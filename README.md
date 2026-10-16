@@ -1,117 +1,108 @@
-# MirrOS 🪞📱
+# MirrOS
 
-> **MirrOS**: Visualiza y controla la pantalla de tu iPhone desde Linux en tiempo real con baja latencia y soporte completo para ratón y teclado.
+Pantalla y control de iPhone por USB para Linux y Windows. Incluye una aplicación
+React/Electron y un comando de terminal que abre el visor de `pymobiledevice3`.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-blue.svg)](https://kernel.org)
-[![iOS: 17+](https://img.shields.io/badge/iOS-17%2B-black.svg)](https://apple.com/ios)
+![Interfaz con contenido simulado](docs/screenshots/pantalla.png)
 
----
+Las capturas del repositorio son simuladas. Las pruebas automáticas y las pruebas
+con un teléfono se registran por separado en [Compatibilidad](docs/COMPATIBILIDAD.md).
 
-## ✨ Características
+## Requisitos
 
-- ⚡ **Streaming en tiempo real**: Transmisión fluida a 60 fps mediante códec de video por hardware HEVC/H.265 sobre el bus USB.
-- 🖱️ **Control táctil con ratón**: Clic para tocar (*Tap*), clic sostenido para deslizar (*Swipe / Scroll*), clic derecho para volver al Inicio (*Home*).
-- ⌨️ **Escritura con teclado**: Envía pulsaciones de teclado directamente a los campos de texto del iPhone.
-- 🎛️ **Atajos de hardware integrados**: Bloqueo de pantalla, botón Home, Siri, control de volumen y captura de pantalla.
-- 🖥️ **Ventana de escritorio nativa**: Se ejecuta en una ventana limpia e independiente sin barras de navegador mediante Chromium en modo aplicación.
-- 🔒 **Sin Jailbreak ni Mac**: Funciona directamente en Linux aprovechando los protocolos oficiales de desarrollo de Apple (*CoreDevice / RemoteXPC*).
+- iPhone desbloqueado, cable USB de datos y confianza concedida al ordenador.
+- Modo Desarrollador activado en Ajustes → Privacidad y seguridad.
+- iOS 17.4+ para el túnel USB en espacio de usuario; las versiones anteriores
+  requieren un túnel externo y validación específica.
+- Linux: servicio `usbmuxd`. Windows: Apple Mobile Device Service, instalado
+  mediante Dispositivos Apple o iTunes. No se incluyen controladores de Apple.
+- Desarrollo: Python 3.10+ y Node.js 22.12+. El visor de terminal necesita
+  un navegador Chromium con HEVC; el escritorio incorpora alternativa por software.
 
----
+## Instalar desde el código
 
-## 📋 Requisitos Previos
-
-### 1. En el iPhone:
-- **iOS 17 o superior** (iOS 17.x, iOS 18.x).
-- **Modo Desarrollador activado**:
-  - En tu iPhone ve a `Ajustes` > `Privacidad y seguridad` > desplázate hasta abajo y activa **Modo Desarrollador**.
-  - Confirma el reinicio del dispositivo. Al encenderse, pulsa **Activar** e ingresa tu código de desbloqueo.
-  *(Nota: Si la opción no aparece en los ajustes, MirrOS o `idevicedevmodectl reveal` la harán visible automáticamente por USB).*
-- Conecta el iPhone con cable USB a tu PC y pulsa **"Confiar en este ordenador"**.
-- Mantén el iPhone **desbloqueado** en la pantalla de inicio para permitir la interacción táctil.
-
-### 2. En Linux (CachyOS / Arch / Debian / Fedora):
-- El servicio `usbmuxd`:
-  ```bash
-  # Arch / CachyOS / Manjaro:
-  sudo pacman -S --needed usbmuxd
-  sudo systemctl enable --now usbmuxd
-
-  # Debian / Ubuntu / Mint:
-  sudo apt install usbmuxd
-  sudo systemctl enable --now usbmuxd
-  ```
-- Navegador basado en Chromium (Chromium, Google Chrome, Brave, etc.) para el visor de ventana limpia.
-
----
-
-## 🚀 Instalación Rápida
-
-Clona el repositorio y ejecuta el instalador:
+Linux:
 
 ```bash
 git clone https://github.com/Cristiant2608/mirros.git
 cd mirros
 ./setup.sh
-```
-
-El script configurará el entorno virtual y creará el comando global `mirros` en `~/.local/bin/mirros`.
-
----
-
-## 💻 Uso
-
-Simplemente conecta tu iPhone desbloqueado y ejecuta en tu terminal:
-
-```bash
+mirros --diagnose
 mirros
 ```
 
-### Opciones de línea de comandos
+En Arch/CachyOS: `sudo pacman -S --needed usbmuxd chromium`.
+En Debian/Ubuntu: `sudo apt install usbmuxd chromium`.
+En Fedora: `sudo dnf install usbmuxd chromium`.
+Activa el servicio USB según tu distribución; en sistemas con la unidad disponible:
+`sudo systemctl start usbmuxd`.
 
-```text
-Uso: mirros [-h] [-v] [-p PORT] [--audio] [--no-userspace] [-u UDID] [-b BROWSER]
+Windows, desde PowerShell en la carpeta del proyecto:
 
-Opciones:
-  -h, --help            Muestra este mensaje de ayuda y termina.
-  -v, --version         Muestra la versión de MirrOS instalada.
-  -p, --port PORT       Puerto TCP para el servidor local (por defecto: 8080).
-  --audio               Habilita transmisión de audio (requiere AudioToolbox).
-  --no-userspace        Usa túnel de kernel en lugar del túnel en espacio de usuario.
-  -u, --udid UDID       Especifica el UDID de un iPhone concreto si hay varios conectados.
-  -b, --browser BROWSER Ruta o binario de navegador personalizado (ej. brave-browser).
+```powershell
+.\setup.ps1
+.\mirros.cmd --diagnose
+.\mirros.cmd
 ```
 
----
+Los instaladores crean o reutilizan `.venv`, instalan las dependencias declaradas y
+comprueban su consistencia en cada ejecución. En Linux se crean los enlaces en
+`~/.local/bin`; esa carpeta debe estar en `PATH`. `ios-scrcpy` se conserva como
+alias del comando `mirros`, también en Windows mediante `ios-scrcpy.cmd`.
 
-## 🎮 Controles y Atajos
+## Abrir el escritorio
 
-| Acción | Control en Linux |
-| :--- | :--- |
-| **Toque táctil (Tap)** | Clic primario (izquierdo) del ratón |
-| **Deslizar / Scroll (Swipe)** | Clic izquierdo sostenido y arrastrar |
-| **Botón Inicio (Home)** | Clic secundario (derecho) o atajo `Ctrl + H` |
-| **Bloquear pantalla (Lock)** | Atajo `Ctrl + L` |
-| **Captura de pantalla** | Atajo `Ctrl + P` (se guarda automáticamente) |
-| **Subir / Bajar volumen** | `Ctrl + ]` / `Ctrl + [` |
-| **Activar Siri** | `Ctrl + S` |
-| **Escribir texto** | Pulsaciones de teclado estándar de tu PC |
+Después de configurar Python:
 
----
+```bash
+npm ci
+node node_modules/electron/install.js
+npm run build
+npm start
+```
 
-## 🔊 ¿Cómo escuchar el audio del iPhone en Linux?
+El escritorio incluye video, gestos, teclado, audio, capturas, portapapeles manual,
+ventana flotante y actualizaciones explícitas. Consulta la [guía de uso](docs/USO.md).
+La transparencia y «Siempre encima» dependen del compositor Linux.
 
-En Linux, la forma más limpia y con calidad de audio completa es emparejar tu iPhone por Bluetooth a tu PC (vía PipeWire / PulseAudio A2DP Sink):
+Para distribuir sin Python ni Node instalados en el equipo de destino:
+`./build-linux.sh` genera un AppImage en `dist/linux`; `./build-windows.ps1`
+genera el EXE portátil en `dist/windows`. Los paquetes publicados, cuando estén
+disponibles, se descargan desde [Releases](https://github.com/Cristiant2608/mirros/releases).
 
-1. En tu terminal haz visible el Bluetooth de tu PC:
-   ```bash
-   bluetoothctl discoverable on
-   ```
-2. En tu iPhone ve a `Ajustes > Bluetooth` y selecciona tu PC.
-3. ¡Listo! Todo el sonido de juegos, videos y música se escuchará directamente por los altavoces o auriculares de tu PC con Linux.
+## Comando de terminal
 
----
+| Opción | Comportamiento |
+| --- | --- |
+| `--diagnose` | Comprueba entorno, navegador y detección USB sin transmitir. |
+| `--version` | Muestra la versión instalada. |
+| `--port PUERTO` | Usa un puerto de 1 a 65535; falla si está ocupado. |
+| `--udid UDID` | Selecciona el teléfono; obligatorio cuando hay varios. |
+| `--browser RUTA` | Selecciona un navegador Chromium. |
+| `--audio` / `--no-audio` | Activa o desactiva el audio inicial del visor; desactivado por defecto. |
+| `--no-userspace` | Usa un túnel externo para el dispositivo. |
 
-## 📄 Licencia
+Sin `--port`, busca un puerto libre desde 8080. El servidor escucha en
+`127.0.0.1`. Cada ejecución tiene su carpeta temporal privada y muestra la ruta
+del registro. Los errores devuelven un código distinto de cero; SIGTERM solicita
+el cierre de la sesión y devuelve 143 en Linux. Ctrl+C termina normalmente.
 
-Este proyecto está distribuido bajo la licencia [MIT](LICENSE).
+Cierra la ventana o usa «Desconectar de forma segura» antes de retirar el cable.
+Si el cable ya se retiró, el programa puede cerrar sus procesos pero no garantiza
+que el iPhone haya recibido la liberación de entrada.
+
+## Desarrollo y estado del proyecto
+
+- [Cómo contribuir y ejecutar las pruebas](CONTRIBUTING.md)
+- [Arquitectura y responsabilidades](docs/ARQUITECTURA.md)
+- [Compatibilidad y lista de validación física](docs/COMPATIBILIDAD.md)
+- [Versiones y publicación mediante etiquetas](docs/ACTUALIZACIONES.md)
+- [Revisión del PR #1 y cambios de integración](docs/REVISION-PR-1.md)
+- [Historial](CHANGELOG.md)
+
+`pyproject.toml` es la fuente de versión. Los cambios en `main` y los PR generan
+paquetes de prueba; una publicación requiere una etiqueta `vX.Y.Z` del mismo
+commit validado. No se publica al integrar un PR.
+
+El código de MirrOS usa la licencia [MIT](LICENSE). El backend y las dependencias
+conservan sus propias licencias; véase [NOTICE](desktop/NOTICE.txt).

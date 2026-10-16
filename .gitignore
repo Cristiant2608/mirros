@@ -1,5 +1,10 @@
 # Virtual environment
 .venv/
+*.egg-info/
+build/
+dist/
+node_modules/
+src/mirros/web/
 env/
 venv/
 ENV/
@@ -24,3 +29,6 @@ htmlcov/
 *.swo
 *~
 .DS_Store
+
+# CI package staging
+artifacts/

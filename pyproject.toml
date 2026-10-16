@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mirros"
+version = "1.1.0"
+description = "Visualiza y controla tu iPhone desde Windows o Linux"
+requires-python = ">=3.10"
+dependencies = ["pymobiledevice3==11.32.0"]
+
+[project.scripts]
+mirros = "mirros.cli:main"
+ios-scrcpy = "mirros.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mirros = ["assets/*.js", "web/*"]

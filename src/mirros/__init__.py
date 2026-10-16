@@ -1,3 +1,11 @@
-"""MirrOS: El espejo y control interactivo de iPhone para Linux."""
+"""MirrOS: pantalla y control de iPhone para Linux y Windows."""
 
-__version__ = "1.0.0"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("mirros")
+except PackageNotFoundError:
+    # Source checkouts work before installation, without a second version constant.
+    import re
+    from pathlib import Path
+    __version__ = re.search(r'^version = "([^"]+)"', (Path(__file__).parents[2] / "pyproject.toml").read_text(), re.M)[1]
