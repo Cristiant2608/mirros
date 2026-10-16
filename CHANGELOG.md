@@ -1,4 +1,4 @@
-# 1.1.2 — 2026-10-16 (integración local)
+# 1.1.2 — 2026-10-16
 
 - Ordena toques y liberación del teclado al recuperar el foco de la ventana.
 - Conserva la duración del primer toque tras reabrir el canal HID del iPhone.
