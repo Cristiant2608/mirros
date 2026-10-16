@@ -27,6 +27,21 @@ async function stopProcess(child, platform = process.platform) {
   signal('SIGKILL');
 }
 
+async function stopSession(child, port, {fetchRequest = fetch, forceStop = stopProcess, graceMs = 7000} = {}) {
+  if (!child) return;
+  if (port && child.exitCode === null) {
+    try {
+      const response = await fetchRequest(`http://127.0.0.1:${port}/session/end`, {method: 'POST', signal: AbortSignal.timeout(1800)});
+      if (response.ok && child.exitCode === null) {
+        let timeout, onExit;
+        await Promise.race([new Promise(resolve => { onExit = resolve; child.once('exit', onExit); }), new Promise(resolve => { timeout = setTimeout(resolve, graceMs); })]);
+        clearTimeout(timeout); child.removeListener('exit', onExit);
+      }
+    } catch { /* USB may already be disconnected. */ }
+  }
+  await forceStop(child);
+}
+
 function resizeBounds(bounds, edge, dx, dy, limits = {}) {
   const {minWidth = 240, minHeight = 360, maxWidth = 8192, maxHeight = 8192} = limits;
   const result = {...bounds};
@@ -64,4 +79,4 @@ function orientedBounds(bounds, previousRatio, ratio, area, insetX = 78, insetY 
     y: Math.round(Math.max(area.y, Math.min(area.y + area.height - height - insetY, bounds.y + (bounds.height - height - insetY) / 2)))};
 }
 
-module.exports = {workerArgs, stopProcess, resizeBounds, orientedBounds};
+module.exports = {workerArgs, stopProcess, stopSession, resizeBounds, orientedBounds};

@@ -34,6 +34,12 @@ puede descargar la imagen de desarrollo compatible.
   volumen del PC. iOS informa el estado; el transporte no permite leerlo.
   El botón Silencio puede no silenciar música o videos. No se garantiza un
   modo «solo PC» hasta verificar cómo responde el dispositivo.
+- **Salida segura:** usa «Desconectar de forma segura» antes de retirar el cable.
+  Libera teclas y toques, cierra el teclado virtual y detiene la sesión. Cerrar
+  Mirros también solicita ese cierre antes de terminar el proceso. Las solicitudes
+  vacías de teclado ya no registran un teclado externo; una espera de cinco segundos
+  sin actividad libera el teclado. Si el cable ya se retiró, la limpieza del iPhone
+  no puede garantizarse y debe comprobarse físicamente.
 - **Capturas:** guarda una imagen PNG desde el botón Captura.
 - **Portapapeles:** los botones «PC → iPhone» e «iPhone → PC» transfieren texto
   o imágenes. Después pega en la aplicación de destino. En el modo flotante,

@@ -5,7 +5,7 @@ const path = require('node:path');
 const http = require('node:http');
 const net = require('node:net');
 const {shareClipboard} = require('./clipboard.cjs');
-const {workerArgs: buildWorkerArgs, stopProcess: stop, resizeBounds, orientedBounds} = require('./runtime.cjs');
+const {workerArgs: buildWorkerArgs, stopProcess: stop, stopSession, resizeBounds, orientedBounds} = require('./runtime.cjs');
 
 app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
@@ -95,22 +95,27 @@ async function connectDevice(device) {
     }
     throw new Error('Todavía no llega video. Mantén el iPhone desbloqueado y cierra Cámara antes de reintentar.');
   } catch (error) {
-    if (token === generation && !quitting) { await stop(backend); backend = null; backendPort = null; publish({phase: 'error', message: error.message}); }
+    if (token === generation && !quitting) { await stopBackend(); backend = null; backendPort = null; publish({phase: 'error', message: error.message}); }
   } finally { if (token === generation) connecting = false; }
 }
+async function stopBackend() {
+  const child = backend, port = backendPort;
+  backend = null; backendPort = null;
+  await stopSession(child, port);
+}
 async function scan() {
-  if (quitting || scanning || connecting || state.phase === 'error') return;
+  if (quitting || scanning || connecting || ['error', 'pausado', 'cerrando'].includes(state.phase)) return;
   scanning = true;
   try {
     const result = await workerResult(['status']);
-    if (quitting) return;
+    if (quitting || connecting || ['pausado', 'cerrando'].includes(state.phase)) return;
     if (result.usb_error) {
       if (!backend) publish({phase: 'buscando', message: process.platform === 'win32' ? 'Revisa el servicio USB de Apple en Dispositivos Apple o iTunes.' : 'No responde usbmuxd. Comprueba el servicio USB.'});
       return;
     }
     if (backend) {
       if (!result.devices.some(item => item.udid === state.device?.udid)) {
-        ++generation; await stop(backend); backend = null; backendPort = null;
+        ++generation; await stopBackend(); backend = null; backendPort = null;
         publish({phase: 'buscando', device: null, message: 'Se desconectó el iPhone. Vuelve a conectarlo por USB.'});
       }
     } else if (result.devices.length === 1) await connectDevice(result.devices[0]);
@@ -244,7 +249,8 @@ async function start() {
       case 'maximize': window.isMaximized() ? window.unmaximize() : window.maximize(); return;
       case 'close': app.quit(); return;
       case 'clipboard': return shareClipboard({clipboard, nativeImage, fetch, backendPort: state.phase === 'conectado' ? backendPort : null}, value);
-      case 'retry': ++generation; await stop(preparing); await stop(backend); preparing = backend = null; backendPort = null; connecting = false; publish({phase: 'buscando', message: 'Volviendo a conectar…'}); scan(); return;
+      case 'disconnect': ++generation; connecting = true; publish({phase: 'cerrando', message: 'Liberando teclado y terminando la sesión…'}); await stop(preparing); preparing = null; await stopBackend(); connecting = false; publish({phase: 'pausado', message: 'Sesión terminada. Ya puedes retirar el cable; pulsa Reconectar para volver.'}); return;
+      case 'retry': ++generation; await stop(preparing); await stopBackend(); preparing = backend = null; backendPort = null; connecting = false; publish({phase: 'buscando', message: 'Volviendo a conectar…'}); scan(); return;
       case 'device': if (state.phase === 'seleccion' && !connecting) { const selected = state.devices?.find(item => item.udid === value); if (selected) connectDevice(selected); } return;
       case 'saveCapture': {
         if (typeof value !== 'string' || !value.startsWith('data:image/png;base64,') || value.length > 30 * 1024 * 1024) throw new Error('Captura no válida');
@@ -263,5 +269,5 @@ app.on('second-instance', () => { if (window) { if (window.isMinimized()) window
 app.on('before-quit', event => {
   if (quitting) return;
   event.preventDefault(); quitting = true; ++generation; clearInterval(timer);
-  Promise.all([stop(preparing), stop(backend)]).finally(() => { proxyServer?.close(); logStream?.end(); app.exit(0); });
+  Promise.all([stop(preparing), stopBackend()]).finally(() => { proxyServer?.close(); logStream?.end(); app.exit(0); });
 });

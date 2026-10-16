@@ -19,6 +19,26 @@ test('packaged Linux never executes a Windows binary', () => {
 test('already stopped or failed workers need no signals', async () => {
   await stopProcess(null);await stopProcess({pid:0,exitCode:null});await stopProcess({pid:123,exitCode:0});
 });
+
+test('safe exit gives the backend time to clean up before forced termination', async()=>{
+  const {stopSession}=require('../desktop/runtime.cjs');
+  const {EventEmitter}=require('node:events');
+  const child=Object.assign(new EventEmitter(),{exitCode:null});let forced=0;
+  await stopSession(child,4321,{
+    fetchRequest:async(url,options)=>{assert.equal(url,'http://127.0.0.1:4321/session/end');assert.equal(options.method,'POST');setTimeout(()=>{child.exitCode=0;child.emit('exit',0);},10);return {ok:true};},
+    forceStop:async c=>{assert.equal(c.exitCode,0);forced++;}
+  });
+  assert.equal(forced,1);assert.equal(child.listenerCount('exit'),0);
+});
+
+test('a disconnected or wedged backend cannot prevent closing the app', async()=>{
+  const {stopSession}=require('../desktop/runtime.cjs');const {EventEmitter}=require('node:events');
+  for(const broken of [true,false]){
+    const child=Object.assign(new EventEmitter(),{exitCode:null});let stopped=false;
+    await stopSession(child,4321,{graceMs:10,fetchRequest:async()=>{if(broken)throw new Error('USB gone');return {ok:true};},forceStop:async()=>{stopped=true;}});
+    assert(stopped);assert.equal(child.listenerCount('exit'),0);
+  }
+});
 test('POSIX shutdown stops a descendant server, not just its parent', {skip:process.platform==='win32'}, async()=>{
   const childCode="const net=require('node:net');const s=net.createServer();s.listen(0,'127.0.0.1',()=>console.log(s.address().port));";
   const code=`const {spawn}=require('node:child_process');spawn(process.execPath,['-e',${JSON.stringify(childCode)}],{stdio:['ignore','inherit','inherit']});setInterval(()=>{},1000);`;
