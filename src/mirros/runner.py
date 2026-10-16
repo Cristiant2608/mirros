@@ -1,4 +1,4 @@
-"""Módulo de ejecución y gestión de procesos de ios-scrcpy."""
+"""Módulo de ejecución y gestión de procesos de MirrOS."""
 
 import os
 import shutil
@@ -9,7 +9,7 @@ import sys
 import time
 from typing import Optional
 
-from ios_scrcpy.device import check_usbmuxd_socket, is_usbmuxd_installed, list_connected_devices
+from mirros.device import check_usbmuxd_socket, is_usbmuxd_installed, list_connected_devices
 
 
 def find_pymobiledevice3() -> Optional[str]:
@@ -67,7 +67,7 @@ def find_browser() -> Optional[str]:
     return None
 
 
-def run_ios_scrcpy(
+def run_mirros(
     port: Optional[int] = None,
     no_audio: bool = False,
     userspace: bool = True,
@@ -141,7 +141,7 @@ def run_ios_scrcpy(
         env["PYMOBILEDEVICE3_UDID"] = target_udid
 
     print(f"[*] Iniciando servidor de pantalla y control en {server_url}...")
-    log_path = "/tmp/ios-scrcpy-backend.log"
+    log_path = "/tmp/mirros-backend.log"
     backend_log = open(log_path, "w")
     server_process = subprocess.Popen(
         cmd,
@@ -151,7 +151,7 @@ def run_ios_scrcpy(
     )
 
     def cleanup(signum=None, frame=None):
-        print("\n[*] Cerrando ios-scrcpy y deteniendo servicios...")
+        print("\n[*] Cerrando MirrOS y deteniendo servicios...")
         if server_process and server_process.poll() is None:
             server_process.terminate()
             try:
@@ -188,13 +188,13 @@ def run_ios_scrcpy(
     browser_name = os.path.basename(browser) if browser else ""
     if browser and ("chromium" in browser_name or "chrome" in browser_name or "brave" in browser_name):
         print(f"[+] Abriendo ventana de aplicación con {browser_name}...")
-        user_data = f"/tmp/ios-scrcpy-{os.getuid()}"
+        user_data = f"/tmp/mirros-{os.getuid()}"
         browser_cmd = [
             browser,
             f"--app={server_url}",
             f"--user-data-dir={user_data}",
-            "--class=ios-scrcpy",
-            "--window-name=iOS-Scrcpy",
+            "--class=mirros",
+            "--window-name=MirrOS",
             "--window-size=440,940",
             "--enable-features=PlatformHEVCDecoderSupport",
             "--ignore-gpu-blocklist",
@@ -209,7 +209,7 @@ def run_ios_scrcpy(
         print(f"[+] Servidor activo. Abre tu navegador en: {server_url}")
 
     print("\n" + "=" * 60)
-    print("  iOS-Scrcpy está ejecutándose.")
+    print("  MirrOS está ejecutándose.")
     print("  - Clic primario: Toque en pantalla (Tap)")
     print("  - Arrastrar: Gesto táctil (Swipe / Scroll)")
     print("  - Clic derecho: Botón Inicio (Home)")

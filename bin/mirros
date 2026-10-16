@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Entrypoint launcher para ios-scrcpy
+# Entrypoint launcher para MirrOS
 set -e
 
 SOURCE="${BASH_SOURCE[0]}"
@@ -19,4 +19,4 @@ if [ ! -f "$VENV_PYTHON" ]; then
 fi
 
 export PYTHONPATH="$SCRIPT_DIR/src:${PYTHONPATH}"
-exec "$VENV_PYTHON" -m ios_scrcpy.cli "$@"
+exec "$VENV_PYTHON" -m mirros.cli "$@"

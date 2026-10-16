@@ -1,22 +1,22 @@
-"""Interfaz de línea de comandos para ios-scrcpy."""
+"""Interfaz de línea de comandos para MirrOS."""
 
 import argparse
 import sys
 
-from ios_scrcpy import __version__
-from ios_scrcpy.runner import run_ios_scrcpy
+from mirros import __version__
+from mirros.runner import run_mirros
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="ios-scrcpy",
-        description="Visualiza y controla tu iPhone desde Linux, similar a scrcpy.",
+        prog="mirros",
+        description="MirrOS: Visualiza y controla la pantalla de tu iPhone desde Linux.",
     )
     parser.add_argument(
         "-v",
         "--version",
         action="version",
-        version=f"ios-scrcpy {__version__}",
+        version=f"mirros {__version__}",
     )
     parser.add_argument(
         "-p",
@@ -53,7 +53,7 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    exit_code = run_ios_scrcpy(
+    exit_code = run_mirros(
         port=args.port,
         no_audio=not args.audio,
         userspace=not args.no_userspace,

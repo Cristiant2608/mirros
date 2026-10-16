@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Asistente de configuración para iOS-Scrcpy en Linux (Arch/CachyOS)
+# Asistente de configuración para MirrOS en Linux (Arch/CachyOS)
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN_PATH="$PROJECT_DIR/bin/ios-scrcpy"
+BIN_PATH="$PROJECT_DIR/bin/mirros"
 LOCAL_BIN="$HOME/.local/bin"
 
 echo "=========================================================="
-echo "          Configurador de iOS-Scrcpy para Linux           "
+echo "            Configurador de MirrOS para Linux             "
 echo "=========================================================="
 
 # 1. Comprobar usbmuxd
@@ -49,9 +49,10 @@ fi
 
 # 4. Enlace simbólico en ~/.local/bin
 mkdir -p "$LOCAL_BIN"
-ln -sf "$BIN_PATH" "$LOCAL_BIN/ios-scrcpy"
-echo "[+] Enlace global creado: $LOCAL_BIN/ios-scrcpy"
+ln -sf "$BIN_PATH" "$LOCAL_BIN/mirros"
+ln -sf "$BIN_PATH" "$LOCAL_BIN/ios-scrcpy" 2>/dev/null || true
+echo "[+] Enlace global creado: $LOCAL_BIN/mirros"
 
 echo -e "\n=========================================================="
-echo "  ¡Listo! Puedes ejecutar 'ios-scrcpy' desde tu terminal. "
+echo "   ¡Listo! Puedes ejecutar 'mirros' desde tu terminal.    "
 echo "=========================================================="
