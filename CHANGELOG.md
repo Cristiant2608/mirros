@@ -1,3 +1,11 @@
+# 1.1.4 — 2026-10-16
+
+- Modo AOD / Reposo experimental estilo Mac: permite que la pantalla física descanse mientras la duplicación e interacción continúan en el PC.
+- Selector de modo de pantalla física: Pantalla Dual vs Modo AOD / Reposo con atajos Ctrl+L (reposo) y Ctrl+U (despertar).
+- Gesto de despertar y desbloqueo integrado mediante controlador táctil HID.
+- Control WebSocket binario con confirmación por orden tras despacho HID y respaldo HTTP seguro.
+- Diagnóstico privado sin identificadores sensibles ni rutas de usuario en mirros --diagnose.
+
 # 1.1.3 — 2026-10-16
 
 - Reensambla paquetes de vídeo y audio sin copiar repetidamente el contenido parcial.
