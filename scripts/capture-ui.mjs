@@ -65,7 +65,7 @@ window.mirros={state:async()=>({...state}),subscribe:fn=>{listeners.push(fn);ret
  await viewport(1320,900);await command('Page.navigate',{url});await pause(1500);
  for(let i=0;i<100&&!await evaluate("document.querySelector('.phone-shell.is-live')!==null");i++)await pause(200);
  if(!await evaluate("document.querySelector('.phone-shell.is-live')!==null"))throw Error('Demo frame did not render: '+await evaluate('document.body.innerText'));
- const screenshot=async name=>{await pause(250);const result=await command('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,name+'.png'),Buffer.from(result.result.data,'base64'));};
+ const screenshot=async name=>{await pause(1100);await evaluate("document.querySelector('canvas').getContext('2d').getImageData(0,0,1,1).data[0]");const result=await command('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,name+'.png'),Buffer.from(result.result.data,'base64'));};
  const tab=async label=>{await evaluate(`[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(label)})).click()`);await pause(100);};
  if(process.env.MIRROS_CAPTURE_REPORT) {
    await pause(10000);
