@@ -59,7 +59,7 @@ test('48 kHz PCM keeps its duration on a 44.1 kHz output device', () => {
   render(); assert.equal(p.playing, false);
 });
 const audioSource = fs.readFileSync(new URL('../frontend/src/audio.js', import.meta.url), 'utf8');
-const {startAudio} = await import('data:text/javascript;base64,' + Buffer.from(audioSource).toString('base64'));
+const {startAudio} = await import('data:text/javascript;base64,' + Buffer.from(audioSource.replace('./packets.mjs', new URL('../frontend/src/packets.mjs', import.meta.url).href)).toString('base64'));
 test('audio client reassembles split packets, deduplicates status and releases its reader on stop', async () => {
   const originals = {AudioContext:globalThis.AudioContext,AudioWorkletNode:globalThis.AudioWorkletNode,fetch:globalThis.fetch};
   let context, worker, pending, cancelled = false, released = false;

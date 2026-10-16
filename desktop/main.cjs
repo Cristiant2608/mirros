@@ -6,6 +6,7 @@ const {waylandClipboard} = require('./wayland-clipboard.cjs');
 const systemClipboard = waylandClipboard(clipboard, ClipboardItem);
 const {shareClipboard, clipboardShortcut} = require('./clipboard.cjs');
 const updates = require('./updates.cjs');
+const {saveCapture} = require('./capture.cjs');
 const {createSession} = require('./session.cjs');
 const {workerArgs: buildWorkerArgs, resizeBounds, orientedBounds} = require('./runtime.cjs');
 
@@ -196,6 +197,7 @@ async function start() {
         try { return await clipboardShortcut({clipboard:systemClipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
         catch (error) { logStream.write(`[clipboard-shortcut] ${value}: ${error.message}\n`); throw error; }
       }
+      case 'saveCapture': return saveCapture({dialog, window}, value);
       case 'disconnect': await session.disconnect(); return;
       case 'retry': await session.retry(); return;
       case 'device': await session.select(value); return;

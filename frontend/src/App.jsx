@@ -5,6 +5,7 @@ import {IconButton, Toggle, Logo, ResizeHandles} from './components/Controls.jsx
 import {useAudio} from './hooks/useAudio.js';
 import {useConnection} from './hooks/useConnection.js';
 import {usePhoneVideo} from './hooks/usePhoneVideo.js';
+import {FrameRate} from './components/FrameRate.jsx';
 import React, {useEffect, useRef, useState} from 'react';
 import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Volume1, Camera, Mouse, ArrowLeft, ArrowRight, RefreshCw, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Check, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, Download, Send, RotateCw, ChevronLeft, LogOut} from 'lucide-react';
 import {rotateDevice} from './orientation.js';
@@ -49,7 +50,7 @@ export default function App() {
   const canvas = useRef(null), stage = useRef(null), [phoneSize, setPhoneSize] = useState({width: 280, height: 610});
   const floating = state.mode === 'phone', connected = state.phase === 'conectado', controlsVisible = state.controlsVisible !== false;
   const {audioEnabled, audioStatus, volume, setVolume, toggleAudio} = useAudio(connected);
-  const {dimensions, fps, live, videoStatus, rotation, video} = usePhoneVideo(canvas, connected, floating);
+  const {dimensions, frames, live, videoStatus, rotation, video} = usePhoneVideo(canvas, connected, floating);
   function toggleControls() { if (bridge) native('controls', !controlsVisible); else setState(value => ({...value, controlsVisible: !controlsVisible})); }
   useEffect(() => { document.body.classList.toggle('floating', floating); }, [floating]);
   useEffect(() => {
@@ -69,7 +70,8 @@ export default function App() {
       const availableHeight = Math.max(100, height - (floating ? 28 : 24));
       const availableWidth = Math.max(80, width - (controlsVisible ? (floating ? 78 : 74) : (floating ? 42 : 38)));
       const h = Math.min(availableHeight, availableWidth / ratio);
-      setPhoneSize({width: Math.round(h * ratio), height: Math.round(h)});
+      const nextWidth = Math.round(h * ratio), nextHeight = Math.round(h);
+      setPhoneSize(previous => previous.width === nextWidth && previous.height === nextHeight ? previous : {width: nextWidth, height: nextHeight});
     };
     const observer = new ResizeObserver(fit); observer.observe(node); fit(); return () => observer.disconnect();
   }, [dimensions, floating, tab, controlsVisible]);
@@ -83,9 +85,16 @@ export default function App() {
   }
   async function capture() {
     if (!live || !canvas.current) return;
-    const image = canvas.current.toDataURL('image/png');
-    if (bridge) { if (await native('saveCapture', image)) setNotice('Captura guardada.'); }
-    else { const link = document.createElement('a'); link.download = 'Mirros.png'; link.href = image; link.click(); }
+    try {
+      const image = await new Promise((resolve, reject) => canvas.current.toBlob(blob => blob ? resolve(blob) : reject(new Error('No se pudo crear la captura.')), 'image/png'));
+      if (bridge) {
+        if (await native('saveCapture', new Uint8Array(await image.arrayBuffer()))) setNotice('Captura guardada.');
+      } else {
+        const url = URL.createObjectURL(image), link = document.createElement('a');
+        link.download = 'Mirros.png'; link.href = url; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch (error) { setNotice(error.message); }
   }
   async function sendText(event) {
     event.preventDefault(); if (!text.trim()) return;
@@ -138,7 +147,7 @@ export default function App() {
     <div className="workspace">
       <header className="toolbar"><div className="toolbar-title"><strong>{state.device?.name || 'iPhone'}</strong><ChevronRight size={14}/><span>{currentSection[2]}</span></div><div className="window-actions"><IconButton icon={Minus} label="Minimizar" onClick={() => native('minimize')}/><IconButton icon={Maximize2} label="Maximizar o restaurar" onClick={() => native('maximize')}/><IconButton icon={X} label="Cerrar Mirros" className="close-button" onClick={() => native('close')}/></div></header>
       <div className="workspace-content">
-        <section className="viewer" aria-label="Vista del iPhone"><div className="viewer-heading"><span className={`connection-pill ${connected ? 'connected' : ''}`}><i/>{connected ? 'USB conectado' : statusLabel}</span><span className="stream-info">{live ? `${fps} fps · ${dimensions.width} × ${dimensions.height}` : 'Vista en directo'}</span></div>{preview}<div className="viewer-hints"><span><Mouse size={13}/>Clic y arrastrar</span><span><Scan size={13}/>Rueda para desplazar</span><span><Keyboard size={13}/>{keyboard ? 'Teclado activo' : 'Clic para escribir'}</span></div></section>
+        <section className="viewer" aria-label="Vista del iPhone"><div className="viewer-heading"><span className={`connection-pill ${connected ? 'connected' : ''}`}><i/>{connected ? 'USB conectado' : statusLabel}</span><span className="stream-info">{live ? <><FrameRate frames={frames}/> · {dimensions.width} × {dimensions.height}</> : 'Vista en directo'}</span></div>{preview}<div className="viewer-hints"><span><Mouse size={13}/>Clic y arrastrar</span><span><Scan size={13}/>Rueda para desplazar</span><span><Keyboard size={13}/>{keyboard ? 'Teclado activo' : 'Clic para escribir'}</span></div></section>
         <aside className="inspector" aria-label={currentSection[2]}><div className="inspector-heading"><span className="section-symbol"><SectionIcon size={20}/></span><div><h1>{currentSection[2]}</h1><p>{{phone: 'Dispositivo y ventana', audio: 'Salidas y volumen', clipboard: 'Copiar y enviar contenido', appearance: 'Tema, tamaño y gestos', help: 'Conexión y atajos'}[tab]}</p></div></div>
           <div className="inspector-content" key={tab}>
           {tab === 'phone' && <>

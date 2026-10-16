@@ -1,3 +1,13 @@
+# 1.1.3 — 2026-10-16
+
+- Reensambla paquetes de vídeo y audio sin copiar repetidamente el contenido parcial.
+- Cierra fotogramas tardíos tras desconectar y libera los lectores de transmisión.
+- Actualiza el contador de FPS sin volver a renderizar todos los controles.
+- Guarda capturas PNG binarias con un diálogo nativo, evitando Base64.
+- Comprime los ejecutables y conserva los idiomas español e inglés de Chromium.
+- Excluye IPython y Jedi, usados por la consola de investigación que el trabajador de Mirros no expone.
+- Conserva diseño, resolución, FPS, aceleración gráfica y reserva de audio.
+
 # 1.1.2 — 2026-10-16
 
 - Ordena toques y liberación del teclado al recuperar el foco de la ventana.
