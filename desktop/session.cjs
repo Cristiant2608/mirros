@@ -110,7 +110,7 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
       } else if (result.devices.length === 1) await connectDevice(result.devices[0]);
       else if (result.devices.length > 1) publish({phase: 'seleccion', devices: result.devices, message: 'Elige el iPhone que quieres usar.'});
       else publish({phase: 'buscando', device: null, message: result.usb_error ? 'No responde el servicio USB de Apple. Abre Dispositivos Apple o iTunes y vuelve a intentar.' : 'Conecta tu iPhone por USB y desbloquéalo.'});
-    } catch { if (!quitting) publish({phase: 'buscando', message: 'Buscando tu iPhone por USB…'}); }
+    } catch { if (!quitting && token === generation) publish({phase: 'buscando', message: 'Buscando tu iPhone por USB…'}); }
     finally { scanning = false; }
   }
 

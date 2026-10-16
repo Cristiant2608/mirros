@@ -118,3 +118,10 @@ test('an obsolete health result cannot reconnect after the user pauses', async (
     assert.equal(f.active.size, 0);
   } finally {await f.session.close();}
 });
+
+
+test('failed discovery cannot reconnect after a manual pause', async()=>{
+  const f=fixture('setTimeout(()=>process.exit(1),30)');
+  try {const scan=f.session.scan();await f.session.disconnect();await scan;assert.equal(f.state().phase,'pausado');await f.session.scan();assert.equal(f.calls(),1);}
+  finally {await f.session.close();}
+});

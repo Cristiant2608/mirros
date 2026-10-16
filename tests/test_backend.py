@@ -210,3 +210,32 @@ class OrientationEndpointTests(unittest.IsolatedAsyncioTestCase):
                 if refusal: query.assert_not_awaited();self.assertIn(b'403',data)
                 else: query.assert_awaited_once();self.assertIn(b'"orientation": "landscapeLeft"',data)
             writer.close.assert_called_once()
+
+
+class TapReadinessTests(unittest.IsolatedAsyncioTestCase):
+    async def test_delayed_hid_open_cannot_collapse_the_first_tap(self):
+        import asyncio
+        from mirros.adapter import touch_request
+        times = []
+        server = SimpleNamespace()
+        async def original(_server, body):
+            if b'contact' in body:
+                await asyncio.sleep(.05)  # Slow service opening after window blur.
+            times.append(asyncio.get_running_loop().time())
+            return 200, b'ok'
+        await touch_request(server, b'{"type":"contact","x":100,"y":200}', original)
+        await touch_request(server, b'{"type":"release","x":100,"y":200}', original)
+        self.assertGreaterEqual(times[1] - times[0], .035)
+        self.assertIsNone(server._mirros_contact)
+        self.assertIsNone(server._mirros_contact_at)
+
+    async def test_moves_do_not_restart_the_minimum_contact_timer(self):
+        import asyncio
+        from mirros.adapter import touch_request
+        server = SimpleNamespace()
+        original = AsyncMock(return_value=(200, b'ok'))
+        await touch_request(server, b'{"type":"contact","x":100,"y":200}', original)
+        started = server._mirros_contact_at
+        await touch_request(server, b'{"type":"contact","x":300,"y":400}', original)
+        self.assertEqual(server._mirros_contact_at, started)
+        self.assertEqual(server._mirros_contact, (300, 400))

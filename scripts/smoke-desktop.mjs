@@ -75,7 +75,7 @@ try {
   await evaluate("setTimeout(()=>window.mirros.action('close'),100);true");
   let deadline;
   try {
-    await Promise.race([exited, new Promise((_, reject) => {deadline = setTimeout(() => reject(Error('Desktop did not close safely')), 15000);})]);
+    await Promise.race([exited, new Promise((_, reject) => {deadline = setTimeout(() => reject(Error('Desktop did not close safely')), 40000);})]);
   } finally {clearTimeout(deadline);}
   assert.equal(child.exitCode, 0);
   console.log('Packaged desktop rendered studio and floating windows, stayed paused and closed safely.');

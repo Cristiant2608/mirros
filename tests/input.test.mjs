@@ -72,3 +72,17 @@ test('closing a controller discards waiting moves but still lifts the finger',as
   input.move(1,{x:50000,y:50000});await new Promise(r=>setTimeout(r,3));input.dispose();unblock();await input.idle();
   assert.deepEqual(sent.map(e=>e.type),['contact','release']);
 });
+
+
+test('returning from another window waits for keyboard detach before the first touch', async()=>{
+  const events=[];let finishDetach;
+  const input=createInput(async(_,data)=>events.push(data.type));
+  input.down(1,{x:10000,y:10000});await input.release(1);
+  input.enqueueAction(async()=>{events.push('detach-start');await new Promise(resolve=>{finishDetach=resolve;});events.push('detach-end');});
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert(input.down(2,{x:20000,y:20000}));const released=input.release(2);
+  assert.deepEqual(events,['contact','release','detach-start']);
+  finishDetach();await released;
+  assert.deepEqual(events,['contact','release','detach-start','detach-end','contact','release']);
+  input.dispose();
+});

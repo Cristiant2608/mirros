@@ -117,6 +117,7 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
       chain = chain.finally(() => { wheelBusy = false; });
       return chain;
     },
+    enqueueAction: task => enqueue(task),
     idle: () => chain,
     dispose() { disposed = true; ++gestureToken; clearTimeout(wheelTimer); release(null); },
   };

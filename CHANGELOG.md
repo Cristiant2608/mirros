@@ -1,3 +1,11 @@
+# 1.1.2 — 2026-10-16 (integración local)
+
+- Ordena toques y liberación del teclado al recuperar el foco de la ventana.
+- Conserva la duración del primer toque tras reabrir el canal HID del iPhone.
+- Evita reconectar una sesión pausada por un resultado USB atrasado.
+- Da hasta 30 segundos a la limpieza del backend antes de forzar su cierre.
+- La cámara y el micrófono requieren detener la duplicación; el transporte CoreDevice no admite su uso simultáneo.
+
 # 1.1.1 — 2026-10-16 (integración local, pendiente de publicación)
 
 - Mantiene el audio PCM en una cola AudioWorklet con reserva adaptable de 120–240 ms.
