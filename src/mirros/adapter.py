@@ -6,6 +6,7 @@ import logging
 import json
 import sys
 import contextlib
+import time
 from importlib.metadata import version
 
 
@@ -74,12 +75,17 @@ async def touch_request(server, body, original):
         return await original(server, body)
     sent_at = getattr(server, '_mirros_contact_at', None)
     if data.get('type') == 'release' and sent_at is not None:
-        await asyncio.sleep(max(0, .04 - (asyncio.get_running_loop().time() - sent_at)))
+        # Windows asyncio clocks may wake timers early; check elapsed real time.
+        while True:
+            remaining = .04 - (time.perf_counter() - sent_at)
+            if remaining <= 0:
+                break
+            await asyncio.sleep(max(.016, remaining))
     result = await original(server, body)
     if result[0] == 200:
         if data.get('type') == 'contact':
             if getattr(server, '_mirros_contact', None) is None:
-                server._mirros_contact_at = asyncio.get_running_loop().time()
+                server._mirros_contact_at = time.perf_counter()
             server._mirros_contact = (data.get('x', 0), data.get('y', 0))
         else:
             server._mirros_contact = None
