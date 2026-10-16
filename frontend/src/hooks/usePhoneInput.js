@@ -18,8 +18,8 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
     const release = () => controls.release(null);
     const wheel = event => { event.preventDefault(); controls.wheel(point(event), event.deltaY, event.deltaMode, node.clientHeight, sensitivity, event.deltaX, node.clientWidth); };
     const context = event => { event.preventDefault(); callbacks.current.button('home'); };
-    const held = new Set(); let keyChain = Promise.resolve(), clipboardInFlight = false;
-    const sendKeys = () => { const snapshot = [...held]; keyChain = keyChain.then(() => post('/key', {usages: snapshot})).catch(() => {}); };
+    const held = new Set(); let clipboardInFlight = false;
+    const sendKeys = () => { const snapshot = [...held]; controls.enqueueAction(() => post('/key', {usages: snapshot})); };
     // Refresh the backend lease while modifiers or keys are deliberately held.
     const heartbeat = setInterval(() => { if (held.size) sendKeys(); }, 1500);
     const keys = event => {
@@ -30,8 +30,7 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
         clipboardInFlight = true;
         const action = event.key.toLowerCase() === 'c' ? 'copy' : 'paste';
         held.clear();
-        keyChain = keyChain.then(() => post('/key', {usages:[]}))
-          .then(() => callbacks.current.clipboardShortcut(action)).catch(error => callbacks.current.onError(error.message))
+        controls.enqueueAction(async () => { await post('/key', {usages:[]}); await callbacks.current.clipboardShortcut(action); })
           .finally(() => {clipboardInFlight = false;});
         return;
       }
@@ -42,7 +41,7 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
       event.preventDefault(); if (event.repeat) return;
       event.type === 'keydown' ? held.add(usage) : held.delete(usage); sendKeys();
     };
-    const blur = () => { release(); if (held.size) { held.clear(); sendKeys(); } keyChain = keyChain.then(() => post('/key', {usages: [], detach: true})).catch(() => {}); callbacks.current.setKeyboard(false); };
+    const blur = () => { release(); if (held.size) { held.clear(); sendKeys(); } controls.enqueueAction(() => post('/key', {usages: [], detach: true})); callbacks.current.setKeyboard(false); };
     const focus = () => callbacks.current.setKeyboard(true);
     node.addEventListener('pointerdown', down); node.addEventListener('pointermove', move); node.addEventListener('pointerup', up); node.addEventListener('pointercancel', release); node.addEventListener('lostpointercapture', release);
     node.addEventListener('wheel', wheel, {passive: false}); node.addEventListener('contextmenu', context); node.addEventListener('focus', focus); node.addEventListener('blur', blur);

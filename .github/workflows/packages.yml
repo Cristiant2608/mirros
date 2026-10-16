@@ -138,5 +138,8 @@ jobs:
             echo "Version already published; bump package.json for the next release."
             exit 0
           fi
+          test -s "release/Mirros-$version-Windows.exe"
+          test -s "release/Mirros-$version-Linux-x64.AppImage"
           git archive --format=zip --prefix="mirros-$version/" -o "release/Mirros-$version-Source.zip" HEAD
-          gh release create "v$version" --verify-tag release/* --target "$GITHUB_SHA" --title "Mirros $version" --notes-file CHANGELOG.md
+          (cd release && sha256sum "Mirros-$version-Windows.exe" "Mirros-$version-Linux-x64.AppImage" "Mirros-$version-Source.zip" > SHA256SUMS.txt)
+          gh release create "v$version" --verify-tag release/* --target "$GITHUB_SHA" --title "Mirros $version" --notes-file RELEASE_NOTES.md

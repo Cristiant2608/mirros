@@ -6,6 +6,7 @@ import logging
 import json
 import sys
 import contextlib
+import time
 from importlib.metadata import version
 
 
@@ -53,6 +54,7 @@ async def release_input(server, release_touch=True):
                 await asyncio.wait_for(uhs.send_touchscreen(TOUCHSCREEN_STATE_RELEASE, *point), 1)
         if release_touch:
             server._mirros_contact = None
+            server._mirros_contact_at = None
         if uhs is not None and keyboard is not None:
             try:
                 with contextlib.suppress(Exception):
@@ -61,6 +63,34 @@ async def release_input(server, release_touch=True):
                 server._uhs = None
                 server._kb_service_id = None
         server._kb_service_id = None
+
+
+async def touch_request(server, body, original):
+    """Preserve a real tap dwell even when opening HID delayed the queued down."""
+    try:
+        data = json.loads(body)
+    except (ValueError, TypeError):
+        return await original(server, body)
+    if not isinstance(data, dict):
+        return await original(server, body)
+    sent_at = getattr(server, '_mirros_contact_at', None)
+    if data.get('type') == 'release' and sent_at is not None:
+        # Windows asyncio clocks may wake timers early; check elapsed real time.
+        while True:
+            remaining = .04 - (time.perf_counter() - sent_at)
+            if remaining <= 0:
+                break
+            await asyncio.sleep(max(.016, remaining))
+    result = await original(server, body)
+    if result[0] == 200:
+        if data.get('type') == 'contact':
+            if getattr(server, '_mirros_contact', None) is None:
+                server._mirros_contact_at = time.perf_counter()
+            server._mirros_contact = (data.get('x', 0), data.get('y', 0))
+        else:
+            server._mirros_contact = None
+            server._mirros_contact_at = None
+    return result
 
 
 async def keyboard_request(server, body, original):
@@ -236,11 +266,7 @@ def configure_viewer() -> None:
     screen_stream.ScreenStreamServer._handle_key = safe_key
     original_touch = screen_stream.ScreenStreamServer._handle_touch
     async def tracked_touch(server, body):
-        result = await original_touch(server, body)
-        if result[0] == 200:
-            data = json.loads(body)
-            server._mirros_contact = (data.get('x', 0), data.get('y', 0)) if data.get('type') == 'contact' else None
-        return result
+        return await touch_request(server, body, original_touch)
     screen_stream.ScreenStreamServer._handle_touch = tracked_touch
     original_stop = screen_stream.ScreenStreamServer._stop_hid
     async def safe_stop(server):

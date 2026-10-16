@@ -210,3 +210,46 @@ class OrientationEndpointTests(unittest.IsolatedAsyncioTestCase):
                 if refusal: query.assert_not_awaited();self.assertIn(b'403',data)
                 else: query.assert_awaited_once();self.assertIn(b'"orientation": "landscapeLeft"',data)
             writer.close.assert_called_once()
+
+
+class TapReadinessTests(unittest.IsolatedAsyncioTestCase):
+    async def test_delayed_hid_open_cannot_collapse_the_first_tap(self):
+        import asyncio
+        from mirros.adapter import touch_request
+        import time
+        times = []
+        server = SimpleNamespace()
+        async def original(_server, body):
+            if b'contact' in body:
+                await asyncio.sleep(.05)  # Slow service opening after window blur.
+            times.append(time.perf_counter())
+            return 200, b'ok'
+        await touch_request(server, b'{"type":"contact","x":100,"y":200}', original)
+        await touch_request(server, b'{"type":"release","x":100,"y":200}', original)
+        self.assertGreaterEqual(times[1] - times[0], .035)
+        self.assertIsNone(server._mirros_contact)
+        self.assertIsNone(server._mirros_contact_at)
+
+    async def test_moves_do_not_restart_the_minimum_contact_timer(self):
+        import asyncio
+        from mirros.adapter import touch_request
+        server = SimpleNamespace()
+        original = AsyncMock(return_value=(200, b'ok'))
+        await touch_request(server, b'{"type":"contact","x":100,"y":200}', original)
+        started = server._mirros_contact_at
+        await touch_request(server, b'{"type":"contact","x":300,"y":400}', original)
+        self.assertEqual(server._mirros_contact_at, started)
+        self.assertEqual(server._mirros_contact, (300, 400))
+
+
+class EarlyTimerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_early_timer_wake_rechecks_real_contact_duration(self):
+        from unittest.mock import patch
+        from mirros.adapter import touch_request
+        server = SimpleNamespace(_mirros_contact=(100, 200), _mirros_contact_at=1.0)
+        original = AsyncMock(return_value=(200, b'ok'))
+        with patch('mirros.adapter.time.perf_counter', side_effect=[1.01, 1.02, 1.039, 1.04]), patch('mirros.adapter.asyncio.sleep', new_callable=AsyncMock) as sleep:
+            await touch_request(server, b'{"type":"release","x":100,"y":200}', original)
+        self.assertEqual(sleep.await_count, 3)
+        original.assert_awaited_once()
+        self.assertIsNone(server._mirros_contact_at)

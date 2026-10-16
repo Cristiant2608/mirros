@@ -33,7 +33,7 @@ let state = {phase: 'buscando', message: 'Conecta tu iPhone por USB', device: nu
 let aspectRatio = 1264 / 2752;
 const root = path.resolve(__dirname, '..');
 const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard']);
-const assets = new Map([['/', ['index.html', 'text/html']], ['/viewer.js', ['viewer.js', 'application/javascript']], ['/viewer.css', ['viewer.css', 'text/css']]]);
+const assets = new Map([['/', ['index.html', 'text/html']], ['/viewer.js', ['viewer.js', 'application/javascript']], ['/viewer.css', ['viewer.css', 'text/css']], ['/audio-worklet.js', ['audio-worklet.js', 'application/javascript']]]);
 
 function publish(patch = {}) {
   state = {...state, ...patch, ...preferences};
@@ -206,7 +206,7 @@ async function start() {
   });
   createWindow(); session.scan(); timer = setInterval(() => session.scan(), 5000); setTimeout(checkForUpdates, 5000).unref(); setInterval(checkForUpdates, 6*60*60*1000).unref();
 }
-app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.focus(); } });
+app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); } });
 app.on('before-quit', event => {
   if (quitting) return;
   event.preventDefault(); quitting = true; clearInterval(timer);

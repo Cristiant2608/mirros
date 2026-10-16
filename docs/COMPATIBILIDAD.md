@@ -57,3 +57,11 @@ Antes de publicar, completa los pendientes relevantes y anota resultado, sistema
 iOS y commit. Usa un campo de texto y contenido de prueba; no adjuntes datos
 personales del teléfono. La compilación Windows y la compatibilidad de glibc del
 AppImage de publicación se validan mediante CI en sus plataformas nativas.
+
+## Cámara y micrófono del iPhone
+
+El transporte CoreDevice utilizado no permite usar la cámara o el micrófono del
+propio iPhone mientras la duplicación está activa. Puede aparecer una vista negra.
+Usa «Desconectar de forma segura» y espera a que termine la sesión antes de abrir
+Cámara. Si sigue bloqueada, cierra Mirros por completo y vuelve a abrir Cámara.
+Esta limitación está documentada por [pymobiledevice3](https://doronz88.github.io/pymobiledevice3/guides/cli-recipes/#screen-streaming-hevc-video).

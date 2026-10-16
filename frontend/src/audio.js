@@ -1,35 +1,52 @@
 export function startAudio({onStatus, volume = 0.8}) {
   const abort = new AbortController();
-  const context = new AudioContext({sampleRate: 48000, latencyHint: 'interactive'});
+  const context = new AudioContext({sampleRate: 48000, latencyHint: 'playback'});
   const gain = context.createGain(); gain.gain.value = volume; gain.connect(context.destination);
-  let stopped = false, scheduled = context.currentTime + .06;
+  let stopped = false, player, lastStatus;
+  const status = message => { if (!stopped && message !== lastStatus) {lastStatus = message; onStatus(message);} };
+  const wait = ms => new Promise(resolve => {
+    const finish = () => { clearTimeout(timer); abort.signal.removeEventListener('abort', finish); resolve(); };
+    const timer = setTimeout(finish, ms); abort.signal.addEventListener('abort', finish, {once: true});
+    if (abort.signal.aborted) finish();
+  });
   async function run() {
     try {
+      await context.audioWorklet.addModule('/audio-worklet.js');
+      if (stopped) return;
+      player = new AudioWorkletNode(context, 'mirros-pcm', {numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2]});
+      player.port.onmessage = ({data}) => status(data === 'playing' ? 'Sonando en este PC' : 'Estabilizando audio…');
+      player.connect(gain);
       await context.resume();
-      const response = await fetch('/audio.bin', {signal: abort.signal});
-      if (!response.ok) throw new Error('No se pudo iniciar el audio del iPhone.');
-      const reader = response.body.getReader();
-      let buffer = new Uint8Array(0);
-      onStatus('Esperando sonido del iPhone');
       while (!stopped) {
-        const {done, value} = await reader.read(); if (done) break;
-        const merged = new Uint8Array(buffer.length + value.length); merged.set(buffer); merged.set(value, buffer.length); buffer = merged;
-        while (buffer.length >= 4) {
-          const size = new DataView(buffer.buffer, buffer.byteOffset).getUint32(0);
-          if (size > 1024 * 1024 || size % 4) throw new Error('Se interrumpió el audio.');
-          if (buffer.length < size + 4) break;
-          const bytes = buffer.slice(4, size + 4); buffer = buffer.subarray(size + 4);
-          const samples = new DataView(bytes.buffer), count = bytes.length / 4;
-          if (!count) continue;
-          const audio = context.createBuffer(2, count, 48000), left = audio.getChannelData(0), right = audio.getChannelData(1);
-          for (let i = 0; i < count; i++) { left[i] = samples.getInt16(i * 4, true) / 32768; right[i] = samples.getInt16(i * 4 + 2, true) / 32768; }
-          const node = context.createBufferSource(); node.buffer = audio; node.connect(gain);
-          if (scheduled < context.currentTime || scheduled - context.currentTime > .18) scheduled = context.currentTime + .06;
-          node.start(scheduled); scheduled += audio.duration; onStatus('Sonando en este PC');
-        }
+        let reader;
+        try {
+          const response = await fetch('/audio.bin', {signal: abort.signal});
+          if (!response.ok) throw new Error('No se pudo iniciar el audio del iPhone.');
+          reader = response.body.getReader();
+          let buffer = new Uint8Array(0);
+          status('Esperando sonido del iPhone');
+          while (!stopped) {
+            const {done, value} = await reader.read();
+            if (done) throw new Error('La transmisión de audio se interrumpió.');
+            const merged = new Uint8Array(buffer.length + value.length); merged.set(buffer); merged.set(value, buffer.length); buffer = merged;
+            while (buffer.length >= 4) {
+              const size = new DataView(buffer.buffer, buffer.byteOffset).getUint32(0);
+              if (size > 1024 * 1024 || size % 4) throw new Error('Paquete de audio no válido.');
+              if (buffer.length < size + 4) break;
+              if (size) {
+                const bytes = buffer.slice(4, size + 4);
+                player.port.postMessage(bytes.buffer, [bytes.buffer]);
+              }
+              buffer = buffer.subarray(size + 4);
+            }
+          }
+        } catch (error) {
+          if (!stopped) status('Reconectando audio…');
+        } finally { if (reader) { await reader.cancel().catch(() => {}); reader.releaseLock(); } }
+        if (!stopped) await wait(750);
       }
-    } catch (error) { if (!stopped) onStatus(error.message || 'No se pudo reproducir el audio.'); }
+    } catch (error) { status(error.message || 'No se pudo reproducir el audio.'); }
   }
   run();
-  return {stop() {stopped = true; abort.abort(); context.close().catch(() => {});}, setVolume(value) {gain.gain.value = value;}};
+  return {stop() {stopped = true; abort.abort(); player?.disconnect(); player?.port.close(); gain.disconnect(); context.close().catch(() => {});}, setVolume(value) {gain.gain.value = value;}};
 }

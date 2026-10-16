@@ -32,7 +32,7 @@ async function stopProcess(child, platform = process.platform) {
   if (onExit) child.removeListener('exit', onExit);
 }
 
-async function stopSession(child, port, {fetchRequest = fetch, forceStop = stopProcess, graceMs = 7000} = {}) {
+async function stopSession(child, port, {fetchRequest = fetch, forceStop = stopProcess, graceMs = 30000} = {}) {
   if (!child) return;
   if (port && child.exitCode === null) {
     try {

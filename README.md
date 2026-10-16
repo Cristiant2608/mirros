@@ -8,6 +8,31 @@ React/Electron y un comando de terminal que abre el visor de `pymobiledevice3`.
 Las capturas del repositorio son simuladas. Las pruebas automáticas y las pruebas
 con un teléfono se registran por separado en [Compatibilidad](docs/COMPATIBILIDAD.md).
 
+## Descargar los portátiles
+
+Descarga los archivos desde [GitHub Releases](https://github.com/Cristiant2608/mirros/releases/latest):
+
+| Archivo | Uso |
+| --- | --- |
+| `Mirros-1.1.2-Windows.exe` | Portátil Windows x64: descargar y abrir. |
+| `Mirros-1.1.2-Linux-x64.AppImage` | Portátil Linux x64: dar permiso de ejecución y abrir. |
+| `Mirros-1.1.2-Source.zip` | Código fuente de la misma versión. |
+| `SHA256SUMS.txt` | Sumas SHA-256 de los tres archivos. |
+
+Los portátiles incluyen Electron y Python. El equipo de destino necesita el servicio
+USB de Apple en Windows o `usbmuxd` en Linux, y el iPhone debe conceder confianza y
+estar en Modo Desarrollador. La primera preparación puede necesitar Internet.
+
+En Linux:
+
+```bash
+chmod +x Mirros-1.1.2-Linux-x64.AppImage
+./Mirros-1.1.2-Linux-x64.AppImage
+```
+
+La cámara y el micrófono del iPhone requieren detener la duplicación mediante
+«Desconectar de forma segura» antes de usarlos.
+
 ## Requisitos
 
 - iPhone desbloqueado, cable USB de datos y confianza concedida al ordenador.
@@ -69,8 +94,7 @@ Consulta las [prioridades de mejora](docs/MEJORAS.md) y sus criterios de validac
 
 Para distribuir sin Python ni Node instalados en el equipo de destino:
 `./build-linux.sh` genera un AppImage en `dist/linux`; `./build-windows.ps1`
-genera el EXE portátil en `dist/windows`. Los paquetes publicados, cuando estén
-disponibles, se descargan desde [Releases](https://github.com/Cristiant2608/mirros/releases).
+genera el EXE portátil en `dist/windows`. Los paquetes publicados se descargan desde [Releases](https://github.com/Cristiant2608/mirros/releases).
 
 ## Comando de terminal
 

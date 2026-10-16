@@ -7,6 +7,13 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
   let backendPort = null, backend = null, preparing = null;
   let quitting = false, scanning = false, connecting = false, generation = 0;
   const workers = new Set();
+  let paused = false;
+  const publishState = publish;
+  // A manual pause is user intent, independent of late worker/UI status updates.
+  publish = patch => {
+    if (paused && patch.phase && !['pausado', 'cerrando'].includes(patch.phase)) return;
+    publishState(patch);
+  };
   function spawnWorker(args, udid) {
     const [file, argv] = workerArgs(args);
     const child = spawnProcess(file, argv, {windowsHide: true, detached: process.platform !== 'win32', env: {...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1', ...(udid ? {PYMOBILEDEVICE3_UDID: udid} : {})}});
@@ -82,11 +89,11 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
   }
   async function scan() {
     const token = generation;
-    if (quitting || scanning || connecting || ['error', 'pausado', 'cerrando'].includes(getState().phase)) return;
+    if (quitting || paused || scanning || connecting || ['error', 'pausado', 'cerrando'].includes(getState().phase)) return;
     scanning = true;
     try {
       const result = await workerResult(['status']);
-      if (quitting || token !== generation || connecting || ['error', 'pausado', 'cerrando'].includes(getState().phase)) return;
+      if (quitting || paused || token !== generation || connecting || ['error', 'pausado', 'cerrando'].includes(getState().phase)) return;
       if (backend) {
         const device = result.devices?.find(item => item.udid === getState().device?.udid);
         let healthy = false;
@@ -110,12 +117,12 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
       } else if (result.devices.length === 1) await connectDevice(result.devices[0]);
       else if (result.devices.length > 1) publish({phase: 'seleccion', devices: result.devices, message: 'Elige el iPhone que quieres usar.'});
       else publish({phase: 'buscando', device: null, message: result.usb_error ? 'No responde el servicio USB de Apple. Abre Dispositivos Apple o iTunes y vuelve a intentar.' : 'Conecta tu iPhone por USB y desbloquéalo.'});
-    } catch { if (!quitting) publish({phase: 'buscando', message: 'Buscando tu iPhone por USB…'}); }
+    } catch { if (!quitting && token === generation) publish({phase: 'buscando', message: 'Buscando tu iPhone por USB…'}); }
     finally { scanning = false; }
   }
 
   async function disconnect() {
-    ++generation; connecting = true;
+    paused = true; ++generation; connecting = true;
     publish({phase:'cerrando', message:'Liberando teclado y terminando la sesión…'});
     try { await stopWorker(preparing); preparing = null; await stopBackend(); }
     finally { connecting = false; }
@@ -124,11 +131,12 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
   async function retry() {
     await disconnect();
     if (quitting) return;
+    paused = false;
     publish({phase:'buscando', message:'Volviendo a conectar…'});
     await scan();
   }
   async function select(udid) {
-    if (quitting || connecting || getState().phase !== 'seleccion') return;
+    if (quitting || paused || connecting || getState().phase !== 'seleccion') return;
     const device = getState().devices?.find(item => item.udid === udid);
     if (device) await connectDevice(device);
   }
