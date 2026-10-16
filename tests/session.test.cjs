@@ -125,3 +125,10 @@ test('failed discovery cannot reconnect after a manual pause', async()=>{
   try {const scan=f.session.scan();await f.session.disconnect();await scan;assert.equal(f.state().phase,'pausado');await f.session.scan();assert.equal(f.calls(),1);}
   finally {await f.session.close();}
 });
+
+
+test('manual pause stays authoritative if an external status snapshot is stale', async()=>{
+  const f=fixture('console.log(JSON.stringify({devices:[]}))');
+  try {await f.session.scan();await f.session.disconnect();f.state().phase='buscando';await f.session.scan();assert.equal(f.calls(),1);await f.session.retry();assert.equal(f.calls(),2);}
+  finally {await f.session.close();}
+});
