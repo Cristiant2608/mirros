@@ -26,3 +26,11 @@ códecs en módulos separados. La versión se centraliza en `pyproject.toml` y
 
 Para reducir la luz del teléfono hoy, bajar manualmente el brillo mantiene el
 funcionamiento. No apaga el panel ni crea una pantalla virtual independiente.
+
+## Diagnóstico exportable disponible
+
+`python -m mirros.diagnostics --output diagnostico-mirros.json` genera un informe
+con campos permitidos, sin leer registros ni portapapeles. La consulta USB es
+opcional y exporta solo un conteo. La integración de este informe en el botón de
+Ayuda del escritorio y los códigos de error recientes siguen pendientes; no se
+exportan excepciones sin filtrar. La guía de uso describe alcance y permisos.
