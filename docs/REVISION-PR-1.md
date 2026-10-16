@@ -45,8 +45,8 @@ certifica latencia de extremo a extremo a partir del contador de fotogramas.
 
 Las regresiones nuevas suman 37 pruebas Python (una exclusiva de Windows omitida)
 y 58 JavaScript. La prueba nativa de Electron cubre texto, PNG y los atajos.
-Ctrl+V sobre el iPhone transfiere y pega; Ctrl+C espera un cambio de la selección
-del teléfono antes de reemplazar el portapapeles del PC. La lectura manual puede
+Ctrl+V sobre el iPhone transfiere y pega; Ctrl+C espera el cambio de la selección
+y, si iOS conserva la revisión al repetir una copia, trae su portapapeles actual. La lectura manual puede
 resolver imágenes de contenido enriquecido de iOS, con un plazo ampliado.
 
 La [ejecución inicial de esta rama](https://github.com/Cristiant2608/mirros/actions/runs/38913632581)
@@ -65,3 +65,15 @@ sin contenido del portapapeles. La suite suma 38 pruebas Python y 58 JavaScript.
 CI ejecuta las pruebas una sola vez a través del flujo reutilizable y cancela
 compilaciones obsoletas de un PR. Main exige PR y los nueve checks de paquetes,
 Python y frontend, y bloquea force push y eliminación, incluidos administradores.
+
+La prueba física de Wayland detectó que Electron podía leer sus propios datos,
+pero devolvía vacío ante ofertas de otras aplicaciones. Se añade un adaptador
+opcional de `wl-clipboard`, con tamaños y plazos acotados y sin comandos de shell.
+La pulsación de Command se envía antes de C/V para evitar letras literales.
+Se verificó copia real de texto seleccionado hacia Wayland y pegado del texto
+conocido en el iPhone, incluido Ctrl+C recibido por el visor.
+
+Se recuperó desde el iPhone el PNG público usado como prueba (256 × 256,
+1930 bytes), verificando cabecera y dimensiones. Esto comprueba el transporte,
+no la compatibilidad del pegado en cada aplicación. Las últimas regresiones
+suman 38 pruebas Python y 62 JavaScript.

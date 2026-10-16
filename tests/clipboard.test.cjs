@@ -74,7 +74,7 @@ test('paste transfers the clipboard before sending and releasing iOS Command+V',
     return {ok:true};
   };
   await clipboardShortcut(deps, 'paste', {pause:async () => {}});
-  assert.deepEqual(order, ['clipboard', [227,25], []]);
+  assert.deepEqual(order, ['clipboard', [227], [227,25], [227], []]);
 });
 
 test('copy waits for a changed device clipboard before replacing the PC clipboard', async () => {
@@ -90,15 +90,22 @@ test('copy waits for a changed device clipboard before replacing the PC clipboar
     return {ok:true, json:async () => ({text:'selected phone text'})};
   };
   await clipboardShortcut(deps, 'copy', {pause:async () => {}});
-  assert.deepEqual(keys, [[227,6], []]);
+  assert.deepEqual(keys, [[227], [227,6], [227], []]);
   assert.deepEqual(writes, ['selected phone text']);
 });
 
-test('copy without a device selection preserves the PC clipboard', async () => {
+test('an empty device clipboard preserves the PC clipboard', async () => {
   const {deps, writes} = fixture();
   deps.fetch = async url => ({ok:true, json:async () => ({revision:'unchanged'})});
-  await assert.rejects(clipboardShortcut(deps, 'copy', {pause:async () => {}}), /Selecciona/);
+  await assert.rejects(clipboardShortcut(deps, 'copy', {pause:async () => {}}), /Copia un texto/);
   assert.equal(writes.length, 0);
+});
+
+test('copying the same device content again does not require a new revision', async () => {
+  const {deps, writes} = fixture();
+  deps.fetch = async url => ({ok:true, json:async () => url.endsWith('/clipboard/state') ? {revision:'same'} : {text:'already copied'}});
+  await clipboardShortcut(deps, 'copy', {pause:async () => {}});
+  assert.deepEqual(writes, ['already copied']);
 });
 
 test('failed paste never sends a shortcut to the iPhone', async () => {
@@ -116,5 +123,5 @@ test('a failed shortcut press still attempts to release all device keys', async 
     return {ok:usages.length === 0};
   };
   await assert.rejects(clipboardShortcut(deps, 'paste', {pause:async () => {}}), /atajo/);
-  assert.deepEqual(keys, [[227,25], []]);
+  assert.deepEqual(keys, [[227], []]);
 });

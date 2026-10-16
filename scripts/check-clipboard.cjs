@@ -1,5 +1,7 @@
 // Real Electron clipboard regression: uses fixtures and restores the original clipboard.
-const {app, BrowserWindow, clipboard, ClipboardItem, nativeImage} = require('electron');
+const {app, BrowserWindow, clipboard:electronClipboard, ClipboardItem, nativeImage} = require('electron');
+const {waylandClipboard} = require('../desktop/wayland-clipboard.cjs');
+const clipboard = waylandClipboard(electronClipboard, ClipboardItem);
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -64,7 +66,7 @@ app.whenReady().then(async () => {
   assert.deepEqual(pasted, {text:'Native shortcut paste fixture'});
   await clipboardShortcut(deps, 'copy');
   assert.equal(await clipboard.readText(), 'Native shortcut copy fixture');
-  assert.deepEqual(keyReports, [[227,25], [], [227,6], []]);
+  assert.deepEqual(keyReports, [[227], [227,25], [227], [], [227], [227,6], [227], []]);
   console.log('Real Electron clipboard: Unicode, PNG and copy/paste shortcuts passed.');
 }).catch(error => {result = 1; console.error(error.stack);}).finally(async () => {
   try {

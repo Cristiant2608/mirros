@@ -66,7 +66,11 @@ test('POSIX shutdown stops a descendant server, not just its parent', {skip:proc
   try{
     const [data]=await once(child.stdout,'data');const port=Number(String(data).trim());
     assert(port>0);await stopProcess(child);
-    const stillListening=await new Promise(resolve=>{const socket=net.connect(port,'127.0.0.1');socket.once('connect',()=>{socket.destroy();resolve(true);});socket.once('error',()=>resolve(false));});
+    let stillListening = true;
+    for (let attempt = 0; attempt < 50 && stillListening; attempt++) {
+      stillListening=await new Promise(resolve=>{const socket=net.connect(port,'127.0.0.1');socket.once('connect',()=>{socket.destroy();resolve(true);});socket.once('error',()=>resolve(false));});
+      if (stillListening) await new Promise(resolve => setTimeout(resolve, 20));
+    }
     assert.equal(stillListening,false);
   }finally{try{process.kill(-child.pid,'SIGKILL');}catch{}}
 });

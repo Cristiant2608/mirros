@@ -24,7 +24,7 @@ Windows y Linux usan la misma interfaz React y los mismos módulos de entrada, a
 
 Los runners no tienen conectado un iPhone. No pueden certificar imagen, audio, confianza, DDI, portapapeles, respuesta táctil, latencia ni recuperación del teclado de iOS en un dispositivo físico. El autor del PR informó pruebas de imagen, audio, desplazamiento y orientación en Windows. En esta integración, el usuario confirmó imagen, clic/arrastre, teclado sostenido y audio en Linux; la orientación física y el resto de versiones y sistemas requieren validaciones separadas.
 
-El usuario confirmó recuperación de imagen y teclado tras retirar y volver a conectar el cable en Linux. Las transferencias nuevas de texto/PNG siguen pendientes de validación física completa. La salida segura debe usarse antes de quitar USB para permitir que el teléfono reciba la limpieza.
+El usuario confirmó recuperación de imagen y teclado tras retirar y volver a conectar el cable en Linux. Se verificó texto en ambos sentidos sobre iPhone y Wayland. También se verificó un PNG en el recorrido PC → portapapeles del iPhone → PC. El pegado en aplicaciones concretas requiere su propia prueba. La salida segura debe usarse antes de quitar USB para permitir que el teléfono reciba la limpieza.
 
 ## Diferencias del entorno
 
@@ -46,7 +46,9 @@ amplía por sí mismo la matriz de compatibilidad de todas las versiones de iOS.
 - [x] Imagen completa de 1184 × 2576; el visor registró 60 fps (no es una medición de latencia).
 - [x] Usuario confirma clic y arrastre, teclado sostenido y audio en el PC.
 - [x] Desconexión segura: estado pausado y cierre confirmado por el backend.
-- [ ] Transferencias reales de texto y PNG en ambos sentidos.
+- [x] Texto en ambos sentidos entre iPhone y PC Wayland con contenido conocido.
+- [x] PNG público de 256 × 256: PC → portapapeles del iPhone → PC, cabecera y dimensiones verificadas.
+- [ ] Pegado de PNG en distintas aplicaciones de iOS.
 - [x] Usuario confirma recuperación de imagen y teclado después de retirar y volver a conectar el cable.
 - [ ] Orientación física y controles sobre aplicaciones horizontales/verticales.
 - [ ] Repetir la prueba física en Windows con esta integración.

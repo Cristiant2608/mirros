@@ -77,7 +77,9 @@ async function clipboardShortcut(deps, action, {pause = ms => new Promise(resolv
   };
   const keys = usages => request('/key', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({usages})});
   const press = async usage => {
-    try {await keys([227, usage]); await pause(80);}
+    // iOS must observe Command before the letter, including on a newly attached
+    // virtual keyboard. A single bitmap can otherwise insert a literal c/v.
+    try {await keys([227]); await pause(100); await keys([227, usage]); await pause(100); await keys([227]);}
     finally {await keys([]);}
   };
   if (action === 'paste') {
@@ -94,6 +96,9 @@ async function clipboardShortcut(deps, action, {pause = ms => new Promise(resolv
       return 'Copiado. Puedes pegar en el PC con Ctrl+V.';
     }
   }
-  throw new Error('Selecciona texto o una imagen en el iPhone y vuelve a copiar.');
+  // Copying the same selection again need not increment iOS changeCount. Also
+  // allow bringing content already copied using the phone's own Copy menu.
+  await shareClipboard(deps, 'toPC');
+  return 'Portapapeles del iPhone copiado. Puedes pegar en el PC con Ctrl+V.';
 }
 module.exports = {shareClipboard, clipboardShortcut};

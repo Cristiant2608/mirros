@@ -63,7 +63,9 @@ npm start
 
 El escritorio incluye video, gestos, teclado, audio, capturas, copiar/pegar con Ctrl+C y Ctrl+V,
 ventana flotante y actualizaciones explícitas. Consulta la [guía de uso](docs/USO.md).
-La transparencia y «Siempre encima» dependen del compositor Linux.
+La transparencia y «Siempre encima» dependen del compositor Linux. En Wayland,
+instala `wl-clipboard` para el portapapeles entre aplicaciones.
+Consulta las [prioridades de mejora](docs/MEJORAS.md) y sus criterios de validación.
 
 Para distribuir sin Python ni Node instalados en el equipo de destino:
 `./build-linux.sh` genera un AppImage en `dist/linux`; `./build-windows.ps1`

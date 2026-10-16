@@ -106,7 +106,12 @@ MirrOS y pulsa Ctrl+V: transfiere y pega el contenido. Para traer una selección
 del iPhone, selecciónala y pulsa Ctrl+C con la pantalla del teléfono enfocada;
 luego pega en la aplicación del PC con Ctrl+V. También se acepta Cmd en el teclado.
 Los atajos fuera de la pantalla del teléfono conservan su comportamiento habitual.
-Si no hay una selección nueva, no se reemplaza el portapapeles del PC. Las
+En Wayland instala `wl-clipboard` para compartir texto e imágenes con otras
+aplicaciones: Arch/CachyOS `sudo pacman -S wl-clipboard`; Debian/Ubuntu
+`sudo apt install wl-clipboard`. MirrOS utiliza esas herramientas cuando están
+disponibles y conserva la API de Electron como alternativa.
+Si iOS no informa un cambio, se trae su portapapeles actual; esto permite copiar
+la misma selección otra vez o traer contenido copiado desde el menú del iPhone. Las
 transferencias manuales quedan en el apartado desplegable de Portapapeles.
 
 ## ¿Puedo usarlo con la pantalla apagada?

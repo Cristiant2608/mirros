@@ -2,6 +2,8 @@ const {app, BrowserWindow, ipcMain, screen, dialog, shell, clipboard, ClipboardI
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
+const {waylandClipboard} = require('./wayland-clipboard.cjs');
+const systemClipboard = waylandClipboard(clipboard, ClipboardItem);
 const {shareClipboard, clipboardShortcut} = require('./clipboard.cjs');
 const updates = require('./updates.cjs');
 const {createSession} = require('./session.cjs');
@@ -187,11 +189,11 @@ async function start() {
       case 'maximize': window.isMaximized() ? window.unmaximize() : window.maximize(); return;
       case 'close': app.quit(); return;
       case 'clipboard': {
-        try { return await shareClipboard({clipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
+        try { return await shareClipboard({clipboard:systemClipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
         catch (error) { logStream.write(`[clipboard] ${value}: ${error.message}\n`); throw error; }
       }
       case 'clipboardShortcut': {
-        try { return await clipboardShortcut({clipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
+        try { return await clipboardShortcut({clipboard:systemClipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
         catch (error) { logStream.write(`[clipboard-shortcut] ${value}: ${error.message}\n`); throw error; }
       }
       case 'disconnect': await session.disconnect(); return;
