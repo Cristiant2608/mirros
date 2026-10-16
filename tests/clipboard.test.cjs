@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {shareClipboard} = require('../desktop/clipboard.cjs');
+const {shareClipboard, clipboardShortcut} = require('../desktop/clipboard.cjs');
 class Item {
   constructor(types) {this.data = types; this.types = Object.keys(types);}
   async getType(type) {return this.data[type];}
@@ -65,4 +65,56 @@ test('image from iPhone is decoded and written as async ClipboardItems', async (
 test('oversized device text does not replace the system clipboard', async () => {
   const {deps, writes} = fixture(); deps.fetch = async () => ({ok:true, json:async () => ({text:'a'.repeat(1024*1024+1)})});
   await assert.rejects(shareClipboard(deps, 'toPC'), /1 MB/); assert.equal(writes.length, 0);
+});
+
+test('paste transfers the clipboard before sending and releasing iOS Command+V', async () => {
+  const {deps} = fixture(); const order = [];
+  deps.fetch = async (url, options) => {
+    order.push(url.endsWith('/key') ? JSON.parse(options.body).usages : 'clipboard');
+    return {ok:true};
+  };
+  await clipboardShortcut(deps, 'paste', {pause:async () => {}});
+  assert.deepEqual(order, ['clipboard', [227,25], []]);
+});
+
+test('copy waits for a changed device clipboard before replacing the PC clipboard', async () => {
+  const {deps, writes} = fixture(); let copied = false;
+  const keys = [];
+  deps.fetch = async (url, options = {}) => {
+    if (url.endsWith('/clipboard/state')) return {ok:true, json:async () => ({revision:copied ? 'new' : 'old'})};
+    if (url.endsWith('/key')) {
+      const usages = JSON.parse(options.body).usages; keys.push(usages);
+      if (usages.includes(6)) copied = true;
+      return {ok:true};
+    }
+    return {ok:true, json:async () => ({text:'selected phone text'})};
+  };
+  await clipboardShortcut(deps, 'copy', {pause:async () => {}});
+  assert.deepEqual(keys, [[227,6], []]);
+  assert.deepEqual(writes, ['selected phone text']);
+});
+
+test('copy without a device selection preserves the PC clipboard', async () => {
+  const {deps, writes} = fixture();
+  deps.fetch = async url => ({ok:true, json:async () => ({revision:'unchanged'})});
+  await assert.rejects(clipboardShortcut(deps, 'copy', {pause:async () => {}}), /Selecciona/);
+  assert.equal(writes.length, 0);
+});
+
+test('failed paste never sends a shortcut to the iPhone', async () => {
+  const {deps} = fixture(); const requests = [];
+  deps.fetch = async url => {requests.push(url); return {ok:false,status:500};};
+  await assert.rejects(clipboardShortcut(deps, 'paste', {pause:async () => {}}), /HTTP 500/);
+  assert.equal(requests.length, 1); assert(requests[0].endsWith('/clipboard'));
+});
+
+test('a failed shortcut press still attempts to release all device keys', async () => {
+  const {deps} = fixture(); const keys = [];
+  deps.fetch = async (url, options = {}) => {
+    if (!url.endsWith('/key')) return {ok:true};
+    const usages = JSON.parse(options.body).usages; keys.push(usages);
+    return {ok:usages.length === 0};
+  };
+  await assert.rejects(clipboardShortcut(deps, 'paste', {pause:async () => {}}), /atajo/);
+  assert.deepEqual(keys, [[227,25], []]);
 });

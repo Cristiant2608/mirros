@@ -38,6 +38,14 @@ export default function App() {
     catch (error) { setNotice(error.message.replace(/^Error invoking remote method '[^']+': Error: /, '')); }
     finally { setClipboardBusy(false); }
   }
+  const clipboardLock = useRef(false);
+  async function runClipboardShortcut(action) {
+    if (clipboardLock.current || !connected || !bridge) return;
+    clipboardLock.current = true; setClipboardBusy(true);
+    try { setNotice(await native('clipboardShortcut', action)); }
+    catch (error) { setNotice(error.message.replace(/^Error invoking remote method '[^']+': Error: /, '')); }
+    finally { clipboardLock.current = false; setClipboardBusy(false); }
+  }
   const canvas = useRef(null), stage = useRef(null), [phoneSize, setPhoneSize] = useState({width: 280, height: 610});
   const floating = state.mode === 'phone', connected = state.phase === 'conectado', controlsVisible = state.controlsVisible !== false;
   const {audioEnabled, audioStatus, volume, setVolume, toggleAudio} = useAudio(connected);
@@ -65,7 +73,7 @@ export default function App() {
     };
     const observer = new ResizeObserver(fit); observer.observe(node); fit(); return () => observer.disconnect();
   }, [dimensions, floating, tab, controlsVisible]);
-  const input = usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError: setNotice, button, capture, setKeyboard});
+  const input = usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError: setNotice, button, capture, setKeyboard, clipboardShortcut: runClipboardShortcut});
   useEffect(() => { if (!notice) return; const timeout = setTimeout(() => setNotice(''), 4500); return () => clearTimeout(timeout); }, [notice]);
   function button(name) { if (connected) post('/button', {name, state: 'press'}).catch(error => setNotice(error.message)); }
   async function phoneAudioButton(name) {
@@ -105,8 +113,6 @@ export default function App() {
           <IconButton icon={audioEnabled ? Volume2 : VolumeX} label={audioEnabled ? 'Desactivar audio del PC' : 'Activar audio del PC'} active={audioEnabled} onClick={toggleAudio}/>
           <IconButton icon={VolumeX} label="Alternar silencio del iPhone" disabled={!connected} onClick={() => phoneAudioButton('mute')}/>
           <IconButton icon={Camera} label="Guardar captura · Ctrl+P" disabled={!live} onClick={capture}/>
-          <IconButton icon={Send} label="Portapapeles del PC al iPhone" disabled={!bridge || !connected || clipboardBusy} onClick={() => shareClipboard('toPhone')}/>
-          <IconButton icon={Download} label="Portapapeles del iPhone al PC" disabled={!bridge || !connected || clipboardBusy} onClick={() => shareClipboard('toPC')}/>
           <span className="control-separator"/>
           <IconButton icon={LockKeyhole} label="Bloquear iPhone · Ctrl+L" disabled={!connected} onClick={() => button('lock')}/>
           <IconButton icon={LogOut} label="Desconectar de forma segura" disabled={!connected} onClick={() => native('disconnect')}/>
@@ -149,9 +155,12 @@ export default function App() {
             <div className="note"><Volume2 size={17}/><p>Para escuchar solo en el iPhone, desactiva el audio del PC.</p></div>
           </>}
           {tab === 'clipboard' && <>
-            <section className="settings-group"><h2>Compartir portapapeles</h2><div className="transfer-stack"><button disabled={!bridge || !connected || clipboardBusy} onClick={() => shareClipboard('toPhone')}><span className="transfer-icon"><Send size={20}/></span><span><strong>PC → iPhone</strong><small>Enviar lo que copiaste en el PC</small></span><ChevronRight size={16}/></button><button disabled={!bridge || !connected || clipboardBusy} onClick={() => shareClipboard('toPC')}><span className="transfer-icon"><Download size={20}/></span><span><strong>iPhone → PC</strong><small>Traer lo que copiaste en el iPhone</small></span><ChevronRight size={16}/></button></div><p className="group-description">{clipboardBusy ? 'Transfiriendo…' : 'Texto e imágenes. Después, pega en la aplicación de destino.'}</p></section>
+            <section className="settings-group"><h2>Copiar y pegar</h2><div className="settings-box"><div className="info-row"><span>Copiar la selección del iPhone al PC</span><kbd>Ctrl + C</kbd></div><div className="info-row"><span>Pegar del PC en el iPhone</span><kbd>Ctrl + V</kbd></div></div><p className="group-description">Haz clic en la pantalla del iPhone para usar los atajos. En las aplicaciones del PC, copia y pega normalmente. Texto e imágenes compatibles.</p>{clipboardBusy && <p className="group-description" role="status">Preparando el portapapeles… iOS puede tardar con contenido de algunas aplicaciones.</p>}</section>
+            <details className="settings-group"><summary>Transferencia manual y envío de texto</summary>
+            <section className="settings-group"><h2>Compartir portapapeles</h2><div className="transfer-stack"><button disabled={!bridge || !connected || clipboardBusy} onClick={() => shareClipboard('toPhone')}><span className="transfer-icon"><Send size={20}/></span><span><strong>PC → iPhone</strong><small>Enviar lo que copiaste en el PC</small></span><ChevronRight size={16}/></button><button disabled={!bridge || !connected || clipboardBusy} onClick={() => shareClipboard('toPC')}><span className="transfer-icon"><Download size={20}/></span><span><strong>iPhone → PC</strong><small>Traer lo que copiaste en el iPhone</small></span><ChevronRight size={16}/></button></div><p className="group-description">{clipboardBusy ? 'Transfiriendo… iOS puede tardar hasta un minuto y medio con contenido de algunas aplicaciones.' : 'Texto e imágenes. Después, pega en la aplicación de destino.'}</p></section>
             <section className="settings-group"><h2>Enviar texto</h2><form className="text-form" onSubmit={sendText}><textarea value={text} onChange={event => setText(event.target.value)} placeholder="Escribe o pega aquí…" aria-label="Texto para enviar al iPhone"/><button className="primary-button" disabled={!connected || !text.trim()}><Send size={15}/>Pegar en el iPhone</button></form><p className="group-description">Selecciona primero un campo de texto en el teléfono.</p></section>
-            <div className="note"><Clipboard size={16}/><p>Las transferencias son manuales. No se lee el portapapeles en segundo plano.</p></div>
+            </details>
+            <div className="note"><Clipboard size={16}/><p>El portapapeles se comparte al copiar o pegar sobre el iPhone. No se lee en segundo plano.</p></div>
           </>}
           {tab === 'appearance' && <>
             <section className="settings-group"><h2>Tema</h2><div className="theme-grid" role="group" aria-label="Tema de la interfaz">{themes.map(([id,label]) => <button key={id} aria-pressed={state.theme === id} onClick={() => setTheme(id)} className={state.theme === id ? 'chosen' : ''}><span className={`theme-preview theme-${id}`}><i/><b/><em/>{state.theme === id && <span><Check size={12}/></span>}</span><strong>{label}</strong></button>)}</div><div className="settings-box"><Toggle label="Usar tema del sistema" value={state.theme === 'sistema'} onClick={() => setTheme(state.theme === 'sistema' ? 'claro' : 'sistema')}/></div></section>

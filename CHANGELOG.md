@@ -1,5 +1,7 @@
 # Integración pendiente de publicación
 
+- Integra Ctrl+C/Ctrl+V sobre el iPhone y resuelve imágenes de contenido enriquecido de iOS.
+
 - Corrige portapapeles para la API asíncrona de Electron y añade una prueba nativa.
 - Reinicia sesiones con túnel cerrado tras reconectar el mismo teléfono.
 - Elimina los avisos de npm audit conservando el empaquetador y valida proxy en CI.

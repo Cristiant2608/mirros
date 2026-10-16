@@ -17,8 +17,25 @@ def check_backend_contract(module):
                 '_stop_hid', '_ensure_hid', '_missing_audio_deps', 'serve')
     missing = [name for name in required if not callable(getattr(module.ScreenStreamServer, name, None))]
     marker = b'const decoderConfig = { codec, description, optimizeForLatency: true };'
-    if missing or module.VIEWER_JS_TEMPLATE.count(marker) != 1:
+    if missing or not callable(getattr(module, 'read_pasteboard', None)) or module.VIEWER_JS_TEMPLATE.count(marker) != 1:
         raise RuntimeError('El contrato del backend cambió; revisa el adaptador de MirrOS.')
+
+
+async def read_device_clipboard(rsd):
+    # Manual pulls may resolve an image inside a rich representation (e.g. Notes).
+    # The upstream monitor retains its fast primary-type policy; no background reads.
+    from pymobiledevice3.remote.core_device.pasteboard_service import read_pasteboard
+    return await read_pasteboard(rsd, allow_full_pull=True)
+
+
+async def clipboard_revision(server):
+    from pymobiledevice3.remote.core_device.pasteboard_service import PasteboardService, POLICY_ALL_PROMISED
+    async with PasteboardService(server._rsd) as service:
+        snapshot = await service.get(data_policy=POLICY_ALL_PROMISED)
+    metadata = (snapshot.get('pasteboard') or {}).get('metadata') or {}
+    if 'nonce' not in metadata or 'changeCount' not in metadata:
+        raise RuntimeError('iOS no informó el estado del portapapeles.')
+    return f"{metadata['nonce']}:{metadata['changeCount']}"
 
 
 async def release_input(server, release_touch=True):
@@ -110,7 +127,7 @@ def session_health(server):
 async def orientation_connection(server, reader, writer, original):
     line = await reader.readline()
     request = line.split()[:2]
-    if request not in ([b'GET', b'/orientation'], [b'POST', b'/session/end'], [b'GET', b'/frames.bin'], [b'GET', b'/health']):
+    if request not in ([b'GET', b'/orientation'], [b'POST', b'/session/end'], [b'GET', b'/frames.bin'], [b'GET', b'/health'], [b'GET', b'/clipboard/state']):
         return await original(server, PrefixedReader(line, reader), writer)
     headers = {}
     while True:
@@ -134,6 +151,13 @@ async def orientation_connection(server, reader, writer, original):
         health = session_health(server)
         body = json.dumps(health).encode()
         status = b'200 OK' if health['healthy'] else b'503 Service Unavailable'
+        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+    elif request == [b'GET', b'/clipboard/state']:
+        try:
+            body = json.dumps({'revision': await asyncio.wait_for(clipboard_revision(server), 3)}).encode()
+            status = b'200 OK'
+        except Exception:
+            body, status = b'{"error":"clipboard_unavailable"}', b'503 Service Unavailable'
         writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
     else:
         try:
@@ -161,6 +185,7 @@ def configure_viewer() -> None:
     if getattr(screen_stream, '_mirros_configured', False):
         return
     check_backend_contract(screen_stream)
+    screen_stream.read_pasteboard = read_device_clipboard
     if sys.platform in ('win32', 'linux'):
         from mirros.audio import AACELDDecoder
         screen_stream.AACELDDecoder = AACELDDecoder

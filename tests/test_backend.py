@@ -40,6 +40,27 @@ class SessionHealthTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b'transport_closed', body)
 
 
+class ClipboardPolicyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_revision_queries_metadata_without_materializing_content(self):
+        from mirros.adapter import clipboard_revision
+        from pymobiledevice3.remote.core_device.pasteboard_service import POLICY_ALL_PROMISED
+        from unittest.mock import patch
+        service = SimpleNamespace(get=AsyncMock(return_value={'pasteboard':{'metadata':{'nonce':'fixture','changeCount':5}}}))
+        context = AsyncMock()
+        context.__aenter__.return_value = service
+        with patch('pymobiledevice3.remote.core_device.pasteboard_service.PasteboardService', return_value=context):
+            self.assertEqual(await clipboard_revision(SimpleNamespace(_rsd='rsd')), 'fixture:5')
+        service.get.assert_awaited_once_with(data_policy=POLICY_ALL_PROMISED)
+
+    async def test_manual_pull_resolves_secondary_images(self):
+        from mirros.adapter import read_device_clipboard
+        from unittest.mock import patch
+        content = ({}, SimpleNamespace(image=b'fixture'))
+        with patch('pymobiledevice3.remote.core_device.pasteboard_service.read_pasteboard', new=AsyncMock(return_value=content)) as read:
+            self.assertEqual(await read_device_clipboard('rsd'), content)
+            read.assert_awaited_once_with('rsd', allow_full_pull=True)
+
+
 class BackendContractTests(unittest.TestCase):
     def test_incompatible_backend_is_rejected_before_mutating_it(self):
         from mirros.adapter import check_backend_contract

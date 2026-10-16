@@ -3,9 +3,9 @@ import {createInput, coordinates, keyUsages} from '../input.js';
 import {devicePoint} from '../orientation.js';
 import {post} from '../transport.js';
 
-export function usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError, button, capture, setKeyboard}) {
+export function usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError, button, capture, setKeyboard, clipboardShortcut}) {
   const input = useRef(null), callbacks = useRef(null);
-  callbacks.current = {onError, button, capture, setKeyboard};
+  callbacks.current = {onError, button, capture, setKeyboard, clipboardShortcut};
   useEffect(() => {
     if (!canvas.current || !connected) return;
     const node = canvas.current;
@@ -18,12 +18,23 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
     const release = () => controls.release(null);
     const wheel = event => { event.preventDefault(); controls.wheel(point(event), event.deltaY, event.deltaMode, node.clientHeight, sensitivity, event.deltaX, node.clientWidth); };
     const context = event => { event.preventDefault(); callbacks.current.button('home'); };
-    const held = new Set(); let keyChain = Promise.resolve();
+    const held = new Set(); let keyChain = Promise.resolve(), clipboardInFlight = false;
     const sendKeys = () => { const snapshot = [...held]; keyChain = keyChain.then(() => post('/key', {usages: snapshot})).catch(() => {}); };
     // Refresh the backend lease while modifiers or keys are deliberately held.
     const heartbeat = setInterval(() => { if (held.size) sendKeys(); }, 1500);
     const keys = event => {
       if (document.activeElement !== node) return;
+      if (event.type === 'keydown' && (event.ctrlKey || event.metaKey) && ['c','v'].includes(event.key.toLowerCase())) {
+        event.preventDefault();
+        if (event.repeat || clipboardInFlight) return;
+        clipboardInFlight = true;
+        const action = event.key.toLowerCase() === 'c' ? 'copy' : 'paste';
+        held.clear();
+        keyChain = keyChain.then(() => post('/key', {usages:[]}))
+          .then(() => callbacks.current.clipboardShortcut(action)).catch(error => callbacks.current.onError(error.message))
+          .finally(() => {clipboardInFlight = false;});
+        return;
+      }
       const shortcuts = {h: 'home', l: 'lock', '[': 'volume-down', ']': 'volume-up', s: 'siri'};
       if (event.type === 'keydown' && event.ctrlKey && shortcuts[event.key.toLowerCase()]) { event.preventDefault(); callbacks.current.button(shortcuts[event.key.toLowerCase()]); return; }
       if (event.type === 'keydown' && event.ctrlKey && event.key.toLowerCase() === 'p') { event.preventDefault(); callbacks.current.capture(); return; }

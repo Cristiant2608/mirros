@@ -2,7 +2,7 @@ const {app, BrowserWindow, ipcMain, screen, dialog, shell, clipboard, ClipboardI
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
-const {shareClipboard} = require('./clipboard.cjs');
+const {shareClipboard, clipboardShortcut} = require('./clipboard.cjs');
 const updates = require('./updates.cjs');
 const {createSession} = require('./session.cjs');
 const {workerArgs: buildWorkerArgs, resizeBounds, orientedBounds} = require('./runtime.cjs');
@@ -189,6 +189,10 @@ async function start() {
       case 'clipboard': {
         try { return await shareClipboard({clipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
         catch (error) { logStream.write(`[clipboard] ${value}: ${error.message}\n`); throw error; }
+      }
+      case 'clipboardShortcut': {
+        try { return await clipboardShortcut({clipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
+        catch (error) { logStream.write(`[clipboard-shortcut] ${value}: ${error.message}\n`); throw error; }
       }
       case 'disconnect': await session.disconnect(); return;
       case 'retry': await session.retry(); return;

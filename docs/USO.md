@@ -87,3 +87,20 @@ Una modificación en `main` necesita un paquete publicado para actualizar un EXE
 Comprueba cable, confianza, Modo Desarrollador y servicio USB. Cierra Cámara o aplicaciones que estén usando cámara/micrófono y pulsa Reconectar. Ayuda permite abrir el registro de conexión.
 
 Si el navegador no puede decodificar HEVC, el escritorio usa decodificación por software. Esto consume más CPU y puede reducir los fotogramas por segundo. En Linux, comprueba además el compositor: las restricciones de Wayland pueden afectar a transparencia o a mantener ventanas encima; probar X11 permite distinguir un problema del escritorio de uno del transporte USB.
+
+### Imágenes copiadas desde aplicaciones con contenido enriquecido
+
+Una copia desde Notas puede guardar la imagen dentro de otro formato. MirrOS
+resuelve ese contenido solo al pulsar la transferencia manual; iOS puede tardar
+hasta un minuto y medio. Mantén el teléfono desbloqueado y espera a que termine.
+Si no se completa, copia la imagen desde Fotos y repite la transferencia.
+
+### Ctrl+C y Ctrl+V entre el PC y el iPhone
+
+Copia en una aplicación del PC normalmente. Haz clic en un campo del iPhone en
+MirrOS y pulsa Ctrl+V: transfiere y pega el contenido. Para traer una selección
+del iPhone, selecciónala y pulsa Ctrl+C con la pantalla del teléfono enfocada;
+luego pega en la aplicación del PC con Ctrl+V. También se acepta Cmd en el teclado.
+Los atajos fuera de la pantalla del teléfono conservan su comportamiento habitual.
+Si no hay una selección nueva, no se reemplaza el portapapeles del PC. Las
+transferencias manuales quedan en el apartado desplegable de Portapapeles.

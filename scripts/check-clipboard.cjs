@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
-const {shareClipboard} = require('../desktop/clipboard.cjs');
+const {shareClipboard, clipboardShortcut} = require('../desktop/clipboard.cjs');
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'mirros-clipboard-check-'));
 app.setPath('userData', profile);
 let window, server, original, result = 0;
@@ -20,16 +20,22 @@ app.whenReady().then(async () => {
     for (const type of item.types) types[type] = await item.getType(type);
     return new ClipboardItem(types);
   }));
-  let content = {text:''}, png = null, received;
+  let content = {text:''}, png = null, received, revision = 0, pasted;
+  const keyReports = [];
   server = http.createServer(async (request, response) => {
     try {
       if (request.method === 'POST') {
         const chunks = []; for await (const chunk of request) chunks.push(chunk);
         received = Buffer.concat(chunks);
-        if (request.url === '/clipboard') content = JSON.parse(received);
-        else {png = received; content = {image:{size:png.length}};}
+        if (request.url === '/key') {
+          const usages = JSON.parse(received).usages; keyReports.push(usages);
+          if (usages.includes(6)) {content = {text:'Native shortcut copy fixture'}; revision++;}
+          if (usages.includes(25)) pasted = content;
+        } else if (request.url === '/clipboard') {content = JSON.parse(received); revision++;}
+        else {png = received; content = {image:{size:png.length}}; revision++;}
         response.end('{}');
-      } else if (request.url === '/clipboard/image') response.end(png);
+      } else if (request.url === '/clipboard/state') response.end(JSON.stringify({revision:String(revision)}));
+      else if (request.url === '/clipboard/image') response.end(png);
       else {response.setHeader('Content-Type','application/json'); response.end(JSON.stringify(content));}
     } catch (error) {response.writeHead(500); response.end();}
   });
@@ -53,7 +59,13 @@ app.whenReady().then(async () => {
   assert(item, 'Native image did not reach the system clipboard');
   const restoredImage = nativeImage.createFromBuffer(Buffer.from(await (await item.getType('image/png')).arrayBuffer()));
   assert.deepEqual(restoredImage.getSize(), {width:16, height:16});
-  console.log('Real Electron clipboard: async Unicode text and PNG passed in both directions.');
+  await clipboard.writeText('Native shortcut paste fixture');
+  await clipboardShortcut(deps, 'paste');
+  assert.deepEqual(pasted, {text:'Native shortcut paste fixture'});
+  await clipboardShortcut(deps, 'copy');
+  assert.equal(await clipboard.readText(), 'Native shortcut copy fixture');
+  assert.deepEqual(keyReports, [[227,25], [], [227,6], []]);
+  console.log('Real Electron clipboard: Unicode, PNG and copy/paste shortcuts passed.');
 }).catch(error => {result = 1; console.error(error.stack);}).finally(async () => {
   try {
     if (original?.length) await clipboard.write(original);

@@ -40,3 +40,15 @@ no aprueba ni fusiona el PR en GitHub y no publica una versión.
 Las pruebas físicas de portapapeles, teclado después de retirar el cable y comportamiento
 con otros compositores/distribuciones deben registrarse antes de publicar. No se
 certifica latencia de extremo a extremo a partir del contador de fotogramas.
+
+## Seguimiento de portapapeles y reconexión
+
+Las regresiones nuevas suman 37 pruebas Python (una exclusiva de Windows omitida)
+y 58 JavaScript. La prueba nativa de Electron cubre texto, PNG y los atajos.
+Ctrl+V sobre el iPhone transfiere y pega; Ctrl+C espera un cambio de la selección
+del teléfono antes de reemplazar el portapapeles del PC. La lectura manual puede
+resolver imágenes de contenido enriquecido de iOS, con un plazo ampliado.
+
+La [ejecución inicial de esta rama](https://github.com/Cristiant2608/mirros/actions/runs/38913632581)
+aprobó pruebas, auditoría, proxy, portapapeles nativo y paquetes en Windows/Linux
+para `7fa778a`. Los atajos añadidos después requieren su propia ejecución.

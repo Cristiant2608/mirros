@@ -61,7 +61,7 @@ npm run build
 npm start
 ```
 
-El escritorio incluye video, gestos, teclado, audio, capturas, portapapeles manual,
+El escritorio incluye video, gestos, teclado, audio, capturas, copiar/pegar con Ctrl+C y Ctrl+V,
 ventana flotante y actualizaciones explícitas. Consulta la [guía de uso](docs/USO.md).
 La transparencia y «Siempre encima» dependen del compositor Linux.
 

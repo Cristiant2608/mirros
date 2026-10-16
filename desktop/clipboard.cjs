@@ -13,7 +13,14 @@ async function shareClipboard({clipboard, ClipboardItem, nativeImage, fetch, bac
   if (!backendPort) throw new Error('Conecta el iPhone primero.');
   const endpoint = `http://127.0.0.1:${backendPort}/clipboard`;
   const request = async (url, options = {}) => {
-    const response = await fetch(url, {...options, signal:AbortSignal.timeout(12000)});
+    // iOS can spend ~64s materializing rich clipboard representations from Notes.
+    const timeout = url === endpoint && !options.method ? 100000 : 12000;
+    let response;
+    try { response = await fetch(url, {...options, signal:AbortSignal.timeout(timeout)}); }
+    catch (error) {
+      if (error.name === 'TimeoutError' || error.name === 'AbortError') throw new Error('El iPhone tardó demasiado en preparar el portapapeles. Copia de nuevo; para imágenes, prueba desde Fotos.');
+      throw error;
+    }
     if (!response.ok) throw new Error(`No se pudo compartir el portapapeles (HTTP ${response.status}). Mantén el iPhone desbloqueado.`);
     return response;
   };
@@ -54,4 +61,39 @@ async function shareClipboard({clipboard, ClipboardItem, nativeImage, fetch, bac
   }
   throw new Error('Dirección de portapapeles no válida.');
 }
-module.exports = {shareClipboard};
+async function clipboardShortcut(deps, action, {pause = ms => new Promise(resolve => setTimeout(resolve, ms))} = {}) {
+  if (!deps.backendPort) throw new Error('Conecta el iPhone primero.');
+  if (!['copy', 'paste'].includes(action)) throw new Error('Atajo no válido.');
+  const base = `http://127.0.0.1:${deps.backendPort}`;
+  const request = async (route, options = {}) => {
+    const response = await deps.fetch(base + route, {...options, signal:AbortSignal.timeout(4000)});
+    if (!response.ok) throw new Error('No se pudo completar el atajo. Revisa la conexión y desbloquea el iPhone.');
+    return response;
+  };
+  const revision = async () => {
+    const content = await (await request('/clipboard/state')).json();
+    if (typeof content.revision !== 'string') throw new Error('No se pudo consultar el portapapeles del iPhone.');
+    return content.revision;
+  };
+  const keys = usages => request('/key', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({usages})});
+  const press = async usage => {
+    try {await keys([227, usage]); await pause(80);}
+    finally {await keys([]);}
+  };
+  if (action === 'paste') {
+    await shareClipboard(deps, 'toPhone');
+    await press(25); // iOS Command+V, independent of the PC modifier.
+    return 'Pegado en el iPhone.';
+  }
+  const before = await revision();
+  await press(6); // iOS Command+C.
+  for (let attempt = 0; attempt < 15; attempt++) {
+    await pause(100);
+    if (await revision() !== before) {
+      await shareClipboard(deps, 'toPC');
+      return 'Copiado. Puedes pegar en el PC con Ctrl+V.';
+    }
+  }
+  throw new Error('Selecciona texto o una imagen en el iPhone y vuelve a copiar.');
+}
+module.exports = {shareClipboard, clipboardShortcut};
