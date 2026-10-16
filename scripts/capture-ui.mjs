@@ -7,6 +7,8 @@ import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const output=process.env.MIRROS_CAPTURE_OUTPUT || path.join(root,'docs/screenshots');await fs.mkdir(output,{recursive:true});
+const frameInterval = Number(process.env.MIRROS_CAPTURE_FRAME_INTERVAL_MS || 500);
+if(!Number.isFinite(frameInterval) || frameInterval < 100 || frameInterval > 10000) throw Error('Frame interval must be 100–10000 ms.');
 const profile=await fs.mkdtemp(path.join(os.tmpdir(),'mirros-captures-'));
 const candidates=[process.env.MIRROS_CAPTURE_BROWSER,'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','/usr/bin/google-chrome','/usr/bin/chromium'].filter(Boolean);
 let browser;for(const candidate of candidates){try{await fs.access(candidate);browser=candidate;break;}catch{}}
@@ -55,16 +57,28 @@ const names=['Notas','Calendario','Música','Archivos','Fotos','Clima'];const co
 for(let i=0;i<6;i++){const x=95+(i%3)*390,y=1190+Math.floor(i/3)*390;c.fillStyle=colors[i];c.beginPath();c.roundRect(x,y,290,250,60);c.fill();text(names[i][0],x+96,y+168,125,'#fff');text(names[i],x+30,y+320,40);}
 card(70,2100,1124,330);text('Pantalla simulada',125,2220,54);text('Las capturas usan contenido generado.',125,2310,33,'#62728c');
 c.fillStyle='#526782';c.beginPath();c.roundRect(442,2630,380,14,7);c.fill();
+const frameInterval=${frameInterval};
 const softwareDemo=${process.env.MIRROS_SOFTWARE_DEMO === '1'};
-window.VideoDecoder=class {static async isConfigSupported(){return{supported:!softwareDemo};}constructor(o){this.o=o;this.state='unconfigured';this.decodeQueueSize=0;}configure(){this.state='configured';this.timer=setInterval(()=>this.o.output(new VideoFrame(demo,{timestamp:performance.now()*1000})),500);}decode(){}close(){clearInterval(this.timer);this.state='closed';}};
-const realFetch=window.fetch.bind(window);window.fetch=async(input,options)=>{const p=String(input);if(p==='/codec')return new Response(JSON.stringify({codec:'hev1.1.6.L150.B0',description:${JSON.stringify(description)}}));if(p==='/orientation')return new Response('{"orientation":"portrait"}');if(p==='/rotate')return new Response('{"currentDeviceOrientation":"portrait"}');if(p==='/frames.bin')return new Response(new ReadableStream({start(controller){let busy=false;const timer=setInterval(async()=>{if(busy)return;busy=true;try{const blob=await new Promise(r=>demo.toBlob(r,'image/jpeg'));const bytes=new Uint8Array(await blob.arrayBuffer());const packet=new Uint8Array(4+bytes.length);new DataView(packet.buffer).setUint32(0,bytes.length);packet.set(bytes,4);controller.enqueue(packet);}catch{}finally{busy=false;}},500);options?.signal?.addEventListener('abort',()=>{clearInterval(timer);try{controller.close();}catch{}});}}));if(p==='/stream.bin'||p==='/audio.bin')return new Response(new ReadableStream({start(controller){options?.signal?.addEventListener('abort',()=>{try{controller.close();}catch{}});}}));return realFetch(input,options);};
+window.VideoDecoder=class {static async isConfigSupported(){return{supported:!softwareDemo};}constructor(o){this.o=o;this.state='unconfigured';this.decodeQueueSize=0;}configure(){this.state='configured';this.timer=setInterval(()=>this.o.output(new VideoFrame(demo,{timestamp:performance.now()*1000})),frameInterval);}decode(){}close(){clearInterval(this.timer);this.state='closed';}};
+const realFetch=window.fetch.bind(window);window.fetch=async(input,options)=>{const p=String(input);if(p==='/codec')return new Response(JSON.stringify({codec:'hev1.1.6.L150.B0',description:${JSON.stringify(description)}}));if(p==='/orientation')return new Response('{"orientation":"portrait"}');if(p==='/rotate')return new Response('{"currentDeviceOrientation":"portrait"}');if(p==='/frames.bin')return new Response(new ReadableStream({start(controller){let busy=false;const timer=setInterval(async()=>{if(busy)return;busy=true;try{const blob=await new Promise(r=>demo.toBlob(r,'image/jpeg'));const bytes=new Uint8Array(await blob.arrayBuffer());const packet=new Uint8Array(4+bytes.length);new DataView(packet.buffer).setUint32(0,bytes.length);packet.set(bytes,4);controller.enqueue(packet);}catch{}finally{busy=false;}},frameInterval);options?.signal?.addEventListener('abort',()=>{clearInterval(timer);try{controller.close();}catch{}});}}));if(p==='/stream.bin'||p==='/audio.bin')return new Response(new ReadableStream({start(controller){options?.signal?.addEventListener('abort',()=>{try{controller.close();}catch{}});}}));return realFetch(input,options);};
 let state={phase:'conectado',mode:'studio',theme:'claro',size:'mediano',alwaysOnTop:false,controlsVisible:true,version:'1.1.0',device:{name:'iPhone de ejemplo',version:'17.4'},update:{phase:'actualizado',message:'Tienes la versión 1.1.0.'}};const listeners=[];
 window.mirros={state:async()=>({...state}),subscribe:fn=>{listeners.push(fn);return()=>{};},action:async(name,value)=>{if(name==='theme')state.theme=value;if(name==='mode')state.mode=value;if(name==='controls')state.controlsVisible=value;if(name==='pin')state.alwaysOnTop=value;listeners.forEach(fn=>fn({...state}));}};
 `});
  const viewport=async(width,height)=>{await command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1.5,mobile:false});await pause(350);};
- await viewport(1320,900);await command('Page.navigate',{url});await pause(1500);
- for(let i=0;i<100&&!await evaluate("document.querySelector('.phone-shell.is-live')!==null");i++)await pause(200);
- if(!await evaluate("document.querySelector('.phone-shell.is-live')!==null"))throw Error('Demo frame did not render: '+await evaluate('document.body.innerText'));
+ await viewport(1320,900);await command('Page.navigate',{url});
+ // Wait for a decoded frame, not a fixed delay: cold CI browsers can take
+ // longer to load React and decode the first software JPEG.
+ const frameDeadline = Date.now() + 20000;
+ let rendered = false;
+ while(Date.now() < frameDeadline) {
+   rendered = await evaluate("document.querySelector('.phone-shell.is-live')!==null");
+   if(rendered) break;
+   await pause(100);
+ }
+ if(!rendered) {
+   const status = await evaluate("document.querySelector('.phone-placeholder')?.textContent || document.readyState");
+   throw Error('Demo frame did not render: ' + status);
+ }
  const screenshot=async name=>{await pause(1100);await evaluate("document.querySelector('canvas').getContext('2d').getImageData(0,0,1,1).data[0]");const result=await command('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,name+'.png'),Buffer.from(result.result.data,'base64'));};
  const tab=async label=>{await evaluate(`[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(label)})).click()`);await pause(100);};
  if(process.env.MIRROS_CAPTURE_REPORT) {
