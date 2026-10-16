@@ -4,12 +4,7 @@ copyright: Copyright © 2026 Cristian Torres
 directories:
   output: dist/windows
 files:
-  - desktop/main.cjs
-  - desktop/clipboard.cjs
-  - desktop/runtime.cjs
-  - desktop/session.cjs
-  - desktop/updates.cjs
-  - desktop/preload.cjs
+  - desktop/*.cjs
   - desktop/icon.ico
   - desktop/icon.png
   - package.json
