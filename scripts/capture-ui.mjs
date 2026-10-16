@@ -63,7 +63,8 @@ window.mirros={state:async()=>({...state}),subscribe:fn=>{listeners.push(fn);ret
 `});
  const viewport=async(width,height)=>{await command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1.5,mobile:false});await pause(350);};
  await viewport(1320,900);await command('Page.navigate',{url});await pause(1500);
- if(!await evaluate("document.querySelector('.phone-shell.is-live')!==null"))throw Error('Demo frame did not render');
+ for(let i=0;i<100&&!await evaluate("document.querySelector('.phone-shell.is-live')!==null");i++)await pause(200);
+ if(!await evaluate("document.querySelector('.phone-shell.is-live')!==null"))throw Error('Demo frame did not render: '+await evaluate('document.body.innerText'));
  const screenshot=async name=>{await pause(250);const result=await command('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,name+'.png'),Buffer.from(result.result.data,'base64'));};
  const tab=async label=>{await evaluate(`[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(label)})).click()`);await pause(100);};
  if(process.env.MIRROS_CAPTURE_REPORT) {
@@ -78,5 +79,5 @@ window.mirros={state:async()=>({...state}),subscribe:fn=>{listeners.push(fn);ret
  await evaluate("window.mirros.action('theme','lavanda');window.mirros.action('mode','phone')");await viewport(490,880);await pause(900);await screenshot('telefono-flotante');
  await evaluate("document.querySelector('.controls-tab').click()");await viewport(454,880);await screenshot('telefono-guardado');
  await evaluate("document.querySelector('.controls-tab').click();document.querySelector('[aria-label=\"Girar vista 90°\"]').click()");await viewport(1000,500);await pause(4500);await screenshot('telefono-horizontal');
- console.log(`Nine screenshots generated from simulated content in ${output}.`);await command('Browser.close');
+ console.log(`Nine screenshots generated from simulated content in ${output}.`);if(entry==='about:blank')await command('Browser.close');else{await evaluate('window.mirrosBenchmark.close();true');await pause(300);}
 }finally{ws?.close();child.kill();server.close();await fs.rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:500}).catch(error=>{if(!['EBUSY','EPERM','ENOTEMPTY'].includes(error.code))throw error;console.warn('Temporary browser profile still locked:',profile);});}
