@@ -21,6 +21,7 @@ try {
   ws=new WebSocket(page.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});
   const pending=new Map();ws.onmessage=e=>{const m=JSON.parse(e.data);pending.get(m.id)?.(m);pending.delete(m.id);};
   const evaluate=async expression=>{const id=++sequence;const reply=await new Promise(r=>{pending.set(id,r);ws.send(JSON.stringify({id,method:'Runtime.evaluate',params:{expression,returnByValue:true,awaitPromise:true}}));});if(reply.result.exceptionDetails)throw Error(JSON.stringify(reply.result.exceptionDetails));return reply.result.result.value;};
+  let ready=false;for(let i=0;i<100;i++){ready=await evaluate("Boolean(window.mirros && document.querySelector('canvas'))");if(ready)break;await new Promise(r=>setTimeout(r,100));}assert(ready,'Preload and React did not become ready');
   const state=await evaluate('window.mirros.state()');assert(state.version===expectedVersion);
   assert(await evaluate("document.querySelector('canvas')!==null && document.querySelector('.controls-tab')!==null"));
   await evaluate("window.mirros.action('disconnect')");

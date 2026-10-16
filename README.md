@@ -1,11 +1,26 @@
-# Mirros 2.0 — iPhone por USB
+# Mirros 1.1 — iPhone por USB
 
 Aplicación de escritorio con interfaz React en español. El ejecutable portátil
 incluye Electron y Python; no necesita abrir un navegador ni instalar Python.
 
+![Interfaz de Mirros con contenido simulado](docs/screenshots/pantalla.png)
+
+[Guía de uso](docs/USO.md) · [Historial completo](CHANGELOG.md) · [Compatibilidad y pruebas](docs/COMPATIBILIDAD.md) · [Publicación y actualizaciones](docs/ACTUALIZACIONES.md)
+
+Las capturas usan un teléfono simulado; no contienen imágenes ni datos del iPhone de una persona.
+
+## Linux
+
+Descarga el AppImage x64 de [Releases](https://github.com/Cristiant2608/mirros/releases), dale permiso de ejecución y ábrelo. Instala `usbmuxd` y conecta el iPhone por USB. El AppImage incluye Python y usa la misma interfaz y controles que Windows. Consulta los requisitos y el estado de validación en la guía de compatibilidad.
+
+```bash
+chmod +x Mirros-1.1.0-Linux-x64.AppImage
+./Mirros-1.1.0-Linux-x64.AppImage
+```
+
 ## Aplicación de Windows
 
-Abre `Mirros-2.0.0-Windows.exe` y conecta el iPhone por USB. Mantén el teléfono
+Abre `Mirros-1.1.0-Windows.exe` y conecta el iPhone por USB. Mantén el teléfono
 desbloqueado, acepta «Confiar» y activa Modo Desarrollador. La primera preparación
 puede descargar la imagen de desarrollo compatible.
 
@@ -40,6 +55,11 @@ puede descargar la imagen de desarrollo compatible.
   vacías de teclado ya no registran un teclado externo; una espera de cinco segundos
   sin actividad libera el teclado. Si el cable ya se retiró, la limpieza del iPhone
   no puede garantizarse y debe comprobarse físicamente.
+- **Actualizaciones:** Ayuda comprueba las versiones oficiales de GitHub. Permite
+  descargar, verificar SHA-256 e instalar al reiniciar. El EXE o AppImage anterior
+  se conserva como respaldo. Consulta [cómo se publica](docs/ACTUALIZACIONES.md).
+- **Video compatible:** si Chromium no dispone de HEVC, se usa PyAV por software;
+  conserva la imagen completa y los controles, con mayor consumo de CPU.
 - **Capturas:** guarda una imagen PNG desde el botón Captura.
 - **Portapapeles:** los botones «PC → iPhone» e «iPhone → PC» transfieren texto
   o imágenes. Después pega en la aplicación de destino. En el modo flotante,
@@ -53,22 +73,11 @@ no se utiliza automáticamente al iniciar o cerrar una sesión.
 
 ### Estado de compatibilidad
 
-| Componente | Windows | Linux |
-| --- | --- | --- |
-| Lanzador Python y USB | Probado con iPhone | Rutas y pruebas de regresión en CI |
-| Interfaz React y entrada | Probadas en Windows | Código compartido; ejecución real pendiente |
-| Escritorio y cierre de procesos | Nativo | Rutas POSIX y grupos de procesos; validación real pendiente |
-| Audio AAC-ELD | Probado con iPhone | PyAV habilitado; prueba de sonido real pendiente |
-| Empaquetado | EXE portátil probado | Script AppImage incluido; compilación en Linux pendiente |
+La interfaz, los controles, el audio, el portapapeles y las actualizaciones comparten código entre Windows y Linux. Las pruebas de Python 3.10/3.12 y la compilación React ya aprobaron en ambas plataformas. El empaquetado y arranque se validan con el flujo `Desktop packages`.
 
-El flujo de CI está configurado para Windows y Linux con Python 3.10/3.12 y la compilación de React.
-Mientras no se ejecute la CI y se pruebe un iPhone en Linux, el escritorio Linux
-se considera experimental. La disponibilidad de HEVC y el comportamiento de
-ventanas transparentes deben verificarse en el equipo y escritorio utilizados.
+Las pruebas automatizadas no conectan un iPhone: imagen, sonido, entrada, recuperación de teclado y transferencias necesitan validación física en cada sistema. El comportamiento de transparencia y «Siempre encima» puede variar con el compositor Linux. Consulta [las comprobaciones y los pendientes](docs/COMPATIBILIDAD.md).
 
-Necesita el servicio USB de Apple (iTunes o Dispositivos Apple). Los controladores
-no se incluyen en el ejecutable. La ventana transparente permite ajustar el tamaño libremente; los ajustes completos
-permanecen disponibles en el panel.
+Windows necesita el servicio USB de Apple; Linux necesita `usbmuxd`. Los controladores de Apple no se incluyen.
 
 ## Compilar el ejecutable
 
@@ -151,7 +160,7 @@ sudo pacman -S --needed usbmuxd chromium
 sudo systemctl enable --now usbmuxd
 ```
 
-### Escritorio Linux (experimental)
+### Compilar el escritorio Linux
 
 El lanzador de terminal sigue disponible. Para usar la misma interfaz React:
 
@@ -165,8 +174,8 @@ npm start
 
 Para compilar un AppImage x64: `./build-linux.sh`. Se genera en
 `../Mirros-Linux`. Necesita Node.js 22.12+ y las bibliotecas de escritorio que
-requiere Electron. La compilación y la prueba con iPhone en Linux están pendientes;
-no se presenta como paridad ya validada con Windows.
+requiere Electron. El AppImage se construye sobre Ubuntu 22.04 en CI. Las pruebas con un iPhone
+físico y distintos compositores se registran por separado de la compilación.
 
 ## Opciones
 

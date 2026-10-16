@@ -118,7 +118,7 @@ function App() {
     let previous = 0;
     const interval = setInterval(() => { setFps(Math.max(0, frames.current - previous)); previous = frames.current; if (lastFrameAt.current && performance.now() - lastFrameAt.current > 4000) setVideoStatus('Esperando actualización de imagen…'); }, 1000);
     return () => { unfollow(); stop(); video.current = null; clearInterval(interval); };
-  }, [connected]);
+  }, [connected, floating]);
   useEffect(() => {
     if (!canvas.current || !connected) return;
     const node = canvas.current;
@@ -148,7 +148,7 @@ function App() {
     node.addEventListener('wheel', wheel, {passive: false}); node.addEventListener('contextmenu', context); node.addEventListener('focus', focus); node.addEventListener('blur', blur);
     window.addEventListener('pointerup', up); window.addEventListener('blur', blur); window.addEventListener('keydown', keys); window.addEventListener('keyup', keys);
     return () => { blur(); controls.dispose(); input.current = null; node.removeEventListener('pointerdown', down); node.removeEventListener('pointermove', move); node.removeEventListener('pointerup', up); node.removeEventListener('pointercancel', release); node.removeEventListener('lostpointercapture', release); node.removeEventListener('wheel', wheel); node.removeEventListener('contextmenu', context); node.removeEventListener('focus', focus); node.removeEventListener('blur', blur); window.removeEventListener('pointerup', up); window.removeEventListener('blur', blur); window.removeEventListener('keydown', keys); window.removeEventListener('keyup', keys); };
-  }, [connected, sensitivity, rotation]);
+  }, [connected, sensitivity, rotation, floating]);
   useEffect(() => { if (!notice) return; const timeout = setTimeout(() => setNotice(''), 4500); return () => clearTimeout(timeout); }, [notice]);
   function button(name) { if (connected) post('/button', {name, state: 'press'}).catch(error => setNotice(error.message)); }
   async function phoneAudioButton(name) {
@@ -210,7 +210,7 @@ function App() {
       <div className={`sidebar-device ${connected ? 'connected' : ''}`}><div className="device-avatar"><Smartphone size={20}/></div><div><strong>{state.device?.name || 'iPhone'}</strong><small><i/>{statusLabel}</small></div></div>
       <div className="sidebar-label">CONTROLES</div>
       <nav aria-label="Secciones">{sections.map(([Icon, id, label]) => <button key={id} className={tab === id ? 'selected' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}><Icon size={17}/><span>{label}</span>{tab === id && <span className="nav-dot"/>}</button>)}</nav>
-      <div className="sidebar-bottom"><button className="floating-launch" onClick={() => native('mode', 'phone')} disabled={!bridge}><ExternalLink size={16}/><span>Ventana flotante</span></button><div className="sidebar-app-info"><span>Mirros</span><span>1.1 · USB</span></div></div>
+      <div className="sidebar-bottom"><button className="floating-launch" onClick={() => native('mode', 'phone')} disabled={!bridge}><ExternalLink size={16}/><span>Ventana flotante</span></button><div className="sidebar-app-info"><span>Mirros</span><span>{state.version?.split('.').slice(0,2).join('.') || '1.1'} · USB</span></div></div>
     </aside>
     <div className="workspace">
       <header className="toolbar"><div className="toolbar-title"><strong>{state.device?.name || 'iPhone'}</strong><ChevronRight size={14}/><span>{currentSection[2]}</span></div><div className="window-actions"><IconButton icon={Minus} label="Minimizar" onClick={() => native('minimize')}/><IconButton icon={Maximize2} label="Maximizar o restaurar" onClick={() => native('maximize')}/><IconButton icon={X} label="Cerrar Mirros" className="close-button" onClick={() => native('close')}/></div></header>

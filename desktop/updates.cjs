@@ -42,13 +42,13 @@ async function downloadUpdate(asset, directory, {fetchRequest = fetch, onProgres
   const file = path.join(directory,'mirros-update.download');
   const response = await fetchRequest(asset.browser_download_url,{headers,signal:AbortSignal.timeout(30*60*1000)});
   if (!response.ok || !response.body) throw new Error('No se pudo descargar la actualización.');
-  const digest = createHash('sha256');let size = 0;
+  const digest = createHash('sha256');let size = 0, lastProgress = -1;
   const handle = await fs.open(file,'w');
   try {
     for await (const chunk of response.body) {
       size += chunk.length;
       if (size > asset.size || size > 1024*1024*1024) throw new Error('La descarga tiene un tamaño inesperado.');
-      digest.update(chunk); await handle.writeFile(chunk);onProgress(Math.floor(size / asset.size * 100));
+      digest.update(chunk); await handle.writeFile(chunk);const progress = Math.floor(size / asset.size * 100);if(progress !== lastProgress){lastProgress=progress;onProgress(progress);}
     }
     if (size !== asset.size || digest.digest('hex') !== asset.hash) throw new Error('La verificación de la descarga falló. No se instalará.');
   } catch(error) { await handle.close();await fs.rm(file,{force:true});throw error; }

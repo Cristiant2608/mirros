@@ -33,7 +33,7 @@ linux:
       arch: [x64]
   icon: desktop/icon.png
   category: Utility
-  artifactName: Mirros-${version}-Linux-${arch}.${ext}
+  artifactName: Mirros-${version}-Linux-x64.${ext}
 artifactName: Mirros-${version}-${os}.${ext}
 portable:
   unicode: true
