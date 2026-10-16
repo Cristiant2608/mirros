@@ -1,22 +1,2 @@
 #!/usr/bin/env bash
-# Entrypoint launcher para ios-scrcpy
-set -e
-
-SOURCE="${BASH_SOURCE[0]}"
-while [ -h "$SOURCE" ]; do
-    DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-    SOURCE="$(readlink "$SOURCE")"
-    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
-done
-SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
-VENV_PYTHON="$SCRIPT_DIR/.venv/bin/python3"
-
-if [ ! -f "$VENV_PYTHON" ]; then
-    echo "[!] Error: El entorno virtual no se encuentra en $SCRIPT_DIR/.venv"
-    echo "    Ejecuta el asistente de instalación:"
-    echo "    $SCRIPT_DIR/setup.sh"
-    exit 1
-fi
-
-export PYTHONPATH="$SCRIPT_DIR/src:${PYTHONPATH}"
-exec "$VENV_PYTHON" -m ios_scrcpy.cli "$@"
+exec "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/mirros" "$@"

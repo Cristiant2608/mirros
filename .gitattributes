@@ -1,5 +1,6 @@
 * text=auto
 *.sh text eol=lf
+bin/mirros text eol=lf
 bin/ios-scrcpy text eol=lf
 *.py text eol=lf
 *.cjs text eol=lf
@@ -9,3 +10,5 @@ bin/ios-scrcpy text eol=lf
 *.css text eol=lf
 *.yml text eol=lf
 *.json text eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

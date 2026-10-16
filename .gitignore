@@ -4,7 +4,7 @@
 build/
 dist/
 node_modules/
-src/ios_scrcpy/web/
+src/mirros/web/
 env/
 venv/
 ENV/

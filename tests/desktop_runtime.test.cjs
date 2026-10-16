@@ -20,6 +20,26 @@ test('already stopped or failed workers need no signals', async () => {
   await stopProcess(null);await stopProcess({pid:0,exitCode:null});await stopProcess({pid:123,exitCode:0});
 });
 
+test('an exited owned launcher cannot leave its descendant server listening', {skip:process.platform==='win32'}, async () => {
+  const childCode="const net=require('node:net'); const s=net.createServer(); s.listen(0,'127.0.0.1',()=>console.log(s.address().port));";
+  const code=`require('node:child_process').spawn(process.execPath,['-e',${JSON.stringify(childCode)}],{stdio:['ignore','inherit','inherit']}).unref();`;
+  const child=spawn(process.execPath,['-e',code],{detached:true,stdio:['ignore','pipe','inherit']});
+  child.mirrosProcessGroup=true;
+  const exited=once(child,'exit');
+  try {
+    const [data]=await once(child.stdout,'data'); const port=Number(String(data).trim());
+    await exited; assert.equal(child.exitCode,0);
+    await stopProcess(child);
+    let listening=true;
+    for(let i=0;i<30;i++) {
+      listening=await new Promise(resolve=>{const socket=net.connect(port,'127.0.0.1');socket.once('connect',()=>{socket.destroy();resolve(true);});socket.once('error',()=>resolve(false));});
+      if(!listening)break;
+      await new Promise(resolve=>setTimeout(resolve,20));
+    }
+    assert.equal(listening,false);
+  } finally {try {process.kill(-child.pid,'SIGKILL');}catch{}}
+});
+
 test('safe exit gives the backend time to clean up before forced termination', async()=>{
   const {stopSession}=require('../desktop/runtime.cjs');
   const {EventEmitter}=require('node:events');
@@ -46,7 +66,11 @@ test('POSIX shutdown stops a descendant server, not just its parent', {skip:proc
   try{
     const [data]=await once(child.stdout,'data');const port=Number(String(data).trim());
     assert(port>0);await stopProcess(child);
-    const stillListening=await new Promise(resolve=>{const socket=net.connect(port,'127.0.0.1');socket.once('connect',()=>{socket.destroy();resolve(true);});socket.once('error',()=>resolve(false));});
+    let stillListening = true;
+    for (let attempt = 0; attempt < 50 && stillListening; attempt++) {
+      stillListening=await new Promise(resolve=>{const socket=net.connect(port,'127.0.0.1');socket.once('connect',()=>{socket.destroy();resolve(true);});socket.once('error',()=>resolve(false));});
+      if (stillListening) await new Promise(resolve => setTimeout(resolve, 20));
+    }
     assert.equal(stillListening,false);
   }finally{try{process.kill(-child.pid,'SIGKILL');}catch{}}
 });

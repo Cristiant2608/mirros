@@ -13,10 +13,14 @@ from typing import Optional
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from ios_scrcpy.device import check_usbmuxd_socket, list_connected_devices
+from mirros.processes import TerminationRequested, shutdown_signals, start_process, stop_process, stop_server
+
+from mirros.device import check_usbmuxd_socket, list_connected_devices
 
 
 def get_available_port(start_port: int = 8080) -> int:
+    if not 1 <= start_port <= 65535:
+        raise ValueError("El puerto debe estar entre 1 y 65535.")
     for port in range(start_port, 65536):
         try:
             with socket.socket() as sock:
@@ -43,7 +47,7 @@ def find_browser() -> Optional[str]:
 
 
 def build_server_command(port: int, no_audio: bool, userspace: bool, udid: str) -> list[str]:
-    cmd = [sys.executable, "-m", "ios_scrcpy.backend", "developer", "core-device", "display", "serve-web",
+    cmd = [sys.executable, "-m", "mirros.backend", "developer", "core-device", "display", "serve-web",
            "--bind", "127.0.0.1", "--http-port", str(port)]
     if userspace:
         cmd.append("--userspace")
@@ -78,12 +82,11 @@ def prepare_device(udid: str, userspace: bool, log_path: Path) -> bool:
     else:
         command.extend(["--tunnel", udid])
     env = {**os.environ, "PYTHONUTF8": "1", "PYTHONUNBUFFERED": "1", "PYMOBILEDEVICE3_UDID": udid}
-    kwargs = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
     print("[*] Preparando servicios del iPhone (la primera vez descarga la imagen de desarrollo)...", flush=True)
     process = None
     try:
         with log_path.open("w", encoding="utf-8") as log:
-            process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT, env=env, **kwargs)
+            process = start_process(command, stdout=log, stderr=subprocess.STDOUT, env=env)
             try:
                 result = process.wait(timeout=600)
             except subprocess.TimeoutExpired:
@@ -98,23 +101,6 @@ def prepare_device(udid: str, userspace: bool, log_path: Path) -> bool:
         stop_process(process)
 
 
-def stop_process(process: Optional[subprocess.Popen]) -> None:
-    if process is not None and process.poll() is None:
-        if os.name == "nt":
-            # El ejecutable de venv es un lanzador: terminate() deja el Python hijo activo.
-            subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                           creationflags=subprocess.CREATE_NO_WINDOW, timeout=10, check=False)
-            process.wait(timeout=5)
-            return
-        process.terminate()
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait(timeout=5)
-
-
 def device_instructions() -> None:
     if not check_usbmuxd_socket():
         if os.name == "nt":
@@ -126,9 +112,13 @@ def device_instructions() -> None:
     print("    Activa Modo Desarrollador en Ajustes > Privacidad y seguridad.")
 
 
-def run_ios_scrcpy(port: Optional[int] = None, no_audio: bool = True,
+@shutdown_signals
+def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                    userspace: bool = True, udid: Optional[str] = None,
                    browser_bin: Optional[str] = None, diagnose: bool = False) -> int:
+    if port is not None and not 1 <= port <= 65535:
+        print("[!] El puerto debe estar entre 1 y 65535.")
+        return 1
     browser = browser_bin or find_browser()
     if browser_bin:
         browser = shutil.which(browser_bin)
@@ -150,7 +140,8 @@ def run_ios_scrcpy(port: Optional[int] = None, no_audio: bool = True,
         return 0
 
     server = None
-    log_path = Path(tempfile.gettempdir()) / f"ios-scrcpy-{os.getpid()}-backend.log"
+    target_port = None
+    log_path = Path(tempfile.mkdtemp(prefix="mirros-")) / "backend.log"
     try:
         print("[*] Buscando iPhone por USB...", flush=True)
         device_instructions()
@@ -190,40 +181,42 @@ def run_ios_scrcpy(port: Optional[int] = None, no_audio: bool = True,
         with log_path.open("w", encoding="utf-8") as log:
             env = {**os.environ, "PYTHONUTF8": "1", "PYTHONUNBUFFERED": "1",
                    "PYMOBILEDEVICE3_UDID": target}
-            kwargs = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
-            server = subprocess.Popen(build_server_command(target_port, no_audio, userspace, target),
-                                      stdout=log, stderr=subprocess.STDOUT, env=env, **kwargs)
+            server = start_process(build_server_command(target_port, no_audio, userspace, target),
+                                      stdout=log, stderr=subprocess.STDOUT, env=env)
             if not wait_for_server(server, target_port):
                 print("[!] El servidor no pudo iniciar. Revisa confianza, Modo Desarrollador y versión de iOS.")
                 print(log_path.read_text(encoding="utf-8", errors="replace")[-6000:])
                 return 1
             if browser:
                 # Perfil propio: Edge no reutiliza una instancia ajena.
-                with tempfile.TemporaryDirectory(prefix="ios-scrcpy-browser-", ignore_cleanup_errors=True) as profile:
+                with tempfile.TemporaryDirectory(prefix="mirros-browser-", ignore_cleanup_errors=True) as profile:
                     browser_command = [
                         browser, f"--app={url}", f"--user-data-dir={profile}",
                         "--window-size=480,960", "--no-first-run", "--no-default-browser-check",
                         "--enable-features=PlatformHEVCDecoderSupport",
                     ]
-                    browser_process = subprocess.Popen(browser_command)
+                    browser_process = start_process(browser_command)
                     try:
                         return monitor(server, browser_process, log_path)
                     finally:
                         stop_process(browser_process)
             print(f"[+] Abre {url} en Edge o Chrome.", flush=True)
             return monitor(server, None, log_path)
+    except TerminationRequested as error:
+        print("\n[*] Cerrando MirrOS por señal.")
+        return 128 + error.signum
     except KeyboardInterrupt:
-        print("\n[*] Cerrando ios-scrcpy.")
+        print("\n[*] Cerrando MirrOS.")
         return 0
     except (OSError, RuntimeError) as error:
         print(f"[!] {error}")
         return 1
     finally:
-        stop_process(server)
+        stop_server(server, target_port)
 
 
 def monitor(server: subprocess.Popen, browser: Optional[subprocess.Popen], log_path: Path) -> int:
-    print("[+] iOS-Scrcpy activo. Cierra la ventana o pulsa Ctrl+C para detener.", flush=True)
+    print("[+] MirrOS activo. Cierra la ventana o pulsa Ctrl+C para detener.", flush=True)
     while server.poll() is None:
         if browser is not None and browser.poll() is not None:
             return 0

@@ -4,13 +4,9 @@ appId: com.mirros.desktop
 productName: Mirros
 copyright: Copyright © 2026 Cristian Torres
 directories:
-  output: ../Mirros-Windows
+  output: dist/windows
 files:
-  - desktop/main.cjs
-  - desktop/clipboard.cjs
-  - desktop/runtime.cjs
-  - desktop/updates.cjs
-  - desktop/preload.cjs
+  - desktop/*.cjs
   - desktop/icon.ico
   - desktop/icon.png
   - package.json
@@ -18,7 +14,7 @@ files:
 extraResources:
   - from: build/python-dist/mirros-backend
     to: backend
-  - from: src/ios_scrcpy/web
+  - from: src/mirros/web
     to: web
   - from: desktop/NOTICE.txt
     to: NOTICE.txt

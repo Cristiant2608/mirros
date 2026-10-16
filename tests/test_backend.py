@@ -2,7 +2,99 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
-from ios_scrcpy.backend import warm_input
+from mirros.adapter import warm_input
+
+
+class SessionHealthTests(unittest.IsolatedAsyncioTestCase):
+    def server(self, *, closed=False, age=0):
+        import asyncio
+        connection = SimpleNamespace(reader=SimpleNamespace(at_eof=lambda: closed),
+                                     writer=SimpleNamespace(is_closing=lambda: closed))
+        return SimpleNamespace(_rsd=SimpleNamespace(service=connection),
+                               _last_good_au_t=asyncio.get_running_loop().time() - age)
+
+    async def test_closed_tunnel_is_unhealthy_even_with_a_cached_recent_frame(self):
+        from mirros.adapter import session_health
+        self.assertEqual(session_health(self.server(closed=True)),
+                         {'healthy': False, 'reason': 'transport_closed'})
+
+    async def test_no_video_progress_eventually_requests_a_fresh_session(self):
+        from mirros.adapter import session_health
+        self.assertTrue(session_health(self.server(age=5))['healthy'])
+        self.assertEqual(session_health(self.server(age=21)),
+                         {'healthy': False, 'reason': 'video_stalled'})
+
+    async def test_health_endpoint_rejects_a_dead_transport(self):
+        import asyncio
+        from unittest.mock import Mock
+        from mirros.adapter import orientation_connection
+        server = self.server(closed=True)
+        server._refuse_request = Mock(return_value=None)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        body = writer.write.call_args.args[0]
+        self.assertIn(b'503 Service Unavailable', body)
+        self.assertIn(b'transport_closed', body)
+
+
+class ClipboardPolicyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_clipboard_route_after_key_on_the_same_connection(self):
+        import asyncio
+        from unittest.mock import Mock, patch
+        from mirros.adapter import orientation_connection
+        from pymobiledevice3.remote.core_device.screen_stream import ScreenStreamServer
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'POST /key HTTP/1.1\r\nHost: localhost\r\nContent-Length: 13\r\n\r\n{"usages":[]}GET /clipboard/state HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        reader.feed_eof()
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None),
+                                 _read_body=ScreenStreamServer._read_body,
+                                 _hid_queue=asyncio.Queue())
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        original = AsyncMock()
+        with patch('mirros.adapter.clipboard_revision', new=AsyncMock(return_value='fixture:6')):
+            await orientation_connection(server, reader, writer, original)
+        self.assertEqual(server._hid_queue.get_nowait(), ('/key', b'{"usages":[]}'))
+        self.assertIn(b'"revision": "fixture:6"', writer.write.call_args.args[0])
+        original.assert_not_awaited()
+
+    async def test_revision_queries_metadata_without_materializing_content(self):
+        from mirros.adapter import clipboard_revision
+        from pymobiledevice3.remote.core_device.pasteboard_service import POLICY_ALL_PROMISED
+        from unittest.mock import patch
+        service = SimpleNamespace(get=AsyncMock(return_value={'pasteboard':{'metadata':{'nonce':'fixture','changeCount':5}}}))
+        context = AsyncMock()
+        context.__aenter__.return_value = service
+        with patch('pymobiledevice3.remote.core_device.pasteboard_service.PasteboardService', return_value=context):
+            self.assertEqual(await clipboard_revision(SimpleNamespace(_rsd='rsd')), 'fixture:5')
+        service.get.assert_awaited_once_with(data_policy=POLICY_ALL_PROMISED)
+
+    async def test_manual_pull_resolves_secondary_images(self):
+        from mirros.adapter import read_device_clipboard
+        from unittest.mock import patch
+        content = ({}, SimpleNamespace(image=b'fixture'))
+        with patch('pymobiledevice3.remote.core_device.pasteboard_service.read_pasteboard', new=AsyncMock(return_value=content)) as read:
+            self.assertEqual(await read_device_clipboard('rsd'), content)
+            read.assert_awaited_once_with('rsd', allow_full_pull=True)
+
+
+class BackendContractTests(unittest.TestCase):
+    def test_incompatible_backend_is_rejected_before_mutating_it(self):
+        from mirros.adapter import check_backend_contract
+        from unittest.mock import patch
+        module = SimpleNamespace(ScreenStreamServer=SimpleNamespace(), VIEWER_JS_TEMPLATE=b'changed')
+        with patch('mirros.adapter.version', return_value='11.32.0'):
+            with self.assertRaisesRegex(RuntimeError, 'contrato'):
+                check_backend_contract(module)
+
+    def test_wrong_dependency_version_has_actionable_error(self):
+        from mirros.adapter import check_backend_contract
+        from unittest.mock import patch
+        with patch('mirros.adapter.version', return_value='99.0.0'):
+            with self.assertRaisesRegex(RuntimeError, 'Repite la instalación'):
+                check_backend_contract(None)
 
 
 class InputReadinessTests(unittest.IsolatedAsyncioTestCase):
@@ -24,7 +116,7 @@ class InputReadinessTests(unittest.IsolatedAsyncioTestCase):
 
 class AudioConfigurationTests(unittest.TestCase):
     def test_aac_eld_opens_with_480_sample_configuration(self):
-        from ios_scrcpy.audio import AACELDDecoder
+        from mirros.audio import AACELDDecoder
         audio = AACELDDecoder()
         self.assertEqual(audio.decoder.extradata, bytes.fromhex('f8e65000'))
         self.assertEqual(audio.decoder.sample_rate, 48000)
@@ -32,15 +124,25 @@ class AudioConfigurationTests(unittest.TestCase):
 
 
 class SafeKeyboardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_detach_cancels_the_old_keyboard_lease(self):
+        from mirros.adapter import keyboard_request
+        import asyncio
+        lease = asyncio.create_task(asyncio.sleep(60))
+        server = SimpleNamespace(_hid_lock=asyncio.Lock(), _uhs=None,
+                                 _kb_service_id=None, _mirros_keyboard_lease=lease)
+        await keyboard_request(server, b'{"usages":[],"detach":true}', AsyncMock())
+        self.assertTrue(lease.cancelled())
+        self.assertIsNone(server._mirros_keyboard_lease)
+
     async def test_empty_release_never_registers_an_external_keyboard(self):
-        from ios_scrcpy.backend import keyboard_request
+        from mirros.adapter import keyboard_request
         original = AsyncMock()
         server = SimpleNamespace(_kb_service_id=None)
         self.assertEqual(await keyboard_request(server, b'{"usages":[]}', original), (200, b'ok'))
         original.assert_not_awaited()
 
     async def test_detach_releases_keys_and_closes_keyboard_transport(self):
-        from ios_scrcpy.backend import keyboard_request
+        from mirros.adapter import keyboard_request
         import asyncio
         uhs = SimpleNamespace(send_keyboard=AsyncMock(), close=AsyncMock())
         server = SimpleNamespace(_hid_lock=asyncio.Lock(), _uhs=uhs, _kb_service_id=321)
@@ -53,7 +155,7 @@ class SafeKeyboardTests(unittest.IsolatedAsyncioTestCase):
         original.assert_not_awaited()
 
     async def test_safe_release_without_a_keyboard_keeps_touch_transport_open(self):
-        from ios_scrcpy.backend import release_input
+        from mirros.adapter import release_input
         import asyncio
         uhs = SimpleNamespace(send_keyboard=AsyncMock(), close=AsyncMock())
         server = SimpleNamespace(_hid_lock=asyncio.Lock(), _uhs=uhs, _kb_service_id=None)
@@ -63,13 +165,13 @@ class SafeKeyboardTests(unittest.IsolatedAsyncioTestCase):
 import asyncio
 import unittest
 from unittest.mock import patch
-from ios_scrcpy.backend import orientation_connection
+from mirros.adapter import orientation_connection
 
 class OrientationEndpointTests(unittest.IsolatedAsyncioTestCase):
     async def test_other_requests_keep_their_request_line_and_body(self):
-        reader=asyncio.StreamReader(); reader.feed_data(b'POST /touch HTTP/1.1\r\nContent-Length: 2\r\n\r\n{}'); reader.feed_eof()
+        reader=asyncio.StreamReader(); reader.feed_data(b'POST /rotate HTTP/1.1\r\nContent-Length: 2\r\n\r\n{}'); reader.feed_eof()
         async def original(server, stream, writer):
-            self.assertEqual(await stream.readline(),b'POST /touch HTTP/1.1\r\n')
+            self.assertEqual(await stream.readline(),b'POST /rotate HTTP/1.1\r\n')
             self.assertEqual(await stream.readline(),b'Content-Length: 2\r\n')
             self.assertEqual(await stream.readline(),b'\r\n')
             self.assertEqual(await stream.readexactly(2),b'{}')
@@ -102,7 +204,7 @@ class OrientationEndpointTests(unittest.IsolatedAsyncioTestCase):
             reader=asyncio.StreamReader();reader.feed_data(b'GET /orientation HTTP/1.1\r\nHost: localhost\r\n\r\n');reader.feed_eof()
             writer=SimpleNamespace(write=Mock(),drain=AsyncMock(),close=Mock())
             server=SimpleNamespace(_refuse_request=Mock(return_value=refusal))
-            with patch('ios_scrcpy.backend.read_orientation',new=AsyncMock(return_value='landscapeLeft')) as query:
+            with patch('mirros.adapter.read_orientation',new=AsyncMock(return_value='landscapeLeft')) as query:
                 await orientation_connection(server,reader,writer,AsyncMock())
                 data=writer.write.call_args.args[0]
                 if refusal: query.assert_not_awaited();self.assertIn(b'403',data)

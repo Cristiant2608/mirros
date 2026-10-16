@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const {test} = require('node:test');
 const scope = {Uint8Array};
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../src/ios_scrcpy/assets/hevc_dimensions.js'), 'utf8'), scope);
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../src/mirros/assets/hevc_dimensions.js'), 'utf8'), scope);
 const parse = bytes => JSON.parse(JSON.stringify(scope.iosScrcpyHevcDimensions(bytes)));
 
 function hvcc(width, height, {bottom = 0, layers = 0} = {}) {

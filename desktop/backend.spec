@@ -5,7 +5,7 @@ import sys
 from PyInstaller.utils.hooks import collect_all, copy_metadata
 
 project = Path(SPECPATH).parent
-datas = [(str(project / 'src/ios_scrcpy/assets/hevc_dimensions.js'), 'ios_scrcpy/assets')]
+datas = [(str(project / 'src/mirros/assets/hevc_dimensions.js'), 'mirros/assets')]
 binaries, hiddenimports = [], []
 if sys.platform == 'win32':
     # Imported by the upstream tunnel module, even when using --userspace.
@@ -13,6 +13,7 @@ if sys.platform == 'win32':
     binaries += [(str(wintun / 'bin/amd64/wintun.dll'), 'pytun_pmd3/wintun/bin/amd64')]
     datas += [(str(wintun / 'LICENSE.txt'), 'pytun_pmd3/wintun')]
 datas += copy_metadata('pymobiledevice3', recursive=True)
+datas += copy_metadata('mirros')
 for package in ('pymobiledevice3', 'developer_disk_image', 'pytcp'):
     data, binary, imports = collect_all(package)
     datas += data

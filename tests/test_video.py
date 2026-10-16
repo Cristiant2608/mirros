@@ -5,7 +5,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 import av
-from ios_scrcpy.video import SoftwareDecoder
+from mirros.video import SoftwareDecoder
 from pymobiledevice3.remote.core_device.screen_stream import hevc_decoder_configuration_record
 
 
@@ -36,7 +36,7 @@ class SoftwareVideoTests(unittest.TestCase):
 
 class SoftwareStreamTests(unittest.IsolatedAsyncioTestCase):
     async def test_http_stream_emits_real_jpeg_and_unregisters_on_disconnect(self):
-        from ios_scrcpy.video import software_stream
+        from mirros.video import software_stream
         _, nals = hevc_fixture()
         parameters = {(nal[0] >> 1) & 63:nal for nal in nals}
         payload = b''.join(struct.pack('>I',len(nal))+nal for nal in nals)

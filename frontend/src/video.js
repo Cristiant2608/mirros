@@ -1,4 +1,4 @@
-import {iosScrcpyHevcDimensions} from '../../src/ios_scrcpy/assets/hevc_dimensions.js';
+import {iosScrcpyHevcDimensions} from '../../src/mirros/assets/hevc_dimensions.js';
 import {frameRotation} from './orientation.js';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation = () => {}}) {

@@ -1,22 +1,24 @@
-const {app, BrowserWindow, ipcMain, screen, dialog, shell, clipboard, nativeImage} = require('electron');
-const {spawn} = require('node:child_process');
+const {app, BrowserWindow, ipcMain, screen, dialog, shell, clipboard, ClipboardItem, nativeImage} = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
-const net = require('node:net');
-const {shareClipboard} = require('./clipboard.cjs');
+const {waylandClipboard} = require('./wayland-clipboard.cjs');
+const systemClipboard = waylandClipboard(clipboard, ClipboardItem);
+const {shareClipboard, clipboardShortcut} = require('./clipboard.cjs');
 const updates = require('./updates.cjs');
-const {workerArgs: buildWorkerArgs, stopProcess: stop, stopSession, resizeBounds, orientedBounds} = require('./runtime.cjs');
+const {createSession} = require('./session.cjs');
+const {workerArgs: buildWorkerArgs, resizeBounds, orientedBounds} = require('./runtime.cjs');
 
 app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 if (process.env.MIRROS_DEBUG_PORT) app.commandLine.appendSwitch('remote-debugging-port', process.env.MIRROS_DEBUG_PORT);
 if (process.env.MIRROS_TEST_PROFILE) app.setPath('userData', process.env.MIRROS_TEST_PROFILE);
 if (!app.requestSingleInstanceLock()) { app.quit(); }
-else { app.whenReady().then(start).catch(error => { dialog.showErrorBox('No se pudo abrir Mirros', error.message); app.quit(); }); }
+else { app.whenReady().then(start).catch(error => { exitCode = 1; dialog.showErrorBox('No se pudo abrir Mirros', error.message); app.quit(); }); }
 
-let window, proxyServer, guiPort, backendPort, backend, preparing, logStream, timer;
-let quitting = false, switching = false, scanning = false, connecting = false, generation = 0;
+let window, proxyServer, guiPort, logStream, timer, session;
+let quitting = false, switching = false;
+let exitCode = 0;
 let preferences = {alwaysOnTop: false, mode: 'studio', size: 'mediano', theme: 'claro', floatingBounds: null, controlsVisible: true};
 let resizing = null, updateAsset = null, updateBusy = false, installUpdate = null;
 const version = app.getVersion();
@@ -40,103 +42,10 @@ function publish(patch = {}) {
 function savePreferences() {
   fs.writeFileSync(path.join(app.getPath('userData'), 'preferencias.json'), JSON.stringify(preferences));
 }
-function workerArgs(args) {
-  return buildWorkerArgs({packaged: app.isPackaged, resourcesPath: process.resourcesPath, root, desktopPath: __dirname}, args);
-}
-function spawnWorker(args, udid) {
-  const [file, argv] = workerArgs(args);
-  const child = spawn(file, argv, {windowsHide: true, detached: process.platform !== 'win32', env: {...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1', ...(udid ? {PYMOBILEDEVICE3_UDID: udid} : {})}});
-  child.stderr.on('data', data => logStream?.write(data));
-  child.on('error', error => logStream?.write(error.stack + '\n'));
-  return child;
-}
-function workerResult(args, timeout = 10000) {
-  return new Promise((resolve, reject) => {
-    const child = spawnWorker(args);
-    let output = '';
-    const deadline = setTimeout(() => { stop(child); reject(new Error('Tiempo de espera agotado')); }, timeout);
-    child.stdout.on('data', data => { output += data; });
-    child.on('error', error => { clearTimeout(deadline); reject(error); });
-    child.on('exit', code => {
-      clearTimeout(deadline);
-      if (code !== 0) return reject(new Error('No se pudo consultar el iPhone'));
-      try { resolve(JSON.parse(output.trim())); } catch { reject(new Error('Respuesta USB no válida')); }
-    });
-  });
-}
-async function freePort() {
-  return new Promise((resolve, reject) => { const server = net.createServer(); server.on('error', reject); server.listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolve(port)); }); });
-}
-async function connectDevice(device) {
-  connecting = true;
-  const token = ++generation;
-  publish({phase: 'preparando', message: 'Preparando tu iPhone. La primera conexión puede tardar unos minutos.', device});
-  try {
-    preparing = spawnWorker(['prepare', '--userspace'], device.udid);
-    preparing.stdout.on('data', data => logStream.write(data));
-    const child = preparing;
-    const code = await new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => { stop(child); reject(new Error('La preparación tardó demasiado. Revisa la conexión y vuelve a intentarlo.')); }, 600000);
-      child.once('exit', code => { clearTimeout(timeout); resolve(code); });
-      child.once('error', error => { clearTimeout(timeout); reject(error); });
-    });
-    if (preparing === child) preparing = null;
-    if (quitting || token !== generation) return;
-    if (code !== 0) throw new Error('No se pudo preparar el iPhone. Desbloquéalo, acepta «Confiar» y verifica el Modo Desarrollador.');
-    backendPort = await freePort();
-    backend = spawnWorker(['serve', '--bind', '127.0.0.1', '--http-port', String(backendPort), '--userspace', '--no-audio'], device.udid);
-    const server = backend;
-    server.stdout.on('data', data => logStream.write(data));
-    server.once('exit', () => {
-      if (backend === server) { backend = null; backendPort = null; if (!quitting) publish({phase: 'buscando', message: 'La conexión se interrumpió. Esperando tu iPhone…'}); }
-    });
-    const deadline = Date.now() + 90000;
-    while (Date.now() < deadline && token === generation && !quitting) {
-      if (server.exitCode !== null) throw new Error('No se pudo iniciar la pantalla del iPhone.');
-      try {
-        const response = await fetch(`http://127.0.0.1:${backendPort}/codec`, {signal: AbortSignal.timeout(8000)});
-        if (response.ok) {
-          const codec = await response.json();
-          if (codec.codec && codec.description && token === generation && !quitting) { publish({phase: 'conectado', message: 'iPhone conectado por USB.'}); return; }
-        }
-      } catch {}
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    throw new Error('Todavía no llega video. Mantén el iPhone desbloqueado y cierra Cámara antes de reintentar.');
-  } catch (error) {
-    if (token === generation && !quitting) { await stopBackend(); backend = null; backendPort = null; publish({phase: 'error', message: error.message}); }
-  } finally { if (token === generation) connecting = false; }
-}
-async function stopBackend() {
-  const child = backend, port = backendPort;
-  backend = null; backendPort = null;
-  await stopSession(child, port);
-}
-async function scan() {
-  if (quitting || scanning || connecting || ['error', 'pausado', 'cerrando'].includes(state.phase)) return;
-  scanning = true;
-  try {
-    const result = await workerResult(['status']);
-    if (quitting || connecting || ['pausado', 'cerrando'].includes(state.phase)) return;
-    if (result.usb_error) {
-      if (!backend) publish({phase: 'buscando', message: process.platform === 'win32' ? 'Revisa el servicio USB de Apple en Dispositivos Apple o iTunes.' : 'No responde usbmuxd. Comprueba el servicio USB.'});
-      return;
-    }
-    if (backend) {
-      if (!result.devices.some(item => item.udid === state.device?.udid)) {
-        ++generation; await stopBackend(); backend = null; backendPort = null;
-        publish({phase: 'buscando', device: null, message: 'Se desconectó el iPhone. Vuelve a conectarlo por USB.'});
-      }
-    } else if (result.devices.length === 1) await connectDevice(result.devices[0]);
-    else if (result.devices.length > 1) publish({phase: 'seleccion', devices: result.devices, message: 'Elige el iPhone que quieres usar.'});
-    else publish({phase: 'buscando', device: null, message: result.usb_error ? 'No responde el servicio USB de Apple. Abre Dispositivos Apple o iTunes y vuelve a intentar.' : 'Conecta tu iPhone por USB y desbloquéalo.'});
-  } catch { if (!quitting) publish({phase: 'buscando', message: 'Buscando tu iPhone por USB…'}); }
-  finally { scanning = false; }
-}
 function floatingInsets() { return {insetX: preferences.controlsVisible ? 78 : 42, insetY: 28}; }
 function floatingSize(size = preferences.size) {
   const {insetX, insetY} = floatingInsets();
-  const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workAreaSize;
+  const area = (window && !window.isDestroyed() ? screen.getDisplayMatching(window.getBounds()) : screen.getPrimaryDisplay()).workAreaSize;
   const height = Math.floor(Math.min({pequeño: 460, mediano: 620, grande: 820}[size] || 620, area.height - 32, (area.width - insetX - 32) / aspectRatio + insetY));
   return [Math.max(240, Math.ceil((height - insetY) * aspectRatio + insetX)), Math.max(360, height)];
 }
@@ -180,7 +89,11 @@ async function start() {
     preferences = {alwaysOnTop: saved.alwaysOnTop === true, mode: saved.mode === 'phone' ? 'phone' : 'studio', size: ['pequeño', 'mediano', 'grande'].includes(saved.size) ? saved.size : 'mediano', theme: ['claro', 'oscuro', 'lavanda', 'oceano', 'sistema'].includes(saved.theme) ? saved.theme : 'claro', floatingBounds, controlsVisible: saved.controlsVisible !== false};
   } catch {}
   logStream = fs.createWriteStream(path.join(app.getPath('userData'), 'mirros.log'), {flags: 'a'});
-  const webRoot = app.isPackaged ? path.join(process.resourcesPath, 'web') : path.join(root, 'src', 'ios_scrcpy', 'web');
+  session = createSession({
+    workerArgs: args => buildWorkerArgs({packaged: app.isPackaged, resourcesPath: process.resourcesPath, root, desktopPath: __dirname}, args),
+    publish, getState: () => state, writeLog: data => logStream.write(data),
+  });
+  const webRoot = app.isPackaged ? path.join(process.resourcesPath, 'web') : path.join(root, 'src', 'mirros', 'web');
   if (!fs.existsSync(path.join(webRoot, 'index.html'))) throw new Error('Falta la interfaz. Ejecuta npm run build antes de abrir Mirros.');
   proxyServer = http.createServer((req, res) => {
     let pathname;
@@ -195,6 +108,7 @@ async function start() {
       asset.on('error', () => res.destroy()); asset.pipe(res); return;
     }
     if (!routes.has(pathname)) { res.writeHead(404); res.end(); return; }
+    const backendPort = session.port;
     if (!backendPort) { res.writeHead(503); res.end('Esperando iPhone'); return; }
     const headers = {...req.headers, host: `127.0.0.1:${backendPort}`}; delete headers.origin;
     const proxy = http.request({hostname: '127.0.0.1', port: backendPort, path: req.url, method: req.method, headers}, upstream => { res.writeHead(upstream.statusCode, upstream.headers); upstream.pipe(res); });
@@ -274,26 +188,27 @@ async function start() {
       case 'minimize': window.minimize(); return;
       case 'maximize': window.isMaximized() ? window.unmaximize() : window.maximize(); return;
       case 'close': app.quit(); return;
-      case 'clipboard': return shareClipboard({clipboard, nativeImage, fetch, backendPort: state.phase === 'conectado' ? backendPort : null}, value);
-      case 'disconnect': ++generation; connecting = true; publish({phase: 'cerrando', message: 'Liberando teclado y terminando la sesión…'}); await stop(preparing); preparing = null; await stopBackend(); connecting = false; publish({phase: 'pausado', message: 'Sesión terminada. Ya puedes retirar el cable; pulsa Reconectar para volver.'}); return;
-      case 'retry': ++generation; await stop(preparing); await stopBackend(); preparing = backend = null; backendPort = null; connecting = false; publish({phase: 'buscando', message: 'Volviendo a conectar…'}); scan(); return;
-      case 'device': if (state.phase === 'seleccion' && !connecting) { const selected = state.devices?.find(item => item.udid === value); if (selected) connectDevice(selected); } return;
-      case 'saveCapture': {
-        if (typeof value !== 'string' || !value.startsWith('data:image/png;base64,') || value.length > 30 * 1024 * 1024) throw new Error('Captura no válida');
-        const result = await dialog.showSaveDialog(window, {title: 'Guardar captura del iPhone', defaultPath: `Mirros-${new Date().toISOString().replace(/[:.]/g, '-')}.png`, filters: [{name: 'Imagen PNG', extensions: ['png']}]});
-        if (!result.canceled && result.filePath) fs.writeFileSync(result.filePath, Buffer.from(value.split(',')[1], 'base64'));
-        return !result.canceled;
+      case 'clipboard': {
+        try { return await shareClipboard({clipboard:systemClipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
+        catch (error) { logStream.write(`[clipboard] ${value}: ${error.message}\n`); throw error; }
       }
+      case 'clipboardShortcut': {
+        try { return await clipboardShortcut({clipboard:systemClipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
+        catch (error) { logStream.write(`[clipboard-shortcut] ${value}: ${error.message}\n`); throw error; }
+      }
+      case 'disconnect': await session.disconnect(); return;
+      case 'retry': await session.retry(); return;
+      case 'device': await session.select(value); return;
       case 'logs': shell.showItemInFolder(path.join(app.getPath('userData'), 'mirros.log')); return;
       default: throw new Error('Acción no válida');
     }
     savePreferences(); publish();
   });
-  createWindow(); scan(); timer = setInterval(scan, 5000); setTimeout(checkForUpdates, 5000).unref(); setInterval(checkForUpdates, 6*60*60*1000).unref();
+  createWindow(); session.scan(); timer = setInterval(() => session.scan(), 5000); setTimeout(checkForUpdates, 5000).unref(); setInterval(checkForUpdates, 6*60*60*1000).unref();
 }
 app.on('second-instance', () => { if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); } });
 app.on('before-quit', event => {
   if (quitting) return;
-  event.preventDefault(); quitting = true; ++generation; clearInterval(timer);
-  Promise.all([stop(preparing), stopBackend()]).finally(() => { proxyServer?.close(); logStream?.end(); app.exit(0); });
+  event.preventDefault(); quitting = true; clearInterval(timer);
+  Promise.resolve(session?.close()).finally(() => { proxyServer?.close(); logStream?.end(); app.exit(exitCode); });
 });

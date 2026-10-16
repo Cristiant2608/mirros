@@ -8,7 +8,14 @@
     "test": "node --test tests/*.test.cjs tests/*.test.mjs",
     "pack:windows": "electron-builder --win portable --x64 --publish never",
     "build": "vite build --config frontend/vite.config.mjs",
-    "pack:linux": "electron-builder --linux AppImage --x64 --publish never --config.directories.output=../Mirros-Linux"
+    "pack:linux": "electron-builder --linux AppImage --x64 --publish never --config.directories.output=dist/linux",
+    "version:check": "node scripts/version.mjs",
+    "version:sync": "node scripts/version.mjs --write",
+    "pretest": "npm run version:check",
+    "prebuild": "npm run version:check",
+    "verify:build-proxy": "node scripts/check-build-proxy.mjs",
+    "audit": "npm audit --audit-level=moderate",
+    "verify:clipboard": "electron scripts/check-clipboard.cjs"
   },
   "repository": {
     "type": "git",
@@ -35,5 +42,10 @@
   },
   "engines": {
     "node": ">=22.12.0"
+  },
+  "overrides": {
+    "@electron/get": {
+      "global-agent": "4.1.3"
+    }
   }
 }

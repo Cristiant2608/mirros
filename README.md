@@ -1,233 +1,110 @@
-# Mirros 1.1 — iPhone por USB
+# MirrOS
 
-Aplicación de escritorio con interfaz React en español. El ejecutable portátil
-incluye Electron y Python; no necesita abrir un navegador ni instalar Python.
+Pantalla y control de iPhone por USB para Linux y Windows. Incluye una aplicación
+React/Electron y un comando de terminal que abre el visor de `pymobiledevice3`.
 
-![Interfaz de Mirros con contenido simulado](docs/screenshots/pantalla.png)
+![Interfaz con contenido simulado](docs/screenshots/pantalla.png)
 
-[Guía de uso](docs/USO.md) · [Historial completo](CHANGELOG.md) · [Compatibilidad y pruebas](docs/COMPATIBILIDAD.md) · [Publicación y actualizaciones](docs/ACTUALIZACIONES.md)
-
-Las capturas usan un teléfono simulado; no contienen imágenes ni datos del iPhone de una persona.
-
-## Linux
-
-Descarga el AppImage x64 de [Releases](https://github.com/Cristiant2608/mirros/releases), dale permiso de ejecución y ábrelo. Instala `usbmuxd` y conecta el iPhone por USB. El AppImage incluye Python y usa la misma interfaz y controles que Windows. Consulta los requisitos y el estado de validación en la guía de compatibilidad.
-
-```bash
-chmod +x Mirros-1.1.0-Linux-x64.AppImage
-./Mirros-1.1.0-Linux-x64.AppImage
-```
-
-## Aplicación de Windows
-
-Abre `Mirros-1.1.0-Windows.exe` y conecta el iPhone por USB. Mantén el teléfono
-desbloqueado, acepta «Confiar» y activa Modo Desarrollador. La primera preparación
-puede descargar la imagen de desarrollo compatible.
-
-- **Ventana flotante:** ventana transparente y redondeada, sin paneles ni fondo.
-  Los controles están en una barra lateral fija, fuera de la imagen. Una pestaña permite guardarlos bajo el teléfono y volver a desplegarlos. Arrastra desde el asa para mover la ventana
-  y desde los bordes o esquinas para cambiar el tamaño del teléfono.
-- **Girar:** «Girar vista 90°» gira la imagen y adapta los toques. Se solicita también
-  el giro del dispositivo; si iOS lo rechaza o mantiene la app vertical, se indica
-  en pantalla. La vista sigue los cambios de orientación que comunica iOS.
-- **Siempre encima:** fija la ventana sobre las demás aplicaciones.
-- **Tamaño libre:** arrastra cualquier borde o esquina; la imagen conserva su proporción.
-  La barra mantiene su tamaño. «Usar todo el alto disponible» amplía el teléfono
-  hasta el área útil del monitor. También hay tamaños predefinidos en Apariencia.
-- **Toques:** clic para tocar, arrastra para deslizar, clic derecho para Inicio.
-- **Rueda del ratón:** desplaza el contenido del iPhone con gestos táctiles.
-  Puedes ajustar la sensibilidad en «Apariencia».
-- **Temas:** Claro, Oscuro, Lavanda y Océano, con opción de seguir el sistema.
-  La elección se guarda entre sesiones y se aplica también a los controles flotantes.
-- **Navegación:** Pantalla, Audio, Portapapeles, Apariencia y Ayuda. Cambiar de
-  sección mantiene el visor y la conexión del dispositivo.
-- **Teclado:** haz clic en la pantalla para escribir. Al cambiar el foco,
-  las teclas dejan de enviarse al teléfono.
-- **Audio en este PC:** activado por defecto, con interruptor y volumen propio.
-  Utiliza los altavoces o audífonos predeterminados de Windows.
-- **Audio del iPhone:** botones de volumen y «Alternar silencio», separados del
-  volumen del PC. iOS informa el estado; el transporte no permite leerlo.
-  El botón Silencio puede no silenciar música o videos. No se garantiza un
-  modo «solo PC» hasta verificar cómo responde el dispositivo.
-- **Salida segura:** usa «Desconectar de forma segura» antes de retirar el cable.
-  Libera teclas y toques, cierra el teclado virtual y detiene la sesión. Cerrar
-  Mirros también solicita ese cierre antes de terminar el proceso. Las solicitudes
-  vacías de teclado ya no registran un teclado externo; una espera de cinco segundos
-  sin actividad libera el teclado. Si el cable ya se retiró, la limpieza del iPhone
-  no puede garantizarse y debe comprobarse físicamente.
-- **Actualizaciones:** Ayuda comprueba las versiones oficiales de GitHub. Permite
-  descargar, verificar SHA-256 e instalar al reiniciar. El EXE o AppImage anterior
-  se conserva como respaldo. Consulta [cómo se publica](docs/ACTUALIZACIONES.md).
-- **Video compatible:** si Chromium no dispone de HEVC, se usa PyAV por software;
-  conserva la imagen completa y los controles, con mayor consumo de CPU.
-- **Capturas:** guarda una imagen PNG desde el botón Captura.
-- **Portapapeles:** los botones «PC → iPhone» e «iPhone → PC» transfieren texto
-  o imágenes. Después pega en la aplicación de destino. En el modo flotante,
-  usa los iconos de enviar y descargar de la barra lateral. Las transferencias
-  son manuales; Mirros no sincroniza ni lee el portapapeles en segundo plano.
-
-El apagado independiente del panel físico del iPhone no está implementado:
-el transporte utilizado no expone esa función. Tampoco permite crear una pantalla
-virtual independiente como `scrcpy --new-display` en Android. «Bloquear» bloquea el dispositivo;
-no se utiliza automáticamente al iniciar o cerrar una sesión.
-
-### Estado de compatibilidad
-
-La interfaz, los controles, el audio, el portapapeles y las actualizaciones comparten código entre Windows y Linux. Las pruebas de Python 3.10/3.12 y la compilación React ya aprobaron en ambas plataformas. El empaquetado y arranque se validan con el flujo `Desktop packages`.
-
-Las pruebas automatizadas no conectan un iPhone: imagen, sonido, entrada, recuperación de teclado y transferencias necesitan validación física en cada sistema. El comportamiento de transparencia y «Siempre encima» puede variar con el compositor Linux. Consulta [las comprobaciones y los pendientes](docs/COMPATIBILIDAD.md).
-
-Windows necesita el servicio USB de Apple; Linux necesita `usbmuxd`. Los controladores de Apple no se incluyen.
-
-## Compilar el ejecutable
-
-```powershell
-.\setup.ps1
-.\build-windows.ps1
-```
-
-Para desarrollar: `npm ci`, `node node_modules/electron/install.js`, `npm run build`
-y `npm start`. El empaquetado queda en `../Mirros-Windows` e incluye el backend
-autónomo construido con `desktop/backend.spec`. El proyecto conserva el lanzador
-Python de Windows/Linux descrito a continuación.
-
-## Lanzador Python de Windows y Linux
-
-Visualiza y controla la pantalla de tu iPhone por USB. El programa ejecuta
-`pymobiledevice3` y abre el visor en una ventana independiente de Edge, Chrome
-o Chromium. En Windows se ejecuta con Python y los controladores de Apple,
-sin WSL ni una máquina virtual. La interfaz usa WebCodecs del navegador;
-no es una interfaz WinUI.
+Las capturas del repositorio son simuladas. Las pruebas automáticas y las pruebas
+con un teléfono se registran por separado en [Compatibilidad](docs/COMPATIBILIDAD.md).
 
 ## Requisitos
 
-- Python 3.10 o posterior.
-- iPhone con iOS **17.4 o posterior recomendado** para el túnel USB sin
-  privilegios. iOS 17.0–17.3.1 necesita un `tunneld` aparte en Windows/Linux.
-- Modo Desarrollador activado en Ajustes > Privacidad y seguridad.
-- Cable USB de datos, iPhone desbloqueado y confianza concedida al ordenador.
-- Edge, Chrome o Chromium con decodificación HEVC mediante WebCodecs.
-  Su disponibilidad depende del navegador, Windows y el hardware.
-- En Windows, **Apple Mobile Device Service** instalado y activo. El instalador
-  de [iTunes de Apple](https://www.apple.com/itunes/download/win64) proporciona
-  este componente; si falta, instala Apple Mobile Device Support de Apple
-  con permisos de administrador. Dispositivos Apple también permite USB.
-- En Linux, `usbmuxd` instalado y activo.
+- iPhone desbloqueado, cable USB de datos y confianza concedida al ordenador.
+- Modo Desarrollador activado en Ajustes → Privacidad y seguridad.
+- iOS 17.4+ para el túnel USB en espacio de usuario; las versiones anteriores
+  requieren un túnel externo y validación específica.
+- Linux: servicio `usbmuxd`. Windows: Apple Mobile Device Service, instalado
+  mediante Dispositivos Apple o iTunes. No se incluyen controladores de Apple.
+- Desarrollo: Python 3.10+ y Node.js 22.12+. El visor de terminal necesita
+  un navegador Chromium con HEVC; el escritorio incorpora alternativa por software.
 
-## Windows
+## Instalar desde el código
 
-Abre PowerShell en esta carpeta:
+Linux:
+
+```bash
+git clone https://github.com/Cristiant2608/mirros.git
+cd mirros
+./setup.sh
+mirros --diagnose
+mirros
+```
+
+En Arch/CachyOS: `sudo pacman -S --needed usbmuxd chromium`.
+En Debian/Ubuntu: `sudo apt install usbmuxd chromium`.
+En Fedora: `sudo dnf install usbmuxd chromium`.
+Activa el servicio USB según tu distribución; en sistemas con la unidad disponible:
+`sudo systemctl start usbmuxd`.
+
+Windows, desde PowerShell en la carpeta del proyecto:
 
 ```powershell
 .\setup.ps1
-.\ios-scrcpy.cmd --diagnose
-.\ios-scrcpy.cmd
+.\mirros.cmd --diagnose
+.\mirros.cmd
 ```
 
-Si Python no está en PATH, indica su ruta:
+Los instaladores crean o reutilizan `.venv`, instalan las dependencias declaradas y
+comprueban su consistencia en cada ejecución. En Linux se crean los enlaces en
+`~/.local/bin`; esa carpeta debe estar en `PATH`. `ios-scrcpy` se conserva como
+alias del comando `mirros`, también en Windows mediante `ios-scrcpy.cmd`.
 
-```powershell
-.\setup.ps1 -Python 'C:\ruta\python.exe'
-```
+## Abrir el escritorio
 
-Si PowerShell impide ejecutar el script, puedes usar Python directamente
-sin cambiar la política del sistema:
-
-```powershell
-py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e .
-.\ios-scrcpy.cmd
-```
-
-También puedes hacer doble clic en `ios-scrcpy.cmd` después de la instalación.
-El programa espera a que conectes el iPhone, monta automáticamente la imagen
-de desarrollo compatible y abre el visor cuando hay video disponible. La primera
-preparación puede tardar varios minutos y requiere Internet para descargar la
-imagen. Cierra la ventana o pulsa Ctrl+C en la terminal para detenerlo.
-
-## Linux
+Después de configurar Python:
 
 ```bash
-chmod +x setup.sh bin/ios-scrcpy
-./setup.sh
-ios-scrcpy
-```
-
-En Arch/CachyOS, instala `usbmuxd` y Chromium e inicia el servicio:
-
-```bash
-sudo pacman -S --needed usbmuxd chromium
-sudo systemctl enable --now usbmuxd
-```
-
-### Compilar el escritorio Linux
-
-El lanzador de terminal sigue disponible. Para usar la misma interfaz React:
-
-```bash
-./setup.sh
 npm ci
 node node_modules/electron/install.js
 npm run build
 npm start
 ```
 
-Para compilar un AppImage x64: `./build-linux.sh`. Se genera en
-`../Mirros-Linux`. Necesita Node.js 22.12+ y las bibliotecas de escritorio que
-requiere Electron. El AppImage se construye sobre Ubuntu 22.04 en CI. Las pruebas con un iPhone
-físico y distintos compositores se registran por separado de la compilación.
+El escritorio incluye video, gestos, teclado, audio, capturas, copiar/pegar con Ctrl+C y Ctrl+V,
+ventana flotante y actualizaciones explícitas. Consulta la [guía de uso](docs/USO.md).
+La transparencia y «Siempre encima» dependen del compositor Linux. En Wayland,
+instala `wl-clipboard` para el portapapeles entre aplicaciones.
+Consulta las [prioridades de mejora](docs/MEJORAS.md) y sus criterios de validación.
 
-## Opciones
+Para distribuir sin Python ni Node instalados en el equipo de destino:
+`./build-linux.sh` genera un AppImage en `dist/linux`; `./build-windows.ps1`
+genera el EXE portátil en `dist/windows`. Los paquetes publicados, cuando estén
+disponibles, se descargan desde [Releases](https://github.com/Cristiant2608/mirros/releases).
 
-| Opción | Uso |
+## Comando de terminal
+
+| Opción | Comportamiento |
 | --- | --- |
-| `--diagnose` | Comprueba Python, backend, navegador y dispositivos USB. |
-| `-p, --port PUERTO` | Puerto local; automáticamente elige uno libre desde 8080 si se omite. |
-| `-u, --udid UDID` | Selecciona un iPhone; obligatorio si hay varios conectados. |
-| `-b, --browser RUTA` | Ruta a un navegador Chromium alternativo. |
-| `--audio` | Activa el sonido inicialmente en el visor. |
-| `--no-audio` | No activa el sonido inicialmente; es el valor por defecto. |
-| `--no-userspace` | Usa un `tunneld` existente para el dispositivo seleccionado. |
+| `--diagnose` | Comprueba entorno, navegador y detección USB sin transmitir. |
+| `--version` | Muestra la versión instalada. |
+| `--port PUERTO` | Usa un puerto de 1 a 65535; falla si está ocupado. |
+| `--udid UDID` | Selecciona el teléfono; obligatorio cuando hay varios. |
+| `--browser RUTA` | Selecciona un navegador Chromium. |
+| `--audio` / `--no-audio` | Activa o desactiva el audio inicial del visor; desactivado por defecto. |
+| `--no-userspace` | Usa un túnel externo para el dispositivo. |
 
-El backend escucha únicamente en `127.0.0.1`. El registro de cada ejecución
-se guarda en el directorio temporal de Windows/Linux y su ruta aparece en la
-terminal. Los errores del backend devuelven un código distinto de cero.
+Sin `--port`, busca un puerto libre desde 8080. El servidor escucha en
+`127.0.0.1`. Cada ejecución tiene su carpeta temporal privada y muestra la ruta
+del registro. Los errores devuelven un código distinto de cero; SIGTERM solicita
+el cierre de la sesión y devuelve 143 en Linux. Ctrl+C termina normalmente.
 
-El visor indica al decodificador de Windows las dimensiones HEVC del iPhone
-para evitar que Edge recorte una pantalla vertical al tamaño predeterminado
-1280 × 720. La corrección está incluida en el proyecto y se conserva al reinstalarlo.
+Cierra la ventana o usa «Desconectar de forma segura» antes de retirar el cable.
+Si el cable ya se retiró, el programa puede cerrar sus procesos pero no garantiza
+que el iPhone haya recibido la liberación de entrada.
 
-## Uso del visor
+## Desarrollo y estado del proyecto
 
-Clic para tocar, arrastra para deslizar y usa los controles visibles del visor
-para Inicio, volumen y bloqueo. El visor del backend ofrece también teclado,
-rotación, zoom y portapapeles. El soporte concreto depende del iPhone y de iOS.
+- [Cómo contribuir y ejecutar las pruebas](CONTRIBUTING.md)
+- [Arquitectura y responsabilidades](docs/ARQUITECTURA.md)
+- [Compatibilidad y lista de validación física](docs/COMPATIBILIDAD.md)
+- [Versiones y publicación mediante etiquetas](docs/ACTUALIZACIONES.md)
+- [Revisión del PR #1 y cambios de integración](docs/REVISION-PR-1.md)
+- [Historial](CHANGELOG.md)
 
-## Diagnóstico
+`pyproject.toml` es la fuente de versión. Los cambios en `main` y los PR generan
+paquetes de prueba; una publicación requiere una etiqueta `vX.Y.Z` del mismo
+commit validado. No se publica al integrar un PR.
 
-- **No hay dispositivos:** verifica el cable, desbloquea el iPhone y acepta
-  «Confiar». En Windows, comprueba que Apple Mobile Device Service esté activo.
-- **No inicia la transmisión:** verifica Modo Desarrollador y lee el registro.
-  Cierra Cámara o cualquier app que esté usando cámara/micrófono antes de iniciar.
-- **Pantalla negra o fallo de decodificación:** consulta el estado HEVC en el
-  visor y prueba Edge/Chrome actualizado con soporte HEVC en Windows.
-- **iOS 17.0–17.3.1:** inicia `python -m pymobiledevice3 remote tunneld` con los
-  privilegios necesarios y luego ejecuta `ios-scrcpy --no-userspace`.
-
-Documentación oficial del backend:
-[instalación](https://github.com/doronz88/pymobiledevice3/blob/master/docs/installation.md),
-[túneles de iOS](https://github.com/doronz88/pymobiledevice3/blob/master/docs/guides/ios17-tunnels.md),
-[transmisión](https://github.com/doronz88/pymobiledevice3/blob/master/docs/guides/cli-recipes.md).
-
-## Desarrollo y pruebas
-
-La versión del backend queda fijada en `pyproject.toml`. Para comprobar el
-transporte, el arranque HTTP y la gestión de procesos sin un teléfono:
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-npm test
-```
-
-El flujo de CI contempla Windows y Linux con Python 3.10/3.12. Estas pruebas
-no sustituyen comprobar imagen, audio y entrada con un iPhone físico.
+El código de MirrOS usa la licencia [MIT](LICENSE). El backend y las dependencias
+conservan sus propias licencias; véase [NOTICE](desktop/NOTICE.txt).

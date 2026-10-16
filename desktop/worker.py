@@ -39,7 +39,7 @@ def main():
     if command == 'prepare':
         sys.argv = ['pymobiledevice3', 'mounter', 'auto-mount', *args]
     else:
-        from ios_scrcpy.backend import configure_viewer
+        from mirros.backend import configure_viewer
         configure_viewer()
         sys.argv = ['pymobiledevice3', 'developer', 'core-device', 'display', 'serve-web', *args]
     runpy.run_module('pymobiledevice3', run_name='__main__')

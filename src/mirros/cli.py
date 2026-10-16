@@ -1,22 +1,22 @@
-"""Interfaz de línea de comandos para ios-scrcpy."""
+"""Interfaz de línea de comandos para MirrOS."""
 
 import argparse
 import sys
 
-from ios_scrcpy import __version__
-from ios_scrcpy.runner import run_ios_scrcpy
+from mirros import __version__
+from mirros.runner import run_mirros
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        prog="ios-scrcpy",
-        description="Visualiza y controla tu iPhone desde Windows o Linux, similar a scrcpy.",
+        prog="mirros",
+        description="Visualiza y controla tu iPhone desde Windows o Linux con MirrOS.",
     )
     parser.add_argument(
         "-v",
         "--version",
         action="version",
-        version=f"ios-scrcpy {__version__}",
+        version=f"mirros {__version__}",
     )
     parser.add_argument(
         "-p",
@@ -58,7 +58,7 @@ def main() -> None:
     if args.port is not None and not 1 <= args.port <= 65535:
         parser.error("El puerto debe estar entre 1 y 65535.")
 
-    exit_code = run_ios_scrcpy(
+    exit_code = run_mirros(
         port=args.port,
         no_audio=not args.audio,
         userspace=not args.no_userspace,

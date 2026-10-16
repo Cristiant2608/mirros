@@ -1,3 +1,24 @@
+# Integración pendiente de publicación
+
+- Corrige rutas de portapapeles tras teclas en conexiones persistentes.
+- Comparte portapapeles entre aplicaciones Wayland mediante wl-clipboard.
+- Envía Command antes de C/V y admite repetir la copia de la misma selección.
+- Evita pruebas duplicadas de CI y documenta los límites de pantalla apagada.
+
+- Integra Ctrl+C/Ctrl+V sobre el iPhone y resuelve imágenes de contenido enriquecido de iOS.
+
+- Corrige portapapeles para la API asíncrona de Electron y añade una prueba nativa.
+- Reinicia sesiones con túnel cerrado tras reconectar el mismo teléfono.
+- Elimina los avisos de npm audit conservando el empaquetador y valida proxy en CI.
+
+- Integra el PR #1 conservando el paquete y comando `mirros`; mantiene el alias `ios-scrcpy`.
+- Separa sesión USB de las ventanas Electron y conexión/video/audio/entrada de React.
+- Aísla y comprueba el contrato del backend; corrige SIGTERM y liberación de procesos.
+- Renueva la concesión de teclado mientras se mantiene una tecla pulsada.
+- Instala y comprueba dependencias al reutilizar un entorno virtual.
+- Centraliza la versión en pyproject.toml; publica solo mediante etiquetas verificadas.
+- Añade pruebas de señales, fallos de arranque, instalación repetida, sesiones y versiones.
+
 # Historial de cambios
 
 ## 1.1.0 — 2026-10-15

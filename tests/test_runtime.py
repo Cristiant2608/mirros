@@ -12,8 +12,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from ios_scrcpy.device import list_connected_devices
-from ios_scrcpy.runner import build_server_command, get_available_port, stop_process, wait_for_server
+from mirros.device import list_connected_devices
+from mirros.runner import build_server_command, get_available_port, stop_process, wait_for_server
 
 
 class RuntimeTests(unittest.TestCase):
@@ -63,16 +63,16 @@ class RuntimeTests(unittest.TestCase):
             status = 200
 
         process = SimpleNamespace(poll=lambda: None)
-        with patch('ios_scrcpy.runner.urlopen', return_value=Response(b'<html>viewer</html>')):
+        with patch('mirros.runner.urlopen', return_value=Response(b'<html>viewer</html>')):
             self.assertFalse(wait_for_server(process, 8080, timeout=0.1))
 
     def test_failed_preparation_stops_startup(self):
-        from ios_scrcpy.runner import run_ios_scrcpy
-        with patch('ios_scrcpy.runner.list_connected_devices', return_value=['test-device']), \
-             patch('ios_scrcpy.runner.device_instructions'), \
-             patch('ios_scrcpy.runner.prepare_device', return_value=False), \
-             patch('ios_scrcpy.runner.subprocess.Popen') as spawn:
-            self.assertEqual(run_ios_scrcpy(), 1)
+        from mirros.runner import run_mirros
+        with patch('mirros.runner.list_connected_devices', return_value=['test-device']), \
+             patch('mirros.runner.device_instructions'), \
+             patch('mirros.runner.prepare_device', return_value=False), \
+             patch('mirros.runner.subprocess.Popen') as spawn:
+            self.assertEqual(run_mirros(), 1)
             spawn.assert_not_called()
 
     def test_real_child_is_stopped_and_reaped(self):
@@ -108,20 +108,20 @@ class RuntimeTests(unittest.TestCase):
         self.assertNotIn("--userspace", command)
 
     def test_missing_device_never_starts_backend(self):
-        from ios_scrcpy.runner import run_ios_scrcpy
-        with patch("ios_scrcpy.runner.list_connected_devices", return_value=[]), \
-             patch("ios_scrcpy.runner.device_instructions"), \
-             patch("ios_scrcpy.runner.time.sleep", side_effect=KeyboardInterrupt), \
-             patch("ios_scrcpy.runner.subprocess.Popen") as spawn:
-            self.assertEqual(run_ios_scrcpy(), 0)
+        from mirros.runner import run_mirros
+        with patch("mirros.runner.list_connected_devices", return_value=[]), \
+             patch("mirros.runner.device_instructions"), \
+             patch("mirros.runner.time.sleep", side_effect=KeyboardInterrupt), \
+             patch("mirros.runner.subprocess.Popen") as spawn:
+            self.assertEqual(run_mirros(), 0)
             spawn.assert_not_called()
 
     def test_multiple_devices_require_selection(self):
-        from ios_scrcpy.runner import run_ios_scrcpy
-        with patch("ios_scrcpy.runner.list_connected_devices", return_value=["one", "two"]), \
-             patch("ios_scrcpy.runner.device_instructions"), \
-             patch("ios_scrcpy.runner.subprocess.Popen") as spawn:
-            self.assertEqual(run_ios_scrcpy(), 1)
+        from mirros.runner import run_mirros
+        with patch("mirros.runner.list_connected_devices", return_value=["one", "two"]), \
+             patch("mirros.runner.device_instructions"), \
+             patch("mirros.runner.subprocess.Popen") as spawn:
+            self.assertEqual(run_mirros(), 1)
             spawn.assert_not_called()
 
 

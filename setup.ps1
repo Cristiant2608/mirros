@@ -18,6 +18,8 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
 }
 & $venvPython -m pip install -e $projectDirectory
 if ($LASTEXITCODE -ne 0) { throw 'Falló la instalación de dependencias.' }
-& (Join-Path $projectDirectory 'ios-scrcpy.cmd') --diagnose
+& $venvPython -m pip check
+if ($LASTEXITCODE -ne 0) { throw 'Hay dependencias incompatibles en el entorno.' }
+& (Join-Path $projectDirectory 'mirros.cmd') --diagnose
 if ($LASTEXITCODE -ne 0) { Write-Warning 'Revisa el servicio USB de Apple antes de conectar el iPhone.' }
-Write-Host 'Listo. Conecta el iPhone y ejecuta .\ios-scrcpy.cmd'
+Write-Host 'Listo. Conecta el iPhone y ejecuta .\mirros.cmd'

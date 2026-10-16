@@ -9,8 +9,11 @@ function workerArgs({platform = process.platform, packaged, resourcesPath, root,
 }
 
 async function stopProcess(child, platform = process.platform) {
-  if (!child?.pid || child.exitCode !== null || child.signalCode != null) return;
+  if (!child?.pid) return;
+  const running = child.exitCode === null && child.signalCode == null;
+  if (!running && !child.mirrosProcessGroup) return;
   if (platform === 'win32') {
+    if (!running) return;
     await new Promise(resolve => execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], {windowsHide: true, timeout: 5000}, resolve));
     return;
   }
@@ -19,12 +22,14 @@ async function stopProcess(child, platform = process.platform) {
     try { process.kill(-child.pid, name); }
     catch (error) { if (error.code !== 'ESRCH') throw error; }
   };
-  const exited = new Promise(resolve => child.once('exit', resolve));
+  let onExit;
+  const exited = running ? new Promise(resolve => {onExit = resolve; child.once('exit', onExit);}) : Promise.resolve();
   signal('SIGTERM');
   let timer;
   await Promise.race([exited, new Promise(resolve => { timer = setTimeout(resolve, 2000); })]);
   clearTimeout(timer);
   signal('SIGKILL');
+  if (onExit) child.removeListener('exit', onExit);
 }
 
 async function stopSession(child, port, {fetchRequest = fetch, forceStop = stopProcess, graceMs = 7000} = {}) {
