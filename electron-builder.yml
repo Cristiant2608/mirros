@@ -1,0 +1,39 @@
+appId: com.mirros.desktop
+productName: Mirros
+copyright: Copyright © 2026 Cristian Torres
+directories:
+  output: ../Mirros-Windows
+files:
+  - desktop/main.cjs
+  - desktop/clipboard.cjs
+  - desktop/runtime.cjs
+  - desktop/preload.cjs
+  - desktop/icon.ico
+  - desktop/icon.png
+  - package.json
+  - '!node_modules/**/*'
+extraResources:
+  - from: build/python-dist/mirros-backend
+    to: backend
+  - from: src/ios_scrcpy/web
+    to: web
+  - from: desktop/NOTICE.txt
+    to: NOTICE.txt
+win:
+  artifactName: Mirros-${version}-Windows.exe
+  target:
+    - target: portable
+      arch: [x64]
+  icon: desktop/icon.ico
+  signAndEditExecutable: false
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+  icon: desktop/icon.png
+  category: Utility
+  artifactName: Mirros-${version}-Linux-${arch}.${ext}
+artifactName: Mirros-${version}-${os}.${ext}
+portable:
+  unicode: true
+  requestExecutionLevel: user
