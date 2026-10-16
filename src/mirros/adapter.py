@@ -164,30 +164,34 @@ async def set_display_mode(server, mode: str):
     if mode not in ('dual', 'aod'):
         return {'status': 'error', 'message': 'Modo de pantalla no válido.'}
     if mode == 'aod':
-        try:
-            from pymobiledevice3.remote.core_device.screen_stream import _NAMED_BUTTONS
-            from pymobiledevice3.remote.core_device.hid_service import HID_BUTTON_STATE_DOWN, HID_BUTTON_STATE_UP
-            usage_page, usage_code, hold_seconds = _NAMED_BUTTONS['lock']
-            # _ensure_hid acquires _hid_lock itself (asyncio locks are not reentrant).
-            await server._ensure_hid()
-            async with server._hid_lock:
-                indigo = getattr(server, '_indigo', None)
-                if indigo is None:
-                    raise RuntimeError('HID no disponible')
-                try:
-                    await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_DOWN)
-                    await asyncio.sleep(hold_seconds)
-                finally:
-                    await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
-        except Exception as error:
-            logging.getLogger(__name__).warning('No se pudo enviar bloqueo para modo AOD: %s', error)
-            return {'status': 'error', 'message': 'No se pudo solicitar reposo al iPhone.'}
+        if getattr(server, '_mirros_display_mode', 'dual') != 'aod':
+            try:
+                from pymobiledevice3.remote.core_device.screen_stream import _NAMED_BUTTONS
+                from pymobiledevice3.remote.core_device.hid_service import HID_BUTTON_STATE_DOWN, HID_BUTTON_STATE_UP
+                usage_page, usage_code, hold_seconds = _NAMED_BUTTONS['lock']
+                # _ensure_hid acquires _hid_lock itself (asyncio locks are not reentrant).
+                await server._ensure_hid()
+                async with server._hid_lock:
+                    indigo = getattr(server, '_indigo', None)
+                    if indigo is None:
+                        raise RuntimeError('HID no disponible')
+                    try:
+                        await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_DOWN)
+                        await asyncio.sleep(hold_seconds)
+                    finally:
+                        await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
+            except Exception as error:
+                logging.getLogger(__name__).warning('No se pudo enviar bloqueo para modo AOD: %s', error)
+                return {'status': 'error', 'message': 'No se pudo solicitar reposo al iPhone.'}
         server._mirros_display_mode = 'aod'
         server._mirros_keep_awake = False
         return {'mode': 'aod', 'keepAwake': False}
     else:
         server._mirros_display_mode = 'dual'
         server._mirros_keep_awake = True
+        event = getattr(server, '_mirros_keep_awake_event', None)
+        if event is not None:
+            event.set()
         return {'mode': 'dual', 'keepAwake': True}
 
 
@@ -231,6 +235,7 @@ async def orientation_connection(server, reader, writer, original):
         request = line.split()[:2]
         hid = len(request) == 2 and request[0] == b'POST' and request[1] in (b'/key', b'/touch', b'/button')
         allowed_routes = (
+            [b'GET', b'/control'],
             [b'GET', b'/orientation'],
             [b'POST', b'/session/end'],
             [b'GET', b'/frames.bin'],
@@ -269,6 +274,9 @@ async def orientation_connection(server, reader, writer, original):
     refusal = server._refuse_request(headers)
     if refusal is not None:
         writer.write(refusal)
+    elif request == [b'GET', b'/control']:
+        from mirros.control import serve_control
+        return await serve_control(server, reader, writer, headers, release_input)
     elif request == [b'GET', b'/frames.bin']:
         from mirros.video import software_stream
         return await software_stream(server, writer)
@@ -361,11 +369,15 @@ def configure_viewer() -> None:
     screen_stream.ScreenStreamServer._serve_connection = with_orientation
     original_key = screen_stream.ScreenStreamServer._handle_key
     async def safe_key(server, body):
-        return await keyboard_request(server, body, original_key)
+        from mirros.control import control_lock
+        async with control_lock(server):
+            return await keyboard_request(server, body, original_key)
     screen_stream.ScreenStreamServer._handle_key = safe_key
     original_touch = screen_stream.ScreenStreamServer._handle_touch
     async def tracked_touch(server, body):
-        return await touch_request(server, body, original_touch)
+        from mirros.control import control_lock
+        async with control_lock(server):
+            return await touch_request(server, body, original_touch)
     screen_stream.ScreenStreamServer._handle_touch = tracked_touch
     original_stop = screen_stream.ScreenStreamServer._stop_hid
     async def safe_stop(server):
@@ -378,6 +390,10 @@ def configure_viewer() -> None:
     async def controlled_keep_awake(server):
         assertion_timeout = 300
         refresh_interval = 120
+        event = getattr(server, '_mirros_keep_awake_event', None)
+        if event is None:
+            event = asyncio.Event()
+            server._mirros_keep_awake_event = event
         try:
             while True:
                 if getattr(server, '_mirros_keep_awake', True):
@@ -393,8 +409,11 @@ def configure_viewer() -> None:
                             pass
                     except Exception:
                         logging.getLogger(__name__).debug("keep-awake renew failed", exc_info=True)
+                event.clear()
                 try:
-                    await asyncio.sleep(refresh_interval)
+                    await asyncio.wait_for(event.wait(), timeout=refresh_interval)
+                except asyncio.TimeoutError:
+                    pass
                 except asyncio.CancelledError:
                     return
         except asyncio.CancelledError:

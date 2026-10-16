@@ -263,9 +263,17 @@ class DisplayModeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(get_display_mode(server), {'mode': 'dual', 'keepAwake': True})
         result = await set_display_mode(server, 'aod')
         self.assertEqual(result, {'mode': 'aod', 'keepAwake': False})
-        self.assertEqual(get_display_mode(server), {'mode': 'aod', 'keepAwake': False})
+        self.assertEqual(server._indigo.send_button.await_count, 2)  # DOWN and UP
+        # Idempotent call: does not send button again
+        result2 = await set_display_mode(server, 'aod')
+        self.assertEqual(result2, {'mode': 'aod', 'keepAwake': False})
+        self.assertEqual(server._indigo.send_button.await_count, 2)
+        # Switch to dual: signals keep_awake_event
+        event = asyncio.Event()
+        server._mirros_keep_awake_event = event
         result = await set_display_mode(server, 'dual')
         self.assertEqual(result, {'mode': 'dual', 'keepAwake': True})
+        self.assertTrue(event.is_set())
         self.assertEqual(get_display_mode(server), {'mode': 'dual', 'keepAwake': True})
 
     async def test_display_mode_endpoints(self):
