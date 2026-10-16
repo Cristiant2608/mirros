@@ -37,7 +37,7 @@ portable:
   unicode: true
   # electron-builder 26.15.3: true keeps each launch in its own NSIS plugin directory.
   unpackDirName: true
-  # Embed files directly with NSIS zlib instead of the slow 7z extraction plugin.
+  # Embed files directly instead of using the slow 7z extraction plugin.
   useZip: true
   splashImage: desktop/startup.bmp
   requestExecutionLevel: user

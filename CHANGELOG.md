@@ -1,4 +1,10 @@
-# Integración pendiente de publicación
+# 1.1.1 — 2026-10-16 (integración local, pendiente de publicación)
+
+- Mantiene el audio PCM en una cola AudioWorklet con reserva adaptable de 120–240 ms.
+- Evita fragmentos superpuestos, recupera la conexión de audio y reduce actualizaciones de interfaz.
+- Aísla los archivos temporales de cada apertura del portátil y restaura la ventana existente.
+- Muestra el inicio y elimina la compresión interna del EXE para reducir demoras.
+
 
 - Corrige rutas de portapapeles tras teclas en conexiones persistentes.
 - Comparte portapapeles entre aplicaciones Wayland mediante wl-clipboard.
