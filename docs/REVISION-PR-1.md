@@ -8,8 +8,8 @@ commit `e411e8743f103f70c513352ace7c1630f6eeb86c`; rama principal local
 
 Se incorpora el trabajo de escritorio React/Electron, Windows/Linux, códecs,
 controles y actualizaciones del colaborador, conservando `mirros` como paquete y
-comando principal. `ios-scrcpy` permanece como alias. Esta integración es local:
-no aprueba ni fusiona el PR en GitHub y no publica una versión.
+comando principal. `ios-scrcpy` permanece como alias. La integración conserva la historia del PR y se valida mediante checks antes de
+fusionarse en main. La publicación de una versión requiere una etiqueta explícita.
 
 ## Hallazgos corregidos
 
@@ -52,3 +52,16 @@ resolver imágenes de contenido enriquecido de iOS, con un plazo ampliado.
 La [ejecución inicial de esta rama](https://github.com/Cristiant2608/mirros/actions/runs/38913632581)
 aprobó pruebas, auditoría, proxy, portapapeles nativo y paquetes en Windows/Linux
 para `7fa778a`. Los atajos añadidos después requieren su propia ejecución.
+
+## Corrección de conexiones HTTP y mantenimiento
+
+Una conexión persistente que empezaba con `/key` quedaba bajo el despachador
+original y devolvía 404 al consultar después `/clipboard/state`. El adaptador
+ahora despacha también las solicitudes HID y conserva su cola y keep-alive;
+una regresión cubre tecla y consulta de revisión en el mismo socket lógico.
+Los errores de atajos incluyen ruta y estado HTTP; los de revisión se registran
+sin contenido del portapapeles. La suite suma 38 pruebas Python y 58 JavaScript.
+
+CI ejecuta las pruebas una sola vez a través del flujo reutilizable y cancela
+compilaciones obsoletas de un PR. Main exige PR y los nueve checks de paquetes,
+Python y frontend, y bloquea force push y eliminación, incluidos administradores.

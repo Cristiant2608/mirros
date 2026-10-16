@@ -50,7 +50,11 @@ El icono de monitor vuelve al panel. Arrastra el asa al final de la barra para m
 
 ![Transferencias de portapapeles](screenshots/portapapeles.png)
 
-Copia texto o una imagen y pulsa «PC → iPhone» o «iPhone → PC». Después pega en la aplicación de destino. Las transferencias son manuales; no se lee el portapapeles en segundo plano. «Enviar texto» pega en el campo seleccionado en el teléfono.
+Copia en el PC normalmente, haz clic en un campo del iPhone en MirrOS y pulsa
+Ctrl+V para transferir y pegar. Selecciona texto o una imagen en el iPhone y pulsa
+Ctrl+C con el visor enfocado; después pega en el PC. En otros campos del PC los
+atajos conservan su comportamiento habitual. Las transferencias manuales quedan
+en el apartado desplegable. El portapapeles solo se consulta al solicitar una copia.
 
 ## Apariencia
 
@@ -62,7 +66,7 @@ Elige Claro, Oscuro, Lavanda, Océano o el tema del sistema. La elección se con
 
 Usa «Desconectar de forma segura» antes de retirar el cable y espera «Sesión terminada». Cerrar Mirros solicita la misma limpieza. Para empezar otra sesión, pulsa Reconectar.
 
-Si quitaste el cable antes, el ordenador ya no puede garantizar que el iPhone reciba la liberación. La aplicación deja de registrar teclados por solicitudes vacías, libera la entrada al perder el foco y cierra el teclado tras cinco segundos de inactividad. La recuperación del teclado de iOS después de una desconexión brusca necesita comprobarse en el dispositivo.
+Si quitaste el cable antes, el ordenador ya no puede garantizar que el iPhone reciba la liberación. La aplicación deja de registrar teclados por solicitudes vacías, libera la entrada al perder el foco y cierra el teclado tras cinco segundos de inactividad. La recuperación de imagen y teclado al reconectar fue confirmada con el iPhone de prueba en Linux; otras versiones requieren su propia validación.
 
 ## Actualizar
 
@@ -70,7 +74,7 @@ Si quitaste el cable antes, el ordenador ya no puede garantizar que el iPhone re
 
 Ayuda → Buscar actualizaciones consulta el repositorio oficial. Cuando hay una publicación nueva para tu sistema, pulsa Descargar y después Reiniciar y actualizar. Mirros comprueba tamaño y SHA-256, termina la sesión y conserva una copia del ejecutable anterior con extensión `.mirros-previous`.
 
-Una modificación en `main` necesita un paquete publicado para actualizar un EXE o AppImage. El flujo de publicación lo genera después de aprobar las comprobaciones de ambas plataformas y aumentar la versión. No se instala código de una rama de trabajo sobre un ejecutable.
+Una modificación en `main` necesita un paquete publicado para actualizar un EXE o AppImage. El flujo de publicación lo genera al crear una etiqueta vVERSION del código integrado en main, después de aprobar las comprobaciones de ambas plataformas. No se instala código de una rama de trabajo sobre un ejecutable.
 
 ## Atajos sobre el visor
 
@@ -104,3 +108,16 @@ luego pega en la aplicación del PC con Ctrl+V. También se acepta Cmd en el tec
 Los atajos fuera de la pantalla del teléfono conservan su comportamiento habitual.
 Si no hay una selección nueva, no se reemplaza el portapapeles del PC. Las
 transferencias manuales quedan en el apartado desplegable de Portapapeles.
+
+## ¿Puedo usarlo con la pantalla apagada?
+
+Con el transporte USB actual, no. Al dormir o bloquear el iPhone, iOS detiene
+la captura de pantalla; el visor necesita el teléfono despierto y desbloqueado.
+Puedes reducir manualmente el brillo desde el Centro de control. Eso atenúa
+el panel, pero no lo apaga ni equivale a un modo de privacidad.
+
+El [motor utilizado](https://github.com/doronz88/pymobiledevice3/blob/v11.32.0/pymobiledevice3/remote/core_device/screen_stream.py)
+mantiene despierto el dispositivo para evitar que se detenga la captura.
+[Duplicación del iPhone de Apple](https://support.apple.com/es-co/120421)
+permite usar un iPhone bloqueado desde un Mac compatible, mediante otra tecnología;
+MirrOS no implementa ese transporte en Windows/Linux.

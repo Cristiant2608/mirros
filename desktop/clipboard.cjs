@@ -67,7 +67,7 @@ async function clipboardShortcut(deps, action, {pause = ms => new Promise(resolv
   const base = `http://127.0.0.1:${deps.backendPort}`;
   const request = async (route, options = {}) => {
     const response = await deps.fetch(base + route, {...options, signal:AbortSignal.timeout(4000)});
-    if (!response.ok) throw new Error('No se pudo completar el atajo. Revisa la conexión y desbloquea el iPhone.');
+    if (!response.ok) throw new Error(`No se pudo completar el atajo (${route}, HTTP ${response.status}). Revisa la conexión y desbloquea el iPhone.`);
     return response;
   };
   const revision = async () => {

@@ -125,17 +125,38 @@ def session_health(server):
 
 
 async def orientation_connection(server, reader, writer, original):
-    line = await reader.readline()
-    request = line.split()[:2]
-    if request not in ([b'GET', b'/orientation'], [b'POST', b'/session/end'], [b'GET', b'/frames.bin'], [b'GET', b'/health'], [b'GET', b'/clipboard/state']):
-        return await original(server, PrefixedReader(line, reader), writer)
-    headers = {}
+    # Upstream consumes all subsequent HID requests on a persistent socket itself.
+    # Dispatch them here so the next request can still reach MirrOS-only routes.
     while True:
-        header = await reader.readline()
-        if header in (b'\r\n', b''):
+        line = await reader.readline()
+        request = line.split()[:2]
+        hid = len(request) == 2 and request[0] == b'POST' and request[1] in (b'/key', b'/touch', b'/button')
+        if not hid and request not in ([b'GET', b'/orientation'], [b'POST', b'/session/end'], [b'GET', b'/frames.bin'], [b'GET', b'/health'], [b'GET', b'/clipboard/state']):
+            return await original(server, PrefixedReader(line, reader), writer)
+        headers = {}
+        while True:
+            header = await reader.readline()
+            if header in (b'\r\n', b''):
+                break
+            name, _, value = header.decode('latin-1').partition(':')
+            headers[name.strip().lower()] = value.strip()
+        if not hid:
             break
-        name, _, value = header.decode('latin-1').partition(':')
-        headers[name.strip().lower()] = value.strip()
+        refusal = server._refuse_request(headers)
+        if refusal is not None:
+            writer.write(refusal)
+            await writer.drain()
+            writer.close()
+            return
+        body = await server._read_body(reader, headers)
+        server._hid_queue.put_nowait((request[1].decode(), body))
+        keep_alive = headers.get('connection', '').lower() != 'close'
+        connection = b'keep-alive' if keep_alive else b'close'
+        writer.write(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: ' + connection + b'\r\n\r\nok')
+        await writer.drain()
+        if not keep_alive:
+            writer.close()
+            return
     refusal = server._refuse_request(headers)
     if refusal is not None:
         writer.write(refusal)
@@ -156,7 +177,8 @@ async def orientation_connection(server, reader, writer, original):
         try:
             body = json.dumps({'revision': await asyncio.wait_for(clipboard_revision(server), 3)}).encode()
             status = b'200 OK'
-        except Exception:
+        except Exception as error:
+            logging.getLogger(__name__).warning('Clipboard state unavailable: %s: %s', type(error).__name__, error)
             body, status = b'{"error":"clipboard_unavailable"}', b'503 Service Unavailable'
         writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
     else:

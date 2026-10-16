@@ -41,6 +41,25 @@ class SessionHealthTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ClipboardPolicyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_clipboard_route_after_key_on_the_same_connection(self):
+        import asyncio
+        from unittest.mock import Mock, patch
+        from mirros.adapter import orientation_connection
+        from pymobiledevice3.remote.core_device.screen_stream import ScreenStreamServer
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'POST /key HTTP/1.1\r\nHost: localhost\r\nContent-Length: 13\r\n\r\n{"usages":[]}GET /clipboard/state HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        reader.feed_eof()
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None),
+                                 _read_body=ScreenStreamServer._read_body,
+                                 _hid_queue=asyncio.Queue())
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        original = AsyncMock()
+        with patch('mirros.adapter.clipboard_revision', new=AsyncMock(return_value='fixture:6')):
+            await orientation_connection(server, reader, writer, original)
+        self.assertEqual(server._hid_queue.get_nowait(), ('/key', b'{"usages":[]}'))
+        self.assertIn(b'"revision": "fixture:6"', writer.write.call_args.args[0])
+        original.assert_not_awaited()
+
     async def test_revision_queries_metadata_without_materializing_content(self):
         from mirros.adapter import clipboard_revision
         from pymobiledevice3.remote.core_device.pasteboard_service import POLICY_ALL_PROMISED
@@ -150,9 +169,9 @@ from mirros.adapter import orientation_connection
 
 class OrientationEndpointTests(unittest.IsolatedAsyncioTestCase):
     async def test_other_requests_keep_their_request_line_and_body(self):
-        reader=asyncio.StreamReader(); reader.feed_data(b'POST /touch HTTP/1.1\r\nContent-Length: 2\r\n\r\n{}'); reader.feed_eof()
+        reader=asyncio.StreamReader(); reader.feed_data(b'POST /rotate HTTP/1.1\r\nContent-Length: 2\r\n\r\n{}'); reader.feed_eof()
         async def original(server, stream, writer):
-            self.assertEqual(await stream.readline(),b'POST /touch HTTP/1.1\r\n')
+            self.assertEqual(await stream.readline(),b'POST /rotate HTTP/1.1\r\n')
             self.assertEqual(await stream.readline(),b'Content-Length: 2\r\n')
             self.assertEqual(await stream.readline(),b'\r\n')
             self.assertEqual(await stream.readexactly(2),b'{}')
