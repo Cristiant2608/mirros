@@ -1,5 +1,10 @@
 # Virtual environment
 .venv/
+*.egg-info/
+build/
+dist/
+node_modules/
+src/ios_scrcpy/web/
 env/
 venv/
 ENV/

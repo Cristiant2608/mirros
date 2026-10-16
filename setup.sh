@@ -42,10 +42,10 @@ echo -e "\n[*] Verificando entorno virtual de Python..."
 if [ ! -d "$PROJECT_DIR/.venv" ]; then
     echo "[*] Creando .venv e instalando dependencias..."
     python3 -m venv "$PROJECT_DIR/.venv"
-    "$PROJECT_DIR/.venv/bin/pip" install --upgrade pip pymobiledevice3
 else
     echo "[+] Entorno virtual existente en $PROJECT_DIR/.venv"
 fi
+"$PROJECT_DIR/.venv/bin/python" -m pip install -e "$PROJECT_DIR"
 
 # 4. Enlace simbólico en ~/.local/bin
 mkdir -p "$LOCAL_BIN"
