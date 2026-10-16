@@ -90,7 +90,7 @@ jobs:
         if: runner.os == 'Linux'
         env:
           MIRROS_SOFTWARE_DEMO: '1'
-        run: node scripts/capture-ui.mjs
+        run: xvfb-run -a node scripts/capture-ui.mjs
       - name: Stage Windows artifact
         if: runner.os == 'Windows'
         shell: pwsh

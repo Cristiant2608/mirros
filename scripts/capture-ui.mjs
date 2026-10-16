@@ -6,15 +6,18 @@ import os from 'node:os';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const output=path.join(root,'docs/screenshots');await fs.mkdir(output,{recursive:true});
+const output=process.env.MIRROS_CAPTURE_OUTPUT || path.join(root,'docs/screenshots');await fs.mkdir(output,{recursive:true});
 const profile=await fs.mkdtemp(path.join(os.tmpdir(),'mirros-captures-'));
 const candidates=[process.env.MIRROS_CAPTURE_BROWSER,'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','/usr/bin/google-chrome','/usr/bin/chromium'].filter(Boolean);
 let browser;for(const candidate of candidates){try{await fs.access(candidate);browser=candidate;break;}catch{}}
 if(!browser)throw Error('Set MIRROS_CAPTURE_BROWSER to a Chromium browser.');
 const server=http.createServer(async(req,res)=>{try{const name=req.url==='/'?'index.html':req.url.slice(1);if(!['index.html','viewer.js','viewer.css'].includes(name)){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',name.endsWith('.js')?'application/javascript':name.endsWith('.css')?'text/css':'text/html');res.end(await fs.readFile(path.join(root,'src/mirros/web',name)));}catch{res.writeHead(500);res.end();}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const url=`http://127.0.0.1:${server.address().port}/`;
-const port=19339;
-const child=spawn(browser,['--headless=new',`--remote-debugging-port=${port}`,`--user-data-dir=${profile}`,'--no-first-run','about:blank'],{windowsHide:true,stdio:'ignore'});
+let port;
+const child=spawn(browser,['--headless=new','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--no-first-run','about:blank'],{windowsHide:true,stdio:['ignore','ignore','pipe']});
+let browserError = '';
+child.stderr.on('data', data => {browserError = (browserError + data).slice(-8192);});
+child.on('error', error => {browserError += error.message;});
 let ws,sequence=0;const requests=new Map();
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 // Minimal SPS metadata for a simulated 1264x2752 portrait frame.
@@ -23,11 +26,21 @@ const nal=[0x42,1];let zeros=0;for(let i=0;i<bits.length;i+=8){const b=parseInt(
 const header=new Uint8Array(23);header[0]=1;header[22]=1;
 const description=Buffer.from([...header,33,0,1,nal.length>>8,nal.length&255,...nal]).toString('base64');
 try{
- let page;for(let i=0;i<80;i++){try{page=(await(await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find(p=>p.type==='page');if(page)break;}catch{}await pause(100);}
- if(!page)throw Error('Capture browser did not start');
+ let page; const deadline = Date.now() + 30000;
+ while(Date.now() < deadline) {
+   if(child.exitCode !== null || child.signalCode) break;
+   try {
+     const active = await fs.readFile(path.join(profile,'DevToolsActivePort'),'utf8');
+     port = Number(active.split('\n')[0]);
+     page=(await(await fetch(`http://127.0.0.1:${port}/json/list`,{signal:AbortSignal.timeout(1000)})).json()).find(p=>p.type==='page' && p.url==='about:blank');
+     if(page) break;
+   } catch {}
+   await pause(100);
+ }
+ if(!page)throw Error('Capture browser did not start: ' + browserError);
  ws=new WebSocket(page.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});
  ws.onmessage=e=>{const m=JSON.parse(e.data);requests.get(m.id)?.(m);requests.delete(m.id);};
- const command=(method,params={})=>new Promise(r=>{const id=++sequence;requests.set(id,r);ws.send(JSON.stringify({id,method,params}));});
+ const command=(method,params={})=>new Promise((resolve,reject)=>{const id=++sequence;const timer=setTimeout(()=>{requests.delete(id);reject(Error(`Capture command timed out: ${method}`));},15000);requests.set(id,m=>{clearTimeout(timer);m.error?reject(Error(JSON.stringify(m.error))):resolve(m);});ws.send(JSON.stringify({id,method,params}));});
  const evaluate=async expression=>{const result=await command('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.result.exceptionDetails)throw Error(JSON.stringify(result.result.exceptionDetails));return result.result.result.value;};
  await command('Page.enable');
  await command('Page.addScriptToEvaluateOnNewDocument',{source:`
@@ -57,5 +70,5 @@ window.mirros={state:async()=>({...state}),subscribe:fn=>{listeners.push(fn);ret
  await evaluate("window.mirros.action('theme','lavanda');window.mirros.action('mode','phone')");await viewport(490,880);await pause(900);await screenshot('telefono-flotante');
  await evaluate("document.querySelector('.controls-tab').click()");await viewport(454,880);await screenshot('telefono-guardado');
  await evaluate("document.querySelector('.controls-tab').click();document.querySelector('[aria-label=\"Girar vista 90°\"]').click()");await viewport(1000,500);await pause(4500);await screenshot('telefono-horizontal');
- console.log('Nine screenshots generated from simulated content in docs/screenshots.');await command('Browser.close');
+ console.log(`Nine screenshots generated from simulated content in ${output}.`);await command('Browser.close');
 }finally{ws?.close();child.kill();server.close();await fs.rm(profile,{recursive:true,force:true,maxRetries:5,retryDelay:200});}
