@@ -29,3 +29,6 @@ htmlcov/
 *.swo
 *~
 .DS_Store
+
+# CI package staging
+artifacts/

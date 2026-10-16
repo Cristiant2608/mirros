@@ -58,18 +58,31 @@ jobs:
         env:
           MIRROS_SOFTWARE_DEMO: '1'
         run: node scripts/capture-ui.mjs
+      - name: Stage Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts
+          Copy-Item ../Mirros-Windows/Mirros-*-Windows.exe artifacts/
+      - name: Stage Linux artifact
+        if: runner.os == 'Linux'
+        run: mkdir -p artifacts && cp ../Mirros-Linux/*.AppImage artifacts/
       - name: Upload Windows package
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
           name: Mirros-Windows
-          path: ../Mirros-Windows/Mirros-*-Windows.exe
+          path: artifacts/Mirros-*-Windows.exe
+          if-no-files-found: error
+          compression-level: 0
       - name: Upload Linux package
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: Mirros-Linux
-          path: ../Mirros-Linux/*.AppImage
+          path: artifacts/*.AppImage
+          if-no-files-found: error
+          compression-level: 0
   release:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'Cristiant2608/mirros'
     needs: package

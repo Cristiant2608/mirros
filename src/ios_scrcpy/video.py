@@ -3,6 +3,7 @@ import asyncio
 import contextlib
 import struct
 import time
+from fractions import Fraction
 import av
 
 
@@ -27,7 +28,7 @@ class SoftwareDecoder:
             self.encoder = av.CodecContext.create('mjpeg', 'w')
             self.encoder.width, self.encoder.height = width, height
             self.encoder.pix_fmt = 'yuvj420p'
-            self.encoder.time_base = __import__('fractions').Fraction(1, 30)
+            self.encoder.time_base = Fraction(1, 30)
             self.encoder.open()
         image = frame.reformat(width=width, height=height, format='yuvj420p')
         image.pts = None
@@ -50,6 +51,19 @@ async def software_stream(server, writer):
     state.reset_on_key = True
     server._subscribers[queue] = state
     server._request_recovery_idr(reason='software-viewer')
+    async def bootstrap():
+        for attempt in range(3):
+            await asyncio.sleep(1)
+            if not state.needs_key or queue not in server._subscribers:
+                return
+            if attempt < 2:
+                server._request_recovery_idr(reason='software-bootstrap')
+            else:
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(server._ensure_fresh_stream(force=True), 10)
+    retry = asyncio.create_task(bootstrap())
+    server._pli_tasks.add(retry)
+    retry.add_done_callback(server._pli_tasks.discard)
     writer.write(b'HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nTransfer-Encoding: chunked\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n')
     await writer.drain()
     decoder = None
@@ -75,6 +89,7 @@ async def software_stream(server, writer):
     except (ConnectionError, asyncio.CancelledError, asyncio.TimeoutError):
         pass
     finally:
+        retry.cancel()
         server._subscribers.pop(queue, None)
         with contextlib.suppress(Exception):
             writer.close()
