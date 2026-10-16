@@ -10,7 +10,7 @@ from mirros.runner import run_mirros
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="mirros",
-        description="MirrOS: Visualiza y controla la pantalla de tu iPhone desde Linux.",
+        description="Visualiza y controla tu iPhone desde Windows o Linux con MirrOS.",
     )
     parser.add_argument(
         "-v",
@@ -29,7 +29,7 @@ def main() -> None:
         "--audio",
         action="store_true",
         default=False,
-        help="Habilita la transmisión de audio (por defecto desactivado en Linux ya que requiere AudioToolbox de macOS).",
+        help="Habilita la transmisión de audio (desactivada por defecto).",
     )
     parser.add_argument(
         "--no-userspace",
@@ -51,7 +51,12 @@ def main() -> None:
         help="Ejecutable de navegador específico a utilizar (ej. chromium, brave-browser).",
     )
 
+    parser.add_argument("--no-audio", dest="audio", action="store_false", help="Desactiva el audio (por defecto).")
+    parser.add_argument("--diagnose", action="store_true", help="Comprueba Python, navegador y USB sin iniciar la transmisión.")
+
     args = parser.parse_args()
+    if args.port is not None and not 1 <= args.port <= 65535:
+        parser.error("El puerto debe estar entre 1 y 65535.")
 
     exit_code = run_mirros(
         port=args.port,
@@ -59,6 +64,7 @@ def main() -> None:
         userspace=not args.no_userspace,
         udid=args.udid,
         browser_bin=args.browser,
+        diagnose=args.diagnose,
     )
     sys.exit(exit_code)
 

@@ -1,0 +1,142 @@
+name: Desktop packages
+on:
+  push:
+    branches: [main, 'improve/**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/improve/') }}
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/version.mjs
+      - name: Validate release tag and main ancestry
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node scripts/version.mjs --tag "$RELEASE_TAG"
+          git merge-base --is-ancestor HEAD origin/main
+  checks:
+    needs: validate
+    uses: ./.github/workflows/tests.yml
+  package:
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: python -m venv .venv
+      - name: Install Linux desktop libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfuse2 libgtk-3-0 libnss3 libasound2 xvfb
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .venv/Scripts/python.exe -m pip install -e .
+          if ($LASTEXITCODE -ne 0) { throw "Python installation failed" }
+          .venv/Scripts/python.exe -m pip check
+          if ($LASTEXITCODE -ne 0) { throw "Dependency checks failed" }
+          .venv/Scripts/python.exe -m unittest discover -s tests -v
+          if ($LASTEXITCODE -ne 0) { throw "Python checks failed" }
+          ./build-windows.ps1
+      - name: Package Linux
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: |
+          .venv/bin/python -m pip install -e .
+          .venv/bin/python -m pip check
+          .venv/bin/python -m unittest discover -s tests -v
+          ./build-linux.sh
+      - name: Verify native Windows clipboard
+        if: runner.os == 'Windows'
+        run: npm run verify:clipboard
+      - name: Verify native Linux clipboard
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run verify:clipboard
+      - name: Smoke test Windows desktop
+        if: runner.os == 'Windows'
+        run: node scripts/smoke-desktop.mjs dist/windows/win-unpacked/Mirros.exe
+      - name: Smoke test Linux AppImage
+        if: runner.os == 'Linux'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: '1'
+        run: xvfb-run -a node scripts/smoke-desktop.mjs dist/linux/*.AppImage
+      - name: Render software video and simulated UI on Linux
+        if: runner.os == 'Linux'
+        env:
+          MIRROS_SOFTWARE_DEMO: '1'
+        run: xvfb-run -a node scripts/capture-ui.mjs
+      - name: Stage Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts
+          Copy-Item dist/windows/Mirros-*-Windows.exe artifacts/
+      - name: Stage Linux artifact
+        if: runner.os == 'Linux'
+        run: mkdir -p artifacts && cp dist/linux/*.AppImage artifacts/
+      - name: Upload Windows package
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mirros-Windows
+          path: artifacts/Mirros-*-Windows.exe
+          if-no-files-found: error
+          compression-level: 0
+      - name: Upload Linux package
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mirros-Linux
+          path: artifacts/*.AppImage
+          if-no-files-found: error
+          compression-level: 0
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'Cristiant2608/mirros'
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Mirros-*
+          path: release
+          merge-multiple: true
+      - name: Publish a version only after both packages passed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if gh release view "v$version" >/dev/null 2>&1; then
+            echo "Version already published; bump package.json for the next release."
+            exit 0
+          fi
+          git archive --format=zip --prefix="mirros-$version/" -o "release/Mirros-$version-Source.zip" HEAD
+          gh release create "v$version" --verify-tag release/* --target "$GITHUB_SHA" --title "Mirros $version" --notes-file CHANGELOG.md

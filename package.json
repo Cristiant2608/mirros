@@ -1,0 +1,51 @@
+{
+  "name": "mirros",
+  "version": "1.1.0",
+  "description": "Pantalla, audio y control de iPhone por USB en Windows y Linux",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs tests/*.test.mjs",
+    "pack:windows": "electron-builder --win portable --x64 --publish never",
+    "build": "vite build --config frontend/vite.config.mjs",
+    "pack:linux": "electron-builder --linux AppImage --x64 --publish never --config.directories.output=dist/linux",
+    "version:check": "node scripts/version.mjs",
+    "version:sync": "node scripts/version.mjs --write",
+    "pretest": "npm run version:check",
+    "prebuild": "npm run version:check",
+    "verify:build-proxy": "node scripts/check-build-proxy.mjs",
+    "audit": "npm audit --audit-level=moderate",
+    "verify:clipboard": "electron scripts/check-clipboard.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cristiant2608/mirros.git"
+  },
+  "keywords": [],
+  "author": "Cristian Torres",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Cristiant2608/mirros/issues"
+  },
+  "homepage": "https://github.com/Cristiant2608/mirros#readme",
+  "dependencies": {
+    "lucide-react": "^1.57.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^44.7.2",
+    "electron-builder": "^26.15.3",
+    "vite": "^8.3.4"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "overrides": {
+    "@electron/get": {
+      "global-agent": "4.1.3"
+    }
+  }
+}

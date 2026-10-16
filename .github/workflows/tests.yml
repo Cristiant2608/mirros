@@ -1,0 +1,54 @@
+name: Windows and Linux checks
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        python: ['3.10', '3.12']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python -m pip install -e .
+      - run: python -m pip check
+      - run: python -m unittest discover -s tests -v
+      - run: node --test tests/*.test.cjs tests/*.test.mjs
+      - run: mirros --help
+      - run: ios-scrcpy --help
+      - run: python -m mirros.backend developer core-device display serve-web --help
+      - name: Linux launcher and shell syntax
+        if: runner.os == 'Linux'
+        run: |
+          bash -n setup.sh build-linux.sh bin/mirros bin/ios-scrcpy
+          python -m venv --system-site-packages .venv
+          ./bin/mirros --help
+          ./bin/ios-scrcpy --help
+  frontend:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: npm run audit
+      - run: npm run verify:build-proxy
+      - run: npm test
+      - run: npm run build
