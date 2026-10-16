@@ -1,5 +1,6 @@
-# Keep the portable launch fast and avoid NSIS compression timeouts.
-compression: store
+# Use moderate zlib compression; keep the portable ZIP path and unique temp directory.
+compression: normal
+electronLanguages: [es, es-419, en-US, en-GB]
 appId: com.mirros.desktop
 productName: Mirros
 copyright: Copyright © 2026 Cristian Torres

@@ -20,9 +20,10 @@ for package in ('pymobiledevice3', 'developer_disk_image', 'pytcp'):
     binaries += binary
     hiddenimports += imports
 
+# The interactive research shell is not exposed by the Mirros worker.
 a = Analysis([str(project / 'desktop/worker.py')], pathex=[str(project / 'src')],
     binaries=binaries, datas=datas, hiddenimports=hiddenimports, hookspath=[],
-    hooksconfig={}, runtime_hooks=[], excludes=[], noarchive=False, optimize=0)
+    hooksconfig={}, runtime_hooks=[], excludes=['IPython', 'jedi'], noarchive=False, optimize=0)
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='mirros-backend',
     debug=False, bootloader_ignore_signals=False, strip=False, upx=False, console=True)

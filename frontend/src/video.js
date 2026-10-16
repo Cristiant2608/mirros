@@ -1,5 +1,6 @@
 import {iosScrcpyHevcDimensions} from '../../src/mirros/assets/hevc_dimensions.js';
 import {frameRotation} from './orientation.js';
+import {PacketAssembler} from './packets.mjs';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation = () => {}}) {
   const abort = new AbortController();
@@ -26,7 +27,7 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
       frames++; onFrame(frames);
     } finally { lastFrame?.close(); lastFrame = frame; }
   };
-  const output = frame => { pending?.close(); pending = frame; if (!raf) raf = requestAnimationFrame(render); };
+  const output = frame => { if (disposed) { frame.close(); return; } pending?.close(); pending = frame; if (!raf) raf = requestAnimationFrame(render); };
   async function run() {
     while (!disposed) {
       let reader;
@@ -35,15 +36,12 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
           onStatus('Conectando video compatible…');
           const response = await fetch('/frames.bin', {signal:abort.signal,cache:'no-store'});
           if (!response.ok) throw new Error('Esperando video del iPhone…');
-          reader = response.body.getReader();let buffer = new Uint8Array(0);
+          reader = response.body.getReader(); const packets = new PacketAssembler(16 * 1024 * 1024, size => size > 0);
           while (!disposed) {
             const {done,value} = await reader.read();if (done) break;
-            const merged = new Uint8Array(buffer.length+value.length);merged.set(buffer);merged.set(value,buffer.length);buffer=merged;
-            while (buffer.length>=4) {
-              const size = new DataView(buffer.buffer,buffer.byteOffset).getUint32(0);
-              if (size<1 || size>16*1024*1024) throw new Error('Se interrumpió el video.');
-              if (buffer.length<4+size) break;
-              const bitmap = await createImageBitmap(new Blob([buffer.slice(4,4+size)],{type:'image/jpeg'}));buffer=buffer.subarray(4+size);
+            if (disposed) break;
+            for (const packet of packets.push(value)) {
+              const bitmap = await createImageBitmap(new Blob([packet], {type:'image/jpeg'}));
               output({bitmap,displayWidth:bitmap.width,displayHeight:bitmap.height,close:()=>bitmap.close()});
             }
           }
@@ -65,16 +63,14 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
         const response = await fetch('/stream.bin', {signal: abort.signal, cache: 'no-store'});
         if (!response.ok) throw new Error('No se pudo iniciar el video. Reintentando…');
         reader = response.body.getReader();
-        let buffer = new Uint8Array(0), timestamp = 0, key = false;
+        const packets = new PacketAssembler(32 * 1024 * 1024, size => size > 0);
+        let timestamp = 0, key = false;
         while (!disposed) {
           const {done, value} = await reader.read();
           if (done) break;
-          const merged = new Uint8Array(buffer.length + value.length); merged.set(buffer); merged.set(value, buffer.length); buffer = merged;
-          while (buffer.length >= 4) {
-            const length = new DataView(buffer.buffer, buffer.byteOffset).getUint32(0);
-            if (length < 1 || length > 32 * 1024 * 1024) throw new Error('Se interrumpió el video. Recuperando…');
-            if (buffer.length < 4 + length) break;
-            const type = buffer[4], data = buffer.slice(5, 4 + length); buffer = buffer.subarray(4 + length);
+          if (disposed) break;
+          for (const packet of packets.push(value)) {
+            const type = packet[0], data = packet.subarray(1);
             if (type === 0 || type === 2) {
               key = true;
               if (type === 2 || decoder.state === 'closed') {
@@ -99,13 +95,14 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
         if (!disposed) onStatus(error.message || 'Recuperando la conexión…');
       } finally {
         try { await reader?.cancel(); } catch {}
+        try { reader?.releaseLock(); } catch {}
         try { decoder?.close(); } catch {}
       }
       if (!disposed) await delay(1000);
     }
   }
   run();
-  const stop = () => { disposed = true; abort.abort(); if (raf) cancelAnimationFrame(raf); pending?.close(); pending = null; lastFrame?.close(); lastFrame = null; try { decoder?.close(); } catch {} };
+  const stop = () => { if (disposed) return; disposed = true; abort.abort(); if (raf) cancelAnimationFrame(raf); pending?.close(); pending = null; lastFrame?.close(); lastFrame = null; try { decoder?.close(); } catch {} };
   stop.setOrientation = value => { manualAngle = null; orientation = value; if (lastFrame && !disposed) draw(lastFrame); };
   stop.rotateView = () => { manualAngle = (rotation + 90) % 360; if (lastFrame && !disposed) draw(lastFrame); };
   return stop;

@@ -14,9 +14,9 @@ Descarga los archivos desde [GitHub Releases](https://github.com/Cristiant2608/m
 
 | Archivo | Uso |
 | --- | --- |
-| `Mirros-1.1.2-Windows.exe` | Portátil Windows x64: descargar y abrir. |
-| `Mirros-1.1.2-Linux-x64.AppImage` | Portátil Linux x64: dar permiso de ejecución y abrir. |
-| `Mirros-1.1.2-Source.zip` | Código fuente de la misma versión. |
+| `Mirros-1.1.3-Windows.exe` | Portátil Windows x64: descargar y abrir. |
+| `Mirros-1.1.3-Linux-x64.AppImage` | Portátil Linux x64: dar permiso de ejecución y abrir. |
+| `Mirros-1.1.3-Source.zip` | Código fuente de la misma versión. |
 | `SHA256SUMS.txt` | Sumas SHA-256 de los tres archivos. |
 
 Los portátiles incluyen Electron y Python. El equipo de destino necesita el servicio
@@ -26,8 +26,8 @@ estar en Modo Desarrollador. La primera preparación puede necesitar Internet.
 En Linux:
 
 ```bash
-chmod +x Mirros-1.1.2-Linux-x64.AppImage
-./Mirros-1.1.2-Linux-x64.AppImage
+chmod +x Mirros-1.1.3-Linux-x64.AppImage
+./Mirros-1.1.3-Linux-x64.AppImage
 ```
 
 La cámara y el micrófono del iPhone requieren detener la duplicación mediante

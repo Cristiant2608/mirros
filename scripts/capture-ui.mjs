@@ -11,10 +11,11 @@ const profile=await fs.mkdtemp(path.join(os.tmpdir(),'mirros-captures-'));
 const candidates=[process.env.MIRROS_CAPTURE_BROWSER,'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe','/usr/bin/google-chrome','/usr/bin/chromium'].filter(Boolean);
 let browser;for(const candidate of candidates){try{await fs.access(candidate);browser=candidate;break;}catch{}}
 if(!browser)throw Error('Set MIRROS_CAPTURE_BROWSER to a Chromium browser.');
-const server=http.createServer(async(req,res)=>{try{const name=req.url==='/'?'index.html':req.url.slice(1);if(!['index.html','viewer.js','viewer.css'].includes(name)){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',name.endsWith('.js')?'application/javascript':name.endsWith('.css')?'text/css':'text/html');res.end(await fs.readFile(path.join(root,'src/mirros/web',name)));}catch{res.writeHead(500);res.end();}});
+const server=http.createServer(async(req,res)=>{try{const name=req.url==='/'?'index.html':req.url.slice(1);if(!['index.html','viewer.js','viewer.css','audio-worklet.js'].includes(name)){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',name.endsWith('.js')?'application/javascript':name.endsWith('.css')?'text/css':'text/html');res.end(await fs.readFile(path.join(process.env.MIRROS_CAPTURE_WEB_ROOT || path.join(root,'src/mirros/web'),name)));}catch{res.writeHead(500);res.end();}});
 await new Promise(r=>server.listen(0,'127.0.0.1',r));const url=`http://127.0.0.1:${server.address().port}/`;
 let port;
-const child=spawn(browser,['--headless=new','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--no-first-run','about:blank'],{windowsHide:true,stdio:['ignore','ignore','pipe']});
+const entry=path.basename(browser).toLowerCase().startsWith('electron')?path.join(root,'scripts/capture-browser.cjs'):'about:blank';
+const child=spawn(browser,['--headless=new','--remote-debugging-port=0',`--user-data-dir=${profile}`,'--no-first-run',entry],{windowsHide:true,stdio:['ignore','ignore','pipe']});
 let browserError = '';
 child.stderr.on('data', data => {browserError = (browserError + data).slice(-8192);});
 child.on('error', error => {browserError += error.message;});
@@ -62,13 +63,21 @@ window.mirros={state:async()=>({...state}),subscribe:fn=>{listeners.push(fn);ret
 `});
  const viewport=async(width,height)=>{await command('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1.5,mobile:false});await pause(350);};
  await viewport(1320,900);await command('Page.navigate',{url});await pause(1500);
- if(!await evaluate("document.querySelector('.phone-shell.is-live')!==null"))throw Error('Demo frame did not render');
- const screenshot=async name=>{await pause(250);const result=await command('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,name+'.png'),Buffer.from(result.result.data,'base64'));};
+ for(let i=0;i<100&&!await evaluate("document.querySelector('.phone-shell.is-live')!==null");i++)await pause(200);
+ if(!await evaluate("document.querySelector('.phone-shell.is-live')!==null"))throw Error('Demo frame did not render: '+await evaluate('document.body.innerText'));
+ const screenshot=async name=>{await pause(1100);await evaluate("document.querySelector('canvas').getContext('2d').getImageData(0,0,1,1).data[0]");const result=await command('Page.captureScreenshot',{format:'png'});await fs.writeFile(path.join(output,name+'.png'),Buffer.from(result.result.data,'base64'));};
  const tab=async label=>{await evaluate(`[...document.querySelectorAll('nav button')].find(b=>b.textContent.includes(${JSON.stringify(label)})).click()`);await pause(100);};
+ if(process.env.MIRROS_CAPTURE_REPORT) {
+   await pause(10000);
+   await command('HeapProfiler.collectGarbage');
+   const heap=(await command('Runtime.getHeapUsage')).result;
+   const dom=(await command('Memory.getDOMCounters')).result;
+   await fs.writeFile(process.env.MIRROS_CAPTURE_REPORT,JSON.stringify({heap,dom,appMetrics:await evaluate('window.mirrosBenchmark?.metrics()')},null,2));
+ }
  await screenshot('pantalla');await tab('Audio');await screenshot('audio');await tab('Portapapeles');await screenshot('portapapeles');await tab('Apariencia');await screenshot('apariencia');await tab('Ayuda');await screenshot('actualizaciones');
  await evaluate("window.mirros.action('theme','oscuro')");await tab('Pantalla');await screenshot('oscuro');
  await evaluate("window.mirros.action('theme','lavanda');window.mirros.action('mode','phone')");await viewport(490,880);await pause(900);await screenshot('telefono-flotante');
  await evaluate("document.querySelector('.controls-tab').click()");await viewport(454,880);await screenshot('telefono-guardado');
  await evaluate("document.querySelector('.controls-tab').click();document.querySelector('[aria-label=\"Girar vista 90°\"]').click()");await viewport(1000,500);await pause(4500);await screenshot('telefono-horizontal');
- console.log(`Nine screenshots generated from simulated content in ${output}.`);await command('Browser.close');
-}finally{ws?.close();child.kill();server.close();await fs.rm(profile,{recursive:true,force:true,maxRetries:5,retryDelay:200});}
+ console.log(`Nine screenshots generated from simulated content in ${output}.`);if(entry==='about:blank')await command('Browser.close');else{await evaluate('window.mirrosBenchmark.close();true');await pause(300);}
+}finally{ws?.close();child.kill();server.close();await fs.rm(profile,{recursive:true,force:true,maxRetries:10,retryDelay:500}).catch(error=>{if(!['EBUSY','EPERM','ENOTEMPTY'].includes(error.code))throw error;console.warn('Temporary browser profile still locked:',profile);});}

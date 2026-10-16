@@ -1,3 +1,4 @@
+import {PacketAssembler} from './packets.mjs';
 export function startAudio({onStatus, volume = 0.8}) {
   const abort = new AbortController();
   const context = new AudioContext({sampleRate: 48000, latencyHint: 'playback'});
@@ -23,21 +24,18 @@ export function startAudio({onStatus, volume = 0.8}) {
           const response = await fetch('/audio.bin', {signal: abort.signal});
           if (!response.ok) throw new Error('No se pudo iniciar el audio del iPhone.');
           reader = response.body.getReader();
-          let buffer = new Uint8Array(0);
+          const packets = new PacketAssembler(1024 * 1024, size => size % 4 === 0);
           status('Esperando sonido del iPhone');
           while (!stopped) {
             const {done, value} = await reader.read();
             if (done) throw new Error('La transmisión de audio se interrumpió.');
-            const merged = new Uint8Array(buffer.length + value.length); merged.set(buffer); merged.set(value, buffer.length); buffer = merged;
-            while (buffer.length >= 4) {
-              const size = new DataView(buffer.buffer, buffer.byteOffset).getUint32(0);
-              if (size > 1024 * 1024 || size % 4) throw new Error('Paquete de audio no válido.');
-              if (buffer.length < size + 4) break;
-              if (size) {
-                const bytes = buffer.slice(4, size + 4);
+            if (stopped) break;
+            for (const packet of packets.push(value)) {
+              if (packet.length) {
+                // Transfer only this payload; never detach a chunk containing later packets.
+                const bytes = packet.byteOffset === 0 && packet.byteLength === packet.buffer.byteLength ? packet : packet.slice();
                 player.port.postMessage(bytes.buffer, [bytes.buffer]);
               }
-              buffer = buffer.subarray(size + 4);
             }
           }
         } catch (error) {
@@ -48,5 +46,5 @@ export function startAudio({onStatus, volume = 0.8}) {
     } catch (error) { status(error.message || 'No se pudo reproducir el audio.'); }
   }
   run();
-  return {stop() {stopped = true; abort.abort(); player?.disconnect(); player?.port.close(); gain.disconnect(); context.close().catch(() => {});}, setVolume(value) {gain.gain.value = value;}};
+  return {stop() {if (stopped) return; stopped = true; abort.abort(); player?.disconnect(); player?.port.close(); gain.disconnect(); context.close().catch(() => {});}, setVolume(value) {gain.gain.value = value;}};
 }
