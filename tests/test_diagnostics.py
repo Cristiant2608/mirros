@@ -41,3 +41,32 @@ class DiagnosticTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 write_report({'replacement':True}, path)
             self.assertEqual(json.loads(path.read_text()), {'schema_version':1})
+
+
+class LegacyDiagnosticTests(unittest.TestCase):
+    def run_diagnostic(self, **discovery):
+        import contextlib
+        import io
+        from mirros.runner import run_mirros
+        output = io.StringIO()
+        with patch('mirros.runner.find_browser', return_value='/home/private-user/chromium'), \
+             patch('mirros.runner.shutil.which', return_value='/home/private-user/chromium'), \
+             patch('mirros.runner.check_usbmuxd_socket', return_value=True), \
+             patch('mirros.runner.list_connected_devices', **discovery), \
+             contextlib.redirect_stdout(output):
+            code = run_mirros(diagnose=True)
+        return code, output.getvalue()
+
+    def test_legacy_diagnose_reports_count_without_serial_or_browser_path(self):
+        code, text = self.run_diagnostic(return_value=['private-serial'])
+        self.assertEqual(code, 0)
+        self.assertIn('Dispositivos USB: 1', text)
+        self.assertNotIn('private-serial', text)
+        self.assertNotIn('private-user', text)
+
+    def test_legacy_diagnose_discards_sensitive_exception_message(self):
+        code, text = self.run_diagnostic(side_effect=RuntimeError('private-serial /home/private-user'))
+        self.assertEqual(code, 1)
+        self.assertIn('RuntimeError', text)
+        self.assertNotIn('private-serial', text)
+        self.assertNotIn('private-user', text)

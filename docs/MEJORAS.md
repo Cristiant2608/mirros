@@ -35,8 +35,9 @@ prometer cifras de mejora:
 Primer incremento implementado localmente: canal binario `/control` para tacto
 y teclado, proxy de Electron, confirmación de despacho, cierre con liberación
 y respaldo HTTP al fallar el establecimiento. Pruebas automáticas cubren el
-protocolo y el proxy; pendientes la medición con iPhone y el empaquetado de esta
-versión. No se anuncia todavía una mejora cuantificada de latencia/FPS.
+protocolo y el proxy. En iPhone físico se validaron 35 órdenes de arrastre
+con sus confirmaciones y la vuelta a la página de inicio; el empaquetado y
+una comparación de latencia HTTP/WebSocket siguen pendientes. No se anuncia todavía una mejora cuantificada de latencia/FPS.
 
 | Orden | Trabajo | Validación necesaria |
 | --- | --- | --- |
@@ -85,3 +86,6 @@ con campos permitidos, sin leer registros ni portapapeles. La consulta USB es
 opcional y exporta solo un conteo. La integración de este informe en el botón de
 Ayuda del escritorio y los códigos de error recientes siguen pendientes; no se
 exportan excepciones sin filtrar. La guía de uso describe alcance y permisos.
+
+`mirros --diagnose` también omite identificadores USB, rutas del navegador y
+mensajes de excepción sin filtrar; conserva versiones, disponibilidad y conteo.

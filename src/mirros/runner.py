@@ -121,25 +121,25 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
         print("[!] El puerto debe estar entre 1 y 65535.")
         return 1
     browser = browser_bin or find_browser()
+    if diagnose:
+        from importlib.metadata import version
+        print(f"Python: {sys.version.split()[0]} ({sys.platform})")
+        print(f"pymobiledevice3: {version('pymobiledevice3')}")
+        print(f"Navegador: {'disponible' if browser and shutil.which(browser) else 'no encontrado'}")
+        print(f"Servicio USB: {'disponible' if check_usbmuxd_socket() else 'no disponible'}")
+        try:
+            devices = list_connected_devices()
+            print(f"Dispositivos USB: {len(devices)}")
+        except Exception as error:
+            print(f"Detección USB: no disponible ({type(error).__name__})")
+            return 1
+        return 0
+
     if browser_bin:
         browser = shutil.which(browser_bin)
         if not browser:
             print(f"[!] Navegador no encontrado: {browser_bin}")
             return 1
-    if diagnose:
-        from importlib.metadata import version
-        print(f"Python: {sys.version.split()[0]} ({sys.platform})")
-        print(f"pymobiledevice3: {version('pymobiledevice3')}")
-        print(f"Navegador: {browser or 'no encontrado'}")
-        print(f"Servicio USB: {'disponible' if check_usbmuxd_socket() else 'no disponible'}")
-        try:
-            devices = list_connected_devices()
-            print(f"Dispositivos USB: {', '.join(devices) or 'ninguno'}")
-        except Exception as error:
-            print(f"Detección USB: {str(error) or type(error).__name__}")
-            return 1
-        return 0
-
     server = None
     target_port = None
     log_path = Path(tempfile.mkdtemp(prefix="mirros-")) / "backend.log"
