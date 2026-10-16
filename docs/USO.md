@@ -126,3 +126,25 @@ mantiene despierto el dispositivo para evitar que se detenga la captura.
 [Duplicación del iPhone de Apple](https://support.apple.com/es-co/120421)
 permite usar un iPhone bloqueado desde un Mac compatible, mediante otra tecnología;
 MirrOS no implementa ese transporte en Windows/Linux.
+
+## Exportar un diagnóstico sin datos personales
+
+Desde una instalación del código fuente:
+
+```bash
+python -m mirros.diagnostics --output diagnostico-mirros.json
+```
+
+En Windows puedes usar `.venv\Scripts\python.exe`; en Linux,
+`.venv/bin/python`. El archivo incluye versiones de Python y dependencias,
+sistema/arquitectura y disponibilidad de herramientas. No incluye UDID, nombre
+del iPhone, hostname, rutas, variables de entorno, registros ni portapapeles.
+No transmite datos a ningún servicio. Solo consulta USB si añades `--probe-usb`;
+en ese caso guarda únicamente el número de dispositivos o un estado genérico
+si la consulta falla. No inicia una sesión de pantalla.
+
+El destino debe ser un archivo nuevo: no reemplaza archivos existentes ni sigue
+un enlace simbólico en ese destino. En POSIX se crea con permisos `0600`.
+Sin `--output` imprime el JSON en la terminal. Revisa el informe antes de
+adjuntarlo manualmente a una incidencia. Este módulo complementa `mirros
+--diagnose`, cuya salida de terminal puede incluir identificadores del teléfono.

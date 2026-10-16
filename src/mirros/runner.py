@@ -11,7 +11,7 @@ import tempfile
 import time
 from typing import Optional
 from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from mirros.processes import TerminationRequested, shutdown_signals, start_process, stop_process, stop_server
 
@@ -115,30 +115,31 @@ def device_instructions() -> None:
 @shutdown_signals
 def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                    userspace: bool = True, udid: Optional[str] = None,
-                   browser_bin: Optional[str] = None, diagnose: bool = False) -> int:
+                   browser_bin: Optional[str] = None, diagnose: bool = False,
+                   display_mode: str = "dual") -> int:
     if port is not None and not 1 <= port <= 65535:
         print("[!] El puerto debe estar entre 1 y 65535.")
         return 1
     browser = browser_bin or find_browser()
+    if diagnose:
+        from importlib.metadata import version
+        print(f"Python: {sys.version.split()[0]} ({sys.platform})")
+        print(f"pymobiledevice3: {version('pymobiledevice3')}")
+        print(f"Navegador: {'disponible' if browser and shutil.which(browser) else 'no encontrado'}")
+        print(f"Servicio USB: {'disponible' if check_usbmuxd_socket() else 'no disponible'}")
+        try:
+            devices = list_connected_devices()
+            print(f"Dispositivos USB: {len(devices)}")
+        except Exception as error:
+            print(f"Detección USB: no disponible ({type(error).__name__})")
+            return 1
+        return 0
+
     if browser_bin:
         browser = shutil.which(browser_bin)
         if not browser:
             print(f"[!] Navegador no encontrado: {browser_bin}")
             return 1
-    if diagnose:
-        from importlib.metadata import version
-        print(f"Python: {sys.version.split()[0]} ({sys.platform})")
-        print(f"pymobiledevice3: {version('pymobiledevice3')}")
-        print(f"Navegador: {browser or 'no encontrado'}")
-        print(f"Servicio USB: {'disponible' if check_usbmuxd_socket() else 'no disponible'}")
-        try:
-            devices = list_connected_devices()
-            print(f"Dispositivos USB: {', '.join(devices) or 'ninguno'}")
-        except Exception as error:
-            print(f"Detección USB: {str(error) or type(error).__name__}")
-            return 1
-        return 0
-
     server = None
     target_port = None
     log_path = Path(tempfile.mkdtemp(prefix="mirros-")) / "backend.log"
@@ -187,6 +188,15 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                 print("[!] El servidor no pudo iniciar. Revisa confianza, Modo Desarrollador y versión de iOS.")
                 print(log_path.read_text(encoding="utf-8", errors="replace")[-6000:])
                 return 1
+            if display_mode == "aod":
+                try:
+                    req = Request(f"http://127.0.0.1:{target_port}/display-mode",
+                                  data=json.dumps({"mode": "aod"}).encode("utf-8"),
+                                  headers={"Content-Type": "application/json"})
+                    with urlopen(req, timeout=3):
+                        pass
+                except Exception:
+                    pass
             if browser:
                 # Perfil propio: Edge no reutiliza una instancia ajena.
                 with tempfile.TemporaryDirectory(prefix="mirros-browser-", ignore_cleanup_errors=True) as profile:
