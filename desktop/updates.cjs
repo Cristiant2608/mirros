@@ -62,7 +62,7 @@ function portableTarget(platform, env = process.env) {
 }
 const psQuote = value => "'" + value.replaceAll("'","''") + "'";
 const shQuote = value => "'" + value.replaceAll("'","'\\''") + "'";
-function installerScript({platform,target,download,pid,log}) {
+function installerScript({platform,target,download,pid,log,hash}) {
   if (!Number.isInteger(pid) || pid <= 0) throw new Error('Proceso de actualización no válido.');
   if (platform === 'win32') return `$ErrorActionPreference='Stop'
 $target=${psQuote(target)}
@@ -71,8 +71,14 @@ $backup=$target+'.mirros-previous'
 $limit=(Get-Date).AddSeconds(90)
 while(Get-Process -Id ${pid} -ErrorAction SilentlyContinue){if((Get-Date)-gt $limit){exit 1};Start-Sleep -Milliseconds 500}
 try {
-  if(Test-Path -LiteralPath $backup){Remove-Item -LiteralPath $backup -Force}
-  Move-Item -LiteralPath $target -Destination $backup
+  ${hash ? `$sha=[Security.Cryptography.SHA256]::Create();$stream=[IO.File]::OpenRead($download)
+  try{$actual=([BitConverter]::ToString($sha.ComputeHash($stream))).Replace('-','').ToLowerInvariant()}finally{$stream.Dispose();$sha.Dispose()}
+  if($actual -ne ${psQuote(hash)}){throw 'Update hash changed'}` : ''}
+  $pending=$true
+  while($pending){
+    try {if(Test-Path -LiteralPath $backup){Remove-Item -LiteralPath $backup -Force};Move-Item -LiteralPath $target -Destination $backup;$pending=$false}
+    catch {if((Get-Date)-gt $limit){throw};Start-Sleep -Milliseconds 500}
+  }
   try {Copy-Item -LiteralPath $download -Destination $target;Start-Process -FilePath $target -WindowStyle Hidden}
   catch {if(Test-Path -LiteralPath $target){Remove-Item -LiteralPath $target -Force};Move-Item -LiteralPath $backup -Destination $target;throw}
 } catch {$_ | Out-File -LiteralPath ${psQuote(log)} -Encoding utf8}
@@ -85,6 +91,7 @@ backup="$target.mirros-previous"
 count=0
 while kill -0 ${pid} 2>/dev/null; do count=$((count+1)); [ "$count" -lt 180 ] || exit 1; sleep .5; done
 exec 2>${shQuote(log)}
+${hash ? `actual="$(sha256sum -- "$download")"; if [ "\${actual%% *}" != ${shQuote(hash)} ]; then echo 'Update hash changed' >&2; exit 1; fi` : ''}
 cp -- "$download" "$target.mirros-new" || exit 1
 chmod +x "$target.mirros-new" || exit 1
 mv -f -- "$target" "$backup" || exit 1
@@ -92,19 +99,23 @@ if mv -- "$target.mirros-new" "$target"; then "$target" >/dev/null 2>&1 &
 else mv -- "$backup" "$target"; exit 1; fi
 `;
 }
-async function prepareInstaller({platform = process.platform, target, download, directory, pid = process.pid}) {
+async function prepareInstaller({platform = process.platform, target, download, directory, pid = process.pid, hash}) {
+  if (!/^[a-f\d]{64}$/i.test(hash || '')) throw new Error('Falta la verificación de la actualización.');
+  hash = hash.toLowerCase();
   if (portableTarget(platform,platform === 'win32' ? {PORTABLE_EXECUTABLE_FILE:target} : {APPIMAGE:target}) !== target) throw new Error('Abre el EXE portátil o el AppImage para actualizar esta copia.');
   const stat = await fs.lstat(target);
   if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('El ejecutable debe ser un archivo normal.');
   await fs.access(target,fs.constants.W_OK);
   await fs.access(path.dirname(target),fs.constants.W_OK);
   const file = path.join(directory,platform === 'win32' ? 'install-update.ps1' : 'install-update.sh');
-  await fs.writeFile(file,(platform === 'win32' ? '\uFEFF' : '') + installerScript({platform,target,download,pid,log:path.join(directory,'install-update.log')}),'utf8');
-  return () => {
+  await fs.writeFile(file,(platform === 'win32' ? '\uFEFF' : '') + installerScript({platform,target,download,pid,hash,log:path.join(directory,'install-update.log')}),'utf8');
+  return () => new Promise((resolve, reject) => {
     const command = platform === 'win32' ? 'powershell.exe' : '/bin/sh';
     const args = platform === 'win32' ? ['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',file] : [file];
-    const child = spawn(command,args,{detached:true,stdio:'ignore',windowsHide:true});
-    child.on('error',()=>{});child.unref();
-  };
+    // Windows PowerShell 5 can exit without running -File under DETACHED_PROCESS.
+    // Windows children survive app.exit; POSIX needs a separate process group.
+    const child = spawn(command,args,{detached:platform !== 'win32',stdio:'ignore',windowsHide:true});
+    child.once('error',reject);child.once('spawn',()=>{child.unref();resolve();});
+  });
 }
 module.exports = {newer,releaseAsset,checkUpdates,downloadUpdate,portableTarget,installerScript,prepareInstaller};

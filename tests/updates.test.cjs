@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const {createHash} = require('node:crypto');
-const {newer,releaseAsset,checkUpdates,downloadUpdate,portableTarget,installerScript} = require('../desktop/updates.cjs');
+const {newer,releaseAsset,checkUpdates,downloadUpdate,portableTarget,installerScript,prepareInstaller} = require('../desktop/updates.cjs');
 const bytes = Buffer.from('a harmless update fixture');
 const hash = createHash('sha256').update(bytes).digest('hex');
 const asset = {name:'Mirros-1.2.0-Windows.exe',size:bytes.length,digest:'sha256:'+hash,browser_download_url:'https://github.com/Cristiant2608/mirros/releases/download/v1.2.0/Mirros-1.2.0-Windows.exe'};
@@ -41,4 +41,25 @@ test('installer keeps literal paths and waits for the old app to close',()=>{
   const win=installerScript({platform:'win32',target:"C:\\O'Brien\\Mirros.exe",download:'C:\\cache\\new',log:'C:\\cache\\log',pid:1234});
   assert(win.includes("O''Brien"));assert(win.includes('Get-Process -Id 1234'));assert(win.includes('Move-Item -LiteralPath $target'));assert(win.includes('.mirros-previous'));
   const linux=installerScript({platform:'linux',target:"/home/O'Brien/Mirros.AppImage",download:'/tmp/new',log:'/tmp/log',pid:1234});assert(linux.includes("O'\\''Brien"));assert(linux.includes('kill -0 1234'));assert(linux.includes('mv -- "$backup" "$target"'));
+});
+
+test('native installer replaces a harmless fixture, keeps backup and rejects changed bytes', {skip:!['win32','linux'].includes(process.platform)}, async()=>{
+  for(const corrupt of [false,true]) {
+    const directory=await fs.mkdtemp(path.join(os.tmpdir(),"mirros-update-O'Brien-"));
+    const target=path.join(directory,process.platform==='win32'?'Mirros.exe':'Mirros.AppImage'),download=path.join(directory,'new.download');
+    try{
+      const payload=process.platform==='win32'?await fs.readFile(path.join(process.env.WINDIR,'System32','where.exe')):Buffer.from('#!/bin/sh\nexit 0\n');
+      const digest=createHash('sha256').update(payload).digest('hex');
+      await fs.writeFile(target,'previous harmless fixture');await fs.writeFile(download,payload);
+      const install=await prepareInstaller({target,download,directory,pid:2147483647,hash:corrupt?'0'.repeat(64):digest});await install();
+      let finished=false;
+      for(let i=0;i<150;i++){
+        try {if(corrupt){await fs.access(path.join(directory,'install-update.log'));if((await fs.stat(path.join(directory,'install-update.log'))).size>0){finished=true;break;}}else if((await fs.readFile(target)).equals(payload)){finished=true;break;}}catch{}
+        await new Promise(r=>setTimeout(r,100));
+      }
+      assert(finished,'native helper did not finish');
+      if(corrupt)assert.equal(await fs.readFile(target,'utf8'),'previous harmless fixture');
+      else {assert.deepEqual(await fs.readFile(target),payload);assert.equal(await fs.readFile(target+'.mirros-previous','utf8'),'previous harmless fixture');}
+    }finally{await new Promise(r=>setTimeout(r,300));await fs.rm(directory,{recursive:true,force:true,maxRetries:10,retryDelay:200});}
+  }
 });

@@ -216,14 +216,14 @@ async function start() {
           const file = await updates.downloadUpdate(updateAsset, directory, {onProgress:progress=>publish({update:{phase:'descargando',message:'Descargando actualización…',progress}})});
           const target = updates.portableTarget(process.platform);
           if (!target) throw new Error('Abre el EXE portátil o el AppImage para instalar la actualización.');
-          const install = await updates.prepareInstaller({target,download:file,directory});
+          const install = await updates.prepareInstaller({target,download:file,directory,hash:updateAsset.hash});
           installUpdate = install;
           publish({update:{phase:'lista',message:'Descarga verificada. Lista para instalar al reiniciar.'}});
         } catch(error) { publish({update:{phase:'error',message:error.message}}); }
         finally { updateBusy = false; }
         return;
       }
-      case 'updatesInstall': if (installUpdate) { installUpdate(); app.quit(); } return;
+      case 'updatesInstall': if (installUpdate) { try { await installUpdate(); app.quit(); } catch(error) { publish({update:{phase:'error',message:'No se pudo iniciar la instalación: '+error.message}}); } } return;
       case 'pin': preferences.alwaysOnTop = value === true; window.setAlwaysOnTop(preferences.alwaysOnTop, 'floating'); break;
       case 'theme': if (['claro', 'oscuro', 'lavanda', 'oceano', 'sistema'].includes(value)) preferences.theme = value; break;
       case 'mode': preferences.mode = value === 'phone' ? 'phone' : 'studio'; createWindow(); break;
