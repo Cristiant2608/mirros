@@ -3,13 +3,13 @@ const {spawn} = require('node:child_process');
 const net = require('node:net');
 const {stopProcess: stop, stopSession} = require('./runtime.cjs');
 
-function createSession({workerArgs, publish, getState, writeLog}) {
+function createSession({workerArgs, publish, getState, writeLog, fetchRequest = fetch, spawnProcess = spawn, stopWorker = stop, endSession = stopSession}) {
   let backendPort = null, backend = null, preparing = null;
   let quitting = false, scanning = false, connecting = false, generation = 0;
   const workers = new Set();
   function spawnWorker(args, udid) {
     const [file, argv] = workerArgs(args);
-    const child = spawn(file, argv, {windowsHide: true, detached: process.platform !== 'win32', env: {...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1', ...(udid ? {PYMOBILEDEVICE3_UDID: udid} : {})}});
+    const child = spawnProcess(file, argv, {windowsHide: true, detached: process.platform !== 'win32', env: {...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1', ...(udid ? {PYMOBILEDEVICE3_UDID: udid} : {})}});
     child.mirrosProcessGroup = process.platform !== 'win32';
     child.stderr.on('data', data => writeLog(data));
     child.on('error', error => writeLog(error.stack + '\n'));
@@ -20,7 +20,7 @@ function createSession({workerArgs, publish, getState, writeLog}) {
       const child = spawnWorker(args);
       workers.add(child); child.once('exit', () => workers.delete(child));
       let output = '';
-      const deadline = setTimeout(() => { stop(child).catch(error => writeLog(String(error))); reject(new Error('Tiempo de espera agotado')); }, timeout);
+      const deadline = setTimeout(() => { stopWorker(child).catch(error => writeLog(String(error))); reject(new Error('Tiempo de espera agotado')); }, timeout);
       child.stdout.on('data', data => { output += data; });
       child.on('error', error => { clearTimeout(deadline); reject(error); });
       child.on('exit', code => {
@@ -42,7 +42,7 @@ function createSession({workerArgs, publish, getState, writeLog}) {
       preparing.stdout.on('data', data => writeLog(data));
       const child = preparing;
       const code = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => { stop(child).catch(error => writeLog(String(error))); reject(new Error('La preparación tardó demasiado. Revisa la conexión y vuelve a intentarlo.')); }, 600000);
+        const timeout = setTimeout(() => { stopWorker(child).catch(error => writeLog(String(error))); reject(new Error('La preparación tardó demasiado. Revisa la conexión y vuelve a intentarlo.')); }, 600000);
         child.once('exit', code => { clearTimeout(timeout); resolve(code); });
         child.once('error', error => { clearTimeout(timeout); reject(error); });
       });
@@ -62,7 +62,7 @@ function createSession({workerArgs, publish, getState, writeLog}) {
       while (Date.now() < deadline && token === generation && !quitting) {
         if (server.exitCode !== null) throw new Error('No se pudo iniciar la pantalla del iPhone.');
         try {
-          const response = await fetch(`http://127.0.0.1:${backendPort}/codec`, {signal: AbortSignal.timeout(8000)});
+          const response = await fetchRequest(`http://127.0.0.1:${backendPort}/codec`, {signal: AbortSignal.timeout(8000)});
           if (response.ok) {
             const codec = await response.json();
             if (codec.codec && codec.description && token === generation && !quitting) { publish({phase: 'conectado', message: 'iPhone conectado por USB.'}); return; }
@@ -78,7 +78,7 @@ function createSession({workerArgs, publish, getState, writeLog}) {
   async function stopBackend() {
     const child = backend, port = backendPort;
     backend = null; backendPort = null;
-    await stopSession(child, port);
+    await endSession(child, port);
   }
   async function scan() {
     const token = generation;
@@ -87,15 +87,26 @@ function createSession({workerArgs, publish, getState, writeLog}) {
     try {
       const result = await workerResult(['status']);
       if (quitting || token !== generation || connecting || ['error', 'pausado', 'cerrando'].includes(getState().phase)) return;
-      if (result.usb_error) {
-        if (!backend) publish({phase: 'buscando', message: process.platform === 'win32' ? 'Revisa el servicio USB de Apple en Dispositivos Apple o iTunes.' : 'No responde usbmuxd. Comprueba el servicio USB.'});
-        return;
-      }
       if (backend) {
-        if (!result.devices.some(item => item.udid === getState().device?.udid)) {
-          ++generation; await stopBackend(); backend = null; backendPort = null;
-          publish({phase: 'buscando', device: null, message: 'Se desconectó el iPhone. Vuelve a conectarlo por USB.'});
+        const device = result.devices?.find(item => item.udid === getState().device?.udid);
+        let healthy = false;
+        try {
+          const response = await fetchRequest(`http://127.0.0.1:${backendPort}/health`, {signal: AbortSignal.timeout(3000)});
+          healthy = response.ok && (await response.json()).healthy === true;
+        } catch {}
+        if (quitting || token !== generation) return;
+        if (!device || result.usb_error || !healthy) {
+          const reset = ++generation;
+          connecting = true;
+          publish({phase:'buscando', message:'La sesión USB se interrumpió. Reconectando…'});
+          try { await stopBackend(); }
+          finally { if (reset === generation) connecting = false; }
+          if (quitting || reset !== generation) return;
+          if (device && !result.usb_error) await connectDevice(device);
+          else publish({phase:'buscando', device:null, message:'Conecta el iPhone por USB y desbloquéalo.'});
         }
+      } else if (result.usb_error) {
+        publish({phase:'buscando', message:process.platform === 'win32' ? 'Revisa el servicio USB de Apple en Dispositivos Apple o iTunes.' : 'No responde usbmuxd. Comprueba el servicio USB.'});
       } else if (result.devices.length === 1) await connectDevice(result.devices[0]);
       else if (result.devices.length > 1) publish({phase: 'seleccion', devices: result.devices, message: 'Elige el iPhone que quieres usar.'});
       else publish({phase: 'buscando', device: null, message: result.usb_error ? 'No responde el servicio USB de Apple. Abre Dispositivos Apple o iTunes y vuelve a intentar.' : 'Conecta tu iPhone por USB y desbloquéalo.'});
@@ -106,7 +117,7 @@ function createSession({workerArgs, publish, getState, writeLog}) {
   async function disconnect() {
     ++generation; connecting = true;
     publish({phase:'cerrando', message:'Liberando teclado y terminando la sesión…'});
-    try { await stop(preparing); preparing = null; await stopBackend(); }
+    try { await stopWorker(preparing); preparing = null; await stopBackend(); }
     finally { connecting = false; }
     publish({phase:'pausado', message:'Sesión terminada. Ya puedes retirar el cable; pulsa Reconectar para volver.'});
   }
@@ -123,7 +134,7 @@ function createSession({workerArgs, publish, getState, writeLog}) {
   }
   async function close() {
     quitting = true; ++generation;
-    await Promise.allSettled([stop(preparing), stopBackend(), ...[...workers].map(child => stop(child))]);
+    await Promise.allSettled([stopWorker(preparing), stopBackend(), ...[...workers].map(child => stopWorker(child))]);
   }
   return {scan, disconnect, retry, select, close, get port() {return backendPort;}};
 }

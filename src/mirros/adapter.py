@@ -94,10 +94,23 @@ async def read_orientation(server):
     return {1: 'portrait', 2: 'portraitUpsideDown', 3: 'landscapeLeft', 4: 'landscapeRight'}[int(value)]
 
 
+def session_health(server):
+    """Cached codec data does not prove that the USB tunnel is still usable."""
+    try:
+        connection = server._rsd.service
+        if connection.reader.at_eof() or connection.writer.is_closing():
+            return {'healthy': False, 'reason': 'transport_closed'}
+    except Exception:
+        return {'healthy': False, 'reason': 'transport_closed'}
+    last_frame = server._last_good_au_t or getattr(server, '_mirros_started', 0)
+    age = asyncio.get_running_loop().time() - last_frame
+    return {'healthy': age < 20, 'reason': 'ok' if age < 20 else 'video_stalled'}
+
+
 async def orientation_connection(server, reader, writer, original):
     line = await reader.readline()
     request = line.split()[:2]
-    if request not in ([b'GET', b'/orientation'], [b'POST', b'/session/end'], [b'GET', b'/frames.bin']):
+    if request not in ([b'GET', b'/orientation'], [b'POST', b'/session/end'], [b'GET', b'/frames.bin'], [b'GET', b'/health']):
         return await original(server, PrefixedReader(line, reader), writer)
     headers = {}
     while True:
@@ -117,6 +130,11 @@ async def orientation_connection(server, reader, writer, original):
         task = getattr(server, '_mirros_serve_task', None)
         if task is not None:
             asyncio.get_running_loop().call_later(.1, task.cancel)
+    elif request == [b'GET', b'/health']:
+        health = session_health(server)
+        body = json.dumps(health).encode()
+        status = b'200 OK' if health['healthy'] else b'503 Service Unavailable'
+        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
     else:
         try:
             orientation = await asyncio.wait_for(read_orientation(server), 3)
@@ -187,6 +205,7 @@ def configure_viewer() -> None:
     screen_stream.ScreenStreamServer._stop_hid = safe_stop
     original_serve = screen_stream.ScreenStreamServer.serve
     async def cancellable_serve(server):
+        server._mirros_started = asyncio.get_running_loop().time()
         server._mirros_serve_task = asyncio.current_task()
         return await original_serve(server)
     screen_stream.ScreenStreamServer.serve = cancellable_serve

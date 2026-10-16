@@ -1,5 +1,9 @@
 # Integración pendiente de publicación
 
+- Corrige portapapeles para la API asíncrona de Electron y añade una prueba nativa.
+- Reinicia sesiones con túnel cerrado tras reconectar el mismo teléfono.
+- Elimina los avisos de npm audit conservando el empaquetador y valida proxy en CI.
+
 - Integra el PR #1 conservando el paquete y comando `mirros`; mantiene el alias `ios-scrcpy`.
 - Separa sesión USB de las ventanas Electron y conexión/video/audio/entrada de React.
 - Aísla y comprueba el contrato del backend; corrige SIGTERM y liberación de procesos.

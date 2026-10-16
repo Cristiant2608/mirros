@@ -7,6 +7,7 @@ export function usePhoneVideo(canvas, connected, floating) {
   const video = useRef(null), frames = useRef(0), lastFrameAt = useRef(0);
   useEffect(() => {
     if (!connected || !canvas.current) { setLive(false); return; }
+    setLive(false); setFps(0); frames.current = 0; lastFrameAt.current = 0;
     const stop = startVideo(canvas.current, {onFrame: value => { frames.current = value; lastFrameAt.current = performance.now(); setLive(true); }, onStatus: setVideoStatus,
       onDimensions: value => { setDimensions(value); native('dimensions', value); }, onRotation: setRotation});
     video.current = stop;

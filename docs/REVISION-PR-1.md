@@ -34,7 +34,8 @@ no aprueba ni fusiona el PR en GitHub y no publica una versión.
 - Instalación editable, `pip check`, ayuda del backend, CLI y alias, compilación React y sintaxis Bash comprobadas.
 - Con iPhone real en Linux se comprobó preparación DDI, conexión USB, video de 1184 × 2576 y lectura de 60 fps del visor. El usuario confirmó imagen, clic y arrastre, teclado sostenido y audio. La desconexión segura dejó la sesión pausada y el backend confirmó su cierre.
 - Los checks Windows/Linux y paquetes del PR original figuraban aprobados al revisarlo. Los cambios de esta rama necesitan su propia ejecución de CI en GitHub; no se consideran certificados por los checks anteriores.
-- `npm audit` identifica ocho avisos moderados en la cadena de herramientas de `electron-builder` a través de `sprintf-js`. No se aplicó la degradación de herramientas sugerida por `audit fix --force`: actualizar esa cadena requiere comprobar ambos paquetes. No hay avisos altos o críticos en ese informe.
+- Seguimiento: se eliminó la cadena vulnerable de `sprintf-js` mediante un override de `global-agent` 4.1.3 limitado a `@electron/get`, conservando electron-builder. `npm audit` no reporta vulnerabilidades. Una prueba con proxy HTTP local comprueba el bootstrap usado por el empaquetador.
+- La prueba física posterior detectó API de portapapeles antigua y una sesión congelada al reconectar. Se migró a ClipboardItem y operaciones asíncronas de Electron, con prueba nativa de texto/PNG en ambos sentidos. El endpoint `/health` detecta túneles cerrados y falta prolongada de fotogramas; el escritorio crea una sesión nueva aunque reaparezca el mismo UDID.
 
 Las pruebas físicas de portapapeles, teclado después de retirar el cable y comportamiento
 con otros compositores/distribuciones deben registrarse antes de publicar. No se

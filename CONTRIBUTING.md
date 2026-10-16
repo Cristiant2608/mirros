@@ -16,6 +16,8 @@ Después: `npm ci`, `node node_modules/electron/install.js`, `npm run build`.
 .venv/bin/python -m pip check
 .venv/bin/python -m unittest discover -s tests -v
 npm test
+npm run audit
+npm run verify:build-proxy
 npm run build
 bash -n setup.sh build-linux.sh bin/mirros bin/ios-scrcpy
 ```
@@ -49,3 +51,11 @@ Para cambiar la versión, edita solo `pyproject.toml` y ejecuta
 `npm run version:sync`; incluye ambos manifiestos Node y el changelog en el PR.
 `npm run version:check` valida la sincronización y se ejecuta antes de pruebas
 y compilación. La [guía de publicación](docs/ACTUALIZACIONES.md) describe las etiquetas.
+
+La prueba `npm run verify:clipboard` ejecuta Electron real, usa texto/PNG de prueba y
+restaura el portapapeles original. Necesita una sesión gráfica; CI Linux la ejecuta
+con `xvfb-run -a`. La auditoría y el proxy se comprueban en ambas plataformas.
+
+El override de `@electron/get` a `global-agent` 4.1.3 elimina `sprintf-js` (sin
+versión corregida). Mantén el override hasta que el empaquetador resuelva esa
+cadena; al cambiarlo ejecuta la prueba de proxy, la auditoría y ambos paquetes.

@@ -5,6 +5,41 @@ from unittest.mock import AsyncMock
 from mirros.adapter import warm_input
 
 
+class SessionHealthTests(unittest.IsolatedAsyncioTestCase):
+    def server(self, *, closed=False, age=0):
+        import asyncio
+        connection = SimpleNamespace(reader=SimpleNamespace(at_eof=lambda: closed),
+                                     writer=SimpleNamespace(is_closing=lambda: closed))
+        return SimpleNamespace(_rsd=SimpleNamespace(service=connection),
+                               _last_good_au_t=asyncio.get_running_loop().time() - age)
+
+    async def test_closed_tunnel_is_unhealthy_even_with_a_cached_recent_frame(self):
+        from mirros.adapter import session_health
+        self.assertEqual(session_health(self.server(closed=True)),
+                         {'healthy': False, 'reason': 'transport_closed'})
+
+    async def test_no_video_progress_eventually_requests_a_fresh_session(self):
+        from mirros.adapter import session_health
+        self.assertTrue(session_health(self.server(age=5))['healthy'])
+        self.assertEqual(session_health(self.server(age=21)),
+                         {'healthy': False, 'reason': 'video_stalled'})
+
+    async def test_health_endpoint_rejects_a_dead_transport(self):
+        import asyncio
+        from unittest.mock import Mock
+        from mirros.adapter import orientation_connection
+        server = self.server(closed=True)
+        server._refuse_request = Mock(return_value=None)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        body = writer.write.call_args.args[0]
+        self.assertIn(b'503 Service Unavailable', body)
+        self.assertIn(b'transport_closed', body)
+
+
 class BackendContractTests(unittest.TestCase):
     def test_incompatible_backend_is_rejected_before_mutating_it(self):
         from mirros.adapter import check_backend_contract

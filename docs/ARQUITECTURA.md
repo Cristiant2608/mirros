@@ -33,7 +33,9 @@ importar Electron. `runtime.cjs` aporta rutas portables y terminación por siste
 
 Las ventanas no poseen el transporte. Cambiar entre panel y teléfono flotante
 conserva la sesión. Una generación de conexión impide que resultados de consultas
-antiguas reinicien una sesión pausada o cerrada. `updates.cjs` verifica y prepara
+antiguas reinicien una sesión pausada o cerrada. El sondeo de `/health` detecta
+túneles cerrados y más de 20 segundos sin fotogramas, y reconstruye la sesión
+aunque el mismo teléfono haya vuelto entre dos escaneos USB. `updates.cjs` verifica y prepara
 actualizaciones; `clipboard.cjs` solo transfiere contenido por una acción explícita.
 
 ## Interfaz (`frontend/src`)

@@ -1,7 +1,7 @@
 name: Desktop packages
 on:
   push:
-    branches: [main]
+    branches: [main, 'improve/**']
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -69,6 +69,12 @@ jobs:
           .venv/bin/python -m pip check
           .venv/bin/python -m unittest discover -s tests -v
           ./build-linux.sh
+      - name: Verify native Windows clipboard
+        if: runner.os == 'Windows'
+        run: npm run verify:clipboard
+      - name: Verify native Linux clipboard
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run verify:clipboard
       - name: Smoke test Windows desktop
         if: runner.os == 'Windows'
         run: node scripts/smoke-desktop.mjs dist/windows/win-unpacked/Mirros.exe

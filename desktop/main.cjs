@@ -1,4 +1,4 @@
-const {app, BrowserWindow, ipcMain, screen, dialog, shell, clipboard, nativeImage} = require('electron');
+const {app, BrowserWindow, ipcMain, screen, dialog, shell, clipboard, ClipboardItem, nativeImage} = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
@@ -186,7 +186,10 @@ async function start() {
       case 'minimize': window.minimize(); return;
       case 'maximize': window.isMaximized() ? window.unmaximize() : window.maximize(); return;
       case 'close': app.quit(); return;
-      case 'clipboard': return shareClipboard({clipboard, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value);
+      case 'clipboard': {
+        try { return await shareClipboard({clipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
+        catch (error) { logStream.write(`[clipboard] ${value}: ${error.message}\n`); throw error; }
+      }
       case 'disconnect': await session.disconnect(); return;
       case 'retry': await session.retry(); return;
       case 'device': await session.select(value); return;

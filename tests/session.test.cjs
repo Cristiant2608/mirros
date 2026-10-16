@@ -1,6 +1,8 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {createSession} = require('../desktop/session.cjs');
+const {EventEmitter} = require('node:events');
+const {PassThrough} = require('node:stream');
 
 function fixture(code) {
   let state = {phase:'buscando'}, calls = 0;
@@ -50,4 +52,69 @@ test('closing cancels an outstanding scan and prevents future workers', async ()
   await f.session.scan();
   assert.equal(f.calls(), 1);
   assert.equal(f.session.port, null);
+});
+
+function connectedFixture() {
+  let state = {phase:'buscando'}, healthy = true, serves = 0;
+  let healthReply;
+  const active = new Set();
+  const stopWorker = async child => {
+    if (!child || child.exitCode !== null) return;
+    active.delete(child); child.exitCode = 0; child.emit('exit', 0);
+  };
+  const session = createSession({
+    workerArgs: args => ['fake-worker', args],
+    spawnProcess: (_file, args) => {
+      const child = Object.assign(new EventEmitter(), {stdout:new PassThrough(), stderr:new PassThrough(), pid:1, exitCode:null});
+      active.add(child);
+      if (args[0] === 'serve') {serves++; healthy = true;}
+      else queueMicrotask(() => {
+        if (args[0] === 'status') child.stdout.write(JSON.stringify({devices:[{udid:'same-phone'}]}));
+        stopWorker(child);
+      });
+      return child;
+    },
+    fetchRequest: async url => {
+      if (url.endsWith('/health') && healthReply) return await healthReply();
+      return {ok:true, json:async () => url.endsWith('/health') ? {healthy} : {codec:'fixture', description:'fixture'}};
+    },
+    stopWorker,
+    endSession: stopWorker,
+    publish: patch => {state = {...state, ...patch};},
+    getState: () => state,
+    writeLog: () => {},
+  });
+  return {session, state:() => state, serves:() => serves, active,
+    loseTunnel:() => {healthy = false;}, deferHealth:callback => {healthReply = callback;}};
+}
+
+test('a lost tunnel restarts even when USB discovery sees the same reconnected phone', async () => {
+  const f = connectedFixture();
+  try {
+    await f.session.scan(); assert.equal(f.state().phase, 'conectado');
+    f.loseTunnel();
+    await f.session.scan();
+    assert.equal(f.serves(), 2);
+    assert.equal(f.state().phase, 'conectado');
+    assert.equal(f.active.size, 1);
+  } finally {await f.session.close();}
+  assert.equal(f.active.size, 0);
+});
+
+test('an obsolete health result cannot reconnect after the user pauses', async () => {
+  const f = connectedFixture();
+  try {
+    await f.session.scan();
+    let begin, finish;
+    const began = new Promise(resolve => {begin = resolve;});
+    f.deferHealth(() => new Promise(resolve => {finish = resolve; begin();}));
+    const scan = f.session.scan();
+    await began;
+    await f.session.disconnect();
+    finish({ok:false});
+    await scan;
+    assert.equal(f.state().phase, 'pausado');
+    assert.equal(f.serves(), 1);
+    assert.equal(f.active.size, 0);
+  } finally {await f.session.close();}
 });

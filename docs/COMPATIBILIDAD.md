@@ -8,7 +8,7 @@ Windows y Linux usan la misma interfaz React y los mismos módulos de entrada, a
 | Video HEVC | WebCodecs y alternativa PyAV | WebCodecs si está disponible; alternativa PyAV |
 | Decodificación por software | Probada con HEVC real generado | Misma prueba en Ubuntu |
 | Toques, rueda y teclado | Pruebas de orden, precisión y liberación | Mismas pruebas, más cierre POSIX de descendientes |
-| Audio AAC-ELD | PyAV; sonido comprobado con iPhone | PyAV; configuración y pruebas aprobadas; sonido físico pendiente |
+| Audio AAC-ELD | PyAV; sonido comprobado con iPhone | PyAV; configuración y sonido confirmados en Linux |
 | Portapapeles texto/PNG | Pruebas automatizadas; nueva transferencia física pendiente | Mismo código y pruebas; transferencia física pendiente |
 | Ventana flotante, transparencia y siempre encima | Ventana nativa Electron | Ventana Electron; depende del compositor, especialmente Wayland |
 | Actualizaciones | EXE portátil original | AppImage original |
@@ -22,7 +22,7 @@ Windows y Linux usan la misma interfaz React y los mismos módulos de entrada, a
 
 ## Qué queda fuera de CI
 
-Los runners no tienen conectado un iPhone. No pueden certificar imagen, audio, confianza, DDI, portapapeles, respuesta táctil, latencia ni recuperación del teclado de iOS en un dispositivo físico. El desarrollo verificó imagen, audio, desplazamiento y orientación en Windows, pero una prueba física equivalente en Linux sigue pendiente.
+Los runners no tienen conectado un iPhone. No pueden certificar imagen, audio, confianza, DDI, portapapeles, respuesta táctil, latencia ni recuperación del teclado de iOS en un dispositivo físico. El autor del PR informó pruebas de imagen, audio, desplazamiento y orientación en Windows. En esta integración, el usuario confirmó imagen, clic/arrastre, teclado sostenido y audio en Linux; la orientación física y el resto de versiones y sistemas requieren validaciones separadas.
 
 La recuperación del teclado después de una retirada brusca del cable y las transferencias nuevas de texto/PNG también deben probarse físicamente. La salida segura debe usarse antes de quitar USB para permitir que el teléfono reciba la limpieza.
 
