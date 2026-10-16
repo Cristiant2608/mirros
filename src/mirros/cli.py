@@ -51,6 +51,12 @@ def main() -> None:
         help="Ejecutable de navegador específico a utilizar (ej. chromium, brave-browser).",
     )
 
+    parser.add_argument(
+        "--display-mode",
+        choices=["dual", "aod"],
+        default="dual",
+        help="Modo de pantalla física: 'dual' (evitar reposo) o 'aod' (solicitar reposo experimental; la captura puede detenerse).",
+    )
     parser.add_argument("--no-audio", dest="audio", action="store_false", help="Desactiva el audio (por defecto).")
     parser.add_argument("--diagnose", action="store_true", help="Comprueba Python, navegador y USB sin iniciar la transmisión.")
 
@@ -65,6 +71,7 @@ def main() -> None:
         udid=args.udid,
         browser_bin=args.browser,
         diagnose=args.diagnose,
+        display_mode=args.display_mode,
     )
     sys.exit(exit_code)
 

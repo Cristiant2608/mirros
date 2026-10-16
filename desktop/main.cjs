@@ -7,6 +7,7 @@ const systemClipboard = waylandClipboard(clipboard, ClipboardItem);
 const {shareClipboard, clipboardShortcut} = require('./clipboard.cjs');
 const updates = require('./updates.cjs');
 const {createSession} = require('./session.cjs');
+const {deviceRequest} = require('./device-request.cjs');
 const {workerArgs: buildWorkerArgs, resizeBounds, orientedBounds} = require('./runtime.cjs');
 
 app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport');
@@ -19,7 +20,7 @@ else { app.whenReady().then(start).catch(error => { exitCode = 1; dialog.showErr
 let window, proxyServer, guiPort, logStream, timer, session;
 let quitting = false, switching = false;
 let exitCode = 0;
-let preferences = {alwaysOnTop: false, mode: 'studio', size: 'mediano', theme: 'claro', floatingBounds: null, controlsVisible: true};
+let preferences = {alwaysOnTop: false, mode: 'studio', size: 'mediano', theme: 'claro', floatingBounds: null, controlsVisible: true, displayMode: 'dual'};
 let resizing = null, updateAsset = null, updateBusy = false, installUpdate = null;
 const version = app.getVersion();
 async function checkForUpdates() {
@@ -32,7 +33,7 @@ async function checkForUpdates() {
 let state = {phase: 'buscando', message: 'Conecta tu iPhone por USB', device: null, version:app.getVersion(), update:{phase:'inactivo',message:'Actualizaciones desde GitHub'}, ...preferences};
 let aspectRatio = 1264 / 2752;
 const root = path.resolve(__dirname, '..');
-const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard']);
+const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard', '/display-mode', '/wake']);
 const assets = new Map([['/', ['index.html', 'text/html']], ['/viewer.js', ['viewer.js', 'application/javascript']], ['/viewer.css', ['viewer.css', 'text/css']], ['/audio-worklet.js', ['audio-worklet.js', 'application/javascript']]]);
 
 function publish(patch = {}) {
@@ -86,7 +87,7 @@ async function start() {
     const saved = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'preferencias.json')));
     const bounds = saved.floatingBounds;
     const floatingBounds = bounds && Number.isFinite(bounds.width) && Number.isFinite(bounds.height) && bounds.width >= 240 && bounds.width <= 8192 && bounds.height >= 360 && bounds.height <= 8192 ? {width: Math.round(bounds.width), height: Math.round(bounds.height)} : null;
-    preferences = {alwaysOnTop: saved.alwaysOnTop === true, mode: saved.mode === 'phone' ? 'phone' : 'studio', size: ['pequeño', 'mediano', 'grande'].includes(saved.size) ? saved.size : 'mediano', theme: ['claro', 'oscuro', 'lavanda', 'oceano', 'sistema'].includes(saved.theme) ? saved.theme : 'claro', floatingBounds, controlsVisible: saved.controlsVisible !== false};
+    preferences = {alwaysOnTop: saved.alwaysOnTop === true, mode: saved.mode === 'phone' ? 'phone' : 'studio', size: ['pequeño', 'mediano', 'grande'].includes(saved.size) ? saved.size : 'mediano', theme: ['claro', 'oscuro', 'lavanda', 'oceano', 'sistema'].includes(saved.theme) ? saved.theme : 'claro', floatingBounds, controlsVisible: saved.controlsVisible !== false, displayMode: ['dual', 'aod'].includes(saved.displayMode) ? saved.displayMode : 'dual'};
   } catch {}
   logStream = fs.createWriteStream(path.join(app.getPath('userData'), 'mirros.log'), {flags: 'a'});
   session = createSession({
@@ -195,6 +196,19 @@ async function start() {
       case 'clipboardShortcut': {
         try { return await clipboardShortcut({clipboard:systemClipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }
         catch (error) { logStream.write(`[clipboard-shortcut] ${value}: ${error.message}\n`); throw error; }
+      }
+      case 'displayMode': {
+        if (['dual', 'aod'].includes(value)) {
+          if (session?.port) {
+            await deviceRequest(fetch, session.port, '/display-mode', {mode:value});
+          }
+          preferences.displayMode = value;
+        }
+        break;
+      }
+      case 'wake': {
+        await deviceRequest(fetch, session?.port, '/wake');
+        return 'Despertando iPhone…';
       }
       case 'disconnect': await session.disconnect(); return;
       case 'retry': await session.retry(); return;

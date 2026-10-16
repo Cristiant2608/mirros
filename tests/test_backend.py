@@ -253,3 +253,56 @@ class EarlyTimerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sleep.await_count, 3)
         original.assert_awaited_once()
         self.assertIsNone(server._mirros_contact_at)
+
+
+class DisplayModeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_display_mode_default_and_toggle(self):
+        from mirros.adapter import get_display_mode, set_display_mode
+        server = SimpleNamespace(_hid_lock=asyncio.Lock(), _ensure_hid=AsyncMock(), _uhs=None,
+                                 _indigo=SimpleNamespace(send_button=AsyncMock()))
+        self.assertEqual(get_display_mode(server), {'mode': 'dual', 'keepAwake': True})
+        result = await set_display_mode(server, 'aod')
+        self.assertEqual(result, {'mode': 'aod', 'keepAwake': False})
+        self.assertEqual(get_display_mode(server), {'mode': 'aod', 'keepAwake': False})
+        result = await set_display_mode(server, 'dual')
+        self.assertEqual(result, {'mode': 'dual', 'keepAwake': True})
+        self.assertEqual(get_display_mode(server), {'mode': 'dual', 'keepAwake': True})
+
+    async def test_display_mode_endpoints(self):
+        from unittest.mock import Mock
+        from mirros.adapter import orientation_connection
+        server = SimpleNamespace(_mirros_display_mode='dual', _mirros_keep_awake=True,
+                                 _refuse_request=Mock(return_value=None),
+                                 _read_body=AsyncMock(return_value=b'{"mode":"aod"}'),
+                                 _hid_lock=asyncio.Lock(), _ensure_hid=AsyncMock(), _uhs=None,
+                                 _indigo=SimpleNamespace(send_button=AsyncMock()))
+        # Test GET /display-mode
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'GET /display-mode HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        self.assertIn(b'"mode": "dual"', writer.write.call_args.args[0])
+
+        # Test POST /display-mode
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'POST /display-mode HTTP/1.1\r\nHost: localhost\r\nContent-Length: 14\r\n\r\n{"mode":"aod"}')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        self.assertIn(b'"mode": "aod"', writer.write.call_args.args[0])
+        self.assertIn(b'"keepAwake": false', writer.write.call_args.args[0])
+
+    async def test_wake_endpoint(self):
+        from unittest.mock import Mock
+        from mirros.adapter import orientation_connection
+        uhs = SimpleNamespace(send_touchscreen=AsyncMock())
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None),
+                                 _hid_lock=asyncio.Lock(), _ensure_hid=AsyncMock(), _uhs=uhs)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'POST /wake HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        self.assertIn(b'"status": "ok"', writer.write.call_args.args[0])
+        self.assertTrue(uhs.send_touchscreen.awaited)
