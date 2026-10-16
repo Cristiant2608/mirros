@@ -2,6 +2,7 @@ const {app, BrowserWindow, ipcMain, screen, dialog, shell, clipboard, ClipboardI
 const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
+const {attachControlProxy} = require('./control-proxy.cjs');
 const {waylandClipboard} = require('./wayland-clipboard.cjs');
 const systemClipboard = waylandClipboard(clipboard, ClipboardItem);
 const {shareClipboard, clipboardShortcut} = require('./clipboard.cjs');
@@ -117,6 +118,7 @@ async function start() {
     proxy.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
     res.on('close', () => proxy.destroy()); req.pipe(proxy);
   });
+  attachControlProxy(proxyServer, () => session.port);
   await new Promise((resolve, reject) => { proxyServer.once('error', reject); proxyServer.listen(0, '127.0.0.1', resolve); });
   guiPort = proxyServer.address().port;
   ipcMain.handle('mirros:state', () => ({...state, alwaysOnTop: window?.isAlwaysOnTop() ?? preferences.alwaysOnTop}));

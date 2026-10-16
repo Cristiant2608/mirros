@@ -45,6 +45,24 @@ controles compartidos. `hooks` separa suscripción al estado, video/orientación
 audio y entrada. `input.js`, `orientation.js`, `video.js` y `audio.js` contienen
 la lógica de gestos y medios; `transport.js` concentra las solicitudes de control.
 
+El cliente intenta `/control` con WebSocket y subprotocolo `mirros-control-v1`
+para contactos, liberaciones y conjuntos completos de teclas. `control.py`
+valida tramas binarias y confirma después de procesar cada orden HID; solo hay
+una orden pendiente por cliente. Los manejadores comparten un bloqueo con la
+entrada HTTP. El proxy de Electron admite el upgrade únicamente en esa ruta y
+con origen local válido. Al cerrar el socket se libera la entrada.
+
+Si no se establece el canal, el cliente conserva POST HTTP y espera cinco
+segundos antes de volver a intentar WebSocket. Si una orden ya se envió y se
+pierde su confirmación, devuelve error sin repetirla por HTTP. Botones,
+portapapeles y demás acciones conservan sus rutas HTTP.
+
+`controlStats()` en el módulo de transporte devuelve contadores y la última
+duración cliente→confirmación y de despacho en el servidor, sin registrar
+coordenadas ni teclas. Son tiempos del transporte/HID, no latencia hasta que el
+cambio aparece en pantalla. Las respuestas HTTP anteriores confirman encolado,
+por lo que no deben compararse directamente con estas confirmaciones de despacho.
+
 Las teclas sostenidas renuevan su concesión al backend; perder el foco libera la
 entrada. Si desaparece la ventana, la concesión vence para evitar teclas atascadas.
 
