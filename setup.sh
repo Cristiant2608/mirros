@@ -41,15 +41,29 @@ fi
 
 # 3. Entorno virtual Python y dependencias
 echo -e "\n[*] Verificando entorno virtual de Python..."
-if [ ! -x "$PROJECT_DIR/.venv/bin/python" ]; then
-    echo "[*] Creando .venv e instalando dependencias..."
-    python3 -m venv "$PROJECT_DIR/.venv"
+if command -v uv &> /dev/null; then
+    echo "[+] uv detectado: acelerando entorno virtual y dependencias..."
+    if [ ! -x "$PROJECT_DIR/.venv/bin/python" ]; then
+        echo "[*] Creando .venv con uv..."
+        uv venv "$PROJECT_DIR/.venv"
+    else
+        echo "[+] Entorno virtual existente en $PROJECT_DIR/.venv"
+    fi
+    "$PROJECT_DIR/.venv/bin/python" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else "MirrOS requiere Python 3.10+.")'
+    uv pip install -e "$PROJECT_DIR" --python "$PROJECT_DIR/.venv/bin/python"
+    uv pip check --python "$PROJECT_DIR/.venv/bin/python"
 else
-    echo "[+] Entorno virtual existente en $PROJECT_DIR/.venv"
+    echo "[*] uv no detectado; utilizando python3 estándar..."
+    if [ ! -x "$PROJECT_DIR/.venv/bin/python" ]; then
+        echo "[*] Creando .venv e instalando dependencias..."
+        python3 -m venv "$PROJECT_DIR/.venv"
+    else
+        echo "[+] Entorno virtual existente en $PROJECT_DIR/.venv"
+    fi
+    "$PROJECT_DIR/.venv/bin/python" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else "MirrOS requiere Python 3.10+.")'
+    "$PROJECT_DIR/.venv/bin/python" -m pip install -e "$PROJECT_DIR"
+    "$PROJECT_DIR/.venv/bin/python" -m pip check
 fi
-"$PROJECT_DIR/.venv/bin/python" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else "MirrOS requiere Python 3.10+.")'
-"$PROJECT_DIR/.venv/bin/python" -m pip install -e "$PROJECT_DIR"
-"$PROJECT_DIR/.venv/bin/python" -m pip check
 
 # 4. Enlace simbólico en ~/.local/bin
 mkdir -p "$LOCAL_BIN"

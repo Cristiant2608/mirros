@@ -14,13 +14,14 @@ if (tagIndex >= 0 && args[tagIndex + 1] !== `v${version}`) {
 }
 for (const name of ['package.json', 'package-lock.json']) {
   const filename = path.join(root, name);
+  if (!fs.existsSync(filename)) continue;
   const data = JSON.parse(fs.readFileSync(filename, 'utf8'));
   if (args.includes('--write')) {
     data.version = version;
     if (data.packages?.['']) data.packages[''].version = version;
     fs.writeFileSync(filename, JSON.stringify(data, null, 2) + '\n');
   } else if (data.version !== version || (data.packages?.[''] && data.packages[''].version !== version)) {
-    throw new Error(`${name} no coincide con ${version}. Ejecuta npm run version:sync.`);
+    throw new Error(`${name} no coincide con ${version}. Ejecuta pnpm run version:sync.`);
   }
 }
 console.log(`MirrOS ${version}: versiones sincronizadas.`);

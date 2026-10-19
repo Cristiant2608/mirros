@@ -14,7 +14,8 @@ if sys.platform == 'win32':
     datas += [(str(wintun / 'LICENSE.txt'), 'pytun_pmd3/wintun')]
 datas += copy_metadata('pymobiledevice3', recursive=True)
 datas += copy_metadata('mirros')
-for package in ('pymobiledevice3', 'developer_disk_image', 'pytcp'):
+datas += copy_metadata('pykdebugparser')
+for package in ('pymobiledevice3', 'developer_disk_image', 'pytcp', 'pykdebugparser'):
     data, binary, imports = collect_all(package)
     datas += data
     binaries += binary

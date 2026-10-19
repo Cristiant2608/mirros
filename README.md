@@ -80,10 +80,10 @@ alias del comando `mirros`, también en Windows mediante `ios-scrcpy.cmd`.
 Después de configurar Python:
 
 ```bash
-npm ci
+pnpm install
 node node_modules/electron/install.js
-npm run build
-npm start
+pnpm run build
+pnpm start
 ```
 
 El escritorio incluye video, gestos, teclado, audio, capturas, copiar/pegar con Ctrl+C y Ctrl+V,
