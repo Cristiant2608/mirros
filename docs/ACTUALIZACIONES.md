@@ -17,7 +17,7 @@ la reversión es manual usando esa copia. El registro se guarda en
 
 ## Publicar
 
-1. Edita la versión `X.Y.Z` en `pyproject.toml` y ejecuta `npm run version:sync`.
+1. Edita la versión `X.Y.Z` en `pyproject.toml` y ejecuta `pnpm run version:sync`.
    Actualiza el changelog y abre el PR.
 2. Espera las pruebas Python/JavaScript, compilación React, paquetes y pruebas
    de arranque/cierre de Windows y Linux. Completa la lista física de

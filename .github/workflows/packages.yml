@@ -44,11 +44,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: astral-sh/setup-uv@v5
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-      - run: python -m venv .venv
+          cache: pnpm
+      - run: uv venv .venv
       - name: Install Linux desktop libraries
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libfuse2 libgtk-3-0 libnss3 libasound2 xvfb
@@ -56,9 +58,9 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          .venv/Scripts/python.exe -m pip install -e .
+          uv pip install -e . --python .venv/Scripts/python.exe
           if ($LASTEXITCODE -ne 0) { throw "Python installation failed" }
-          .venv/Scripts/python.exe -m pip check
+          uv pip check --python .venv/Scripts/python.exe
           if ($LASTEXITCODE -ne 0) { throw "Dependency checks failed" }
           .venv/Scripts/python.exe -m unittest discover -s tests -v
           if ($LASTEXITCODE -ne 0) { throw "Python checks failed" }
@@ -68,16 +70,16 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: '1'
         run: |
-          .venv/bin/python -m pip install -e .
-          .venv/bin/python -m pip check
+          uv pip install -e . --python .venv/bin/python
+          uv pip check --python .venv/bin/python
           .venv/bin/python -m unittest discover -s tests -v
           ./build-linux.sh
       - name: Verify native Windows clipboard
         if: runner.os == 'Windows'
-        run: npm run verify:clipboard
+        run: pnpm run verify:clipboard
       - name: Verify native Linux clipboard
         if: runner.os == 'Linux'
-        run: xvfb-run -a npm run verify:clipboard
+        run: xvfb-run -a pnpm run verify:clipboard
       - name: Smoke test Windows desktop
         if: runner.os == 'Windows'
         run: node scripts/smoke-desktop.mjs dist/windows/win-unpacked/Mirros.exe

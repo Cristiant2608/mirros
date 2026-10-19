@@ -6,19 +6,18 @@ los cambios visuales y las modificaciones de publicación cuando sea posible.
 
 ## Preparación
 
-Linux: `./setup.sh`. Windows: `./setup.ps1`.
-Después: `npm ci`, `node node_modules/electron/install.js`, `npm run build`.
-`npm start` abre el escritorio; `mirros` abre el visor del backend en un navegador.
+Linux: `./setup.sh`. Windows: `./setup.ps1` (acelerados con `uv` si está instalado).
+Después: `pnpm install`, `node node_modules/electron/install.js`, `pnpm run build`.
+`pnpm start` abre el escritorio; `mirros` abre el visor del backend en un navegador.
 
 ## Comprobaciones
 
 ```bash
-.venv/bin/python -m pip check
 .venv/bin/python -m unittest discover -s tests -v
-npm test
-npm run audit
-npm run verify:build-proxy
-npm run build
+pnpm test
+pnpm run audit
+pnpm run verify:build-proxy
+pnpm run build
 bash -n setup.sh build-linux.sh bin/mirros bin/ios-scrcpy
 ```
 
@@ -42,14 +41,14 @@ Los paquetes, entornos virtuales y dependencias instaladas tampoco se versionan.
 
 ## Dependencias y versiones
 
-Usa `npm ci` y conserva `package-lock.json`. La versión del backend se fija en
+Usa `pnpm install` y conserva `pnpm-lock.yaml`. La versión del backend se fija en
 `pyproject.toml`; actualizarla requiere revisar el contrato del adaptador, las
 pruebas de HEVC/HID y el dispositivo físico. No cambies dependencias con
-`npm audit fix --force` sin revisar compatibilidad.
+`pnpm audit` sin revisar compatibilidad.
 
 Para cambiar la versión, edita solo `pyproject.toml` y ejecuta
-`npm run version:sync`; incluye ambos manifiestos Node y el changelog en el PR.
-`npm run version:check` valida la sincronización y se ejecuta antes de pruebas
+`pnpm run version:sync`; incluye el manifiesto Node y el changelog en el PR.
+`pnpm run version:check` valida la sincronización y se ejecuta antes de pruebas
 y compilación. La [guía de publicación](docs/ACTUALIZACIONES.md) describe las etiquetas.
 
 La prueba `npm run verify:clipboard` ejecuta Electron real, usa texto/PNG de prueba y
