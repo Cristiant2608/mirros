@@ -21,7 +21,22 @@
     "type": "git",
     "url": "git+https://github.com/Cristiant2608/mirros.git"
   },
-  "keywords": [],
+  "keywords": [
+    "iphone-mirroring",
+    "ios",
+    "iphone",
+    "scrcpy",
+    "ios-scrcpy",
+    "screen-mirroring",
+    "remote-control",
+    "usb",
+    "windows",
+    "linux",
+    "electron",
+    "pymobiledevice3",
+    "hevc",
+    "webcodecs"
+  ],
   "author": "Cristian Torres",
   "license": "MIT",
   "type": "commonjs",

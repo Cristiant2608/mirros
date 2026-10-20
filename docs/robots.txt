@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://cristiant2608.github.io/mirros/sitemap.xml
