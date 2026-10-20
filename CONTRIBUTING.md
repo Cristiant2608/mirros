@@ -51,7 +51,7 @@ Para cambiar la versión, edita solo `pyproject.toml` y ejecuta
 `pnpm run version:check` valida la sincronización y se ejecuta antes de pruebas
 y compilación. La [guía de publicación](docs/ACTUALIZACIONES.md) describe las etiquetas.
 
-La prueba `npm run verify:clipboard` ejecuta Electron real, usa texto/PNG de prueba y
+La prueba `pnpm run verify:clipboard` ejecuta Electron real, usa texto/PNG de prueba y
 restaura el portapapeles original. Necesita una sesión gráfica; CI Linux la ejecuta
 con `xvfb-run -a`. La auditoría y el proxy se comprueban en ambas plataformas.
 

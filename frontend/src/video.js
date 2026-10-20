@@ -2,9 +2,9 @@ import {iosScrcpyHevcDimensions} from '../../src/mirros/assets/hevc_dimensions.j
 import {frameRotation} from './orientation.js';
 import {PacketAssembler} from './packets.mjs';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation = () => {}}) {
+export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation = () => {}, onMode = () => {}, quality = 'balanced', forceSoftware = false}) {
   const abort = new AbortController();
-  let decoder, pending, lastFrame, raf, disposed = false, frames = 0, errors = 0, software = false, orientation = 'portrait', rotation = 0, manualAngle = null;
+  let decoder, pending, lastFrame, raf, disposed = false, frames = 0, errors = 0, software = forceSoftware, orientation = 'portrait', rotation = 0, manualAngle = null;
   const context = canvas.getContext('2d', {alpha: false});
   const draw = frame => {
     const angle = manualAngle ?? frameRotation(orientation, frame.displayWidth, frame.displayHeight);
@@ -33,8 +33,9 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
       let reader;
       try {
         if (software) {
+          onMode('software');
           onStatus('Conectando video compatible…');
-          const response = await fetch('/frames.bin', {signal:abort.signal,cache:'no-store'});
+          const response = await fetch(`/frames.bin?quality=${encodeURIComponent(quality)}`, {signal:abort.signal,cache:'no-store'});
           if (!response.ok) throw new Error('Esperando video del iPhone…');
           reader = response.body.getReader(); const packets = new PacketAssembler(16 * 1024 * 1024, size => size > 0);
           while (!disposed) {
@@ -45,7 +46,8 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
               output({bitmap,displayWidth:bitmap.width,displayHeight:bitmap.height,close:()=>bitmap.close()});
             }
           }
-          continue;
+          if (disposed) break;
+          throw new Error('El video compatible se interrumpió. Reconectando…');
         }
         onStatus('Conectando con la pantalla…');
         const codecResponse = await fetch('/codec', {signal: abort.signal, cache: 'no-store'});
@@ -60,6 +62,7 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
           result.configure(config); return result;
         };
         decoder = createDecoder();
+        onMode('native');
         const response = await fetch('/stream.bin', {signal: abort.signal, cache: 'no-store'});
         if (!response.ok) throw new Error('No se pudo iniciar el video. Reintentando…');
         reader = response.body.getReader();

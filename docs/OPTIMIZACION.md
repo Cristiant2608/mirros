@@ -48,7 +48,7 @@ no se realiza una poda indiscriminada. Se mantienen los avisos de licencia.
 
 ## Verificación
 
-`npm test`, pruebas Python, build Vite, ayuda del trabajador empaquetado, portapapeles
+`pnpm test`, pruebas Python, build Vite, ayuda del trabajador empaquetado, portapapeles
 nativo y arranque/cambio de ventanas/cierre de cada paquete en GitHub Actions.
 `scripts/capture-ui.mjs` admite `MIRROS_CAPTURE_WEB_ROOT`, `MIRROS_CAPTURE_REPORT` y
 `MIRROS_CAPTURE_BROWSER` para comparar la interfaz y heap con contenido simulado.

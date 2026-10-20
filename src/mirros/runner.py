@@ -114,9 +114,10 @@ def device_instructions() -> None:
 
 @shutdown_signals
 def run_mirros(port: Optional[int] = None, no_audio: bool = True,
-                   userspace: bool = True, udid: Optional[str] = None,
-                   browser_bin: Optional[str] = None, diagnose: bool = False,
-                   display_mode: str = "dual") -> int:
+               userspace: bool = True, udid: Optional[str] = None,
+               browser_bin: Optional[str] = None, diagnose: bool = False,
+               display_mode: str = "dual", force_software: bool = False,
+               video_quality: Optional[str] = None) -> int:
     if port is not None and not 1 <= port <= 65535:
         print("[!] El puerto debe estar entre 1 y 65535.")
         return 1
@@ -127,6 +128,11 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
         print(f"pymobiledevice3: {version('pymobiledevice3')}")
         print(f"Navegador: {'disponible' if browser and shutil.which(browser) else 'no encontrado'}")
         print(f"Servicio USB: {'disponible' if check_usbmuxd_socket() else 'no disponible'}")
+        try:
+            import av
+            print(f"PyAV: {av.__version__}")
+        except Exception:
+            print("PyAV: no disponible")
         try:
             devices = list_connected_devices()
             print(f"Dispositivos USB: {len(devices)}")
@@ -173,7 +179,13 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
         if port is not None and get_available_port(port) != port:
             print(f"[!] El puerto {port} está ocupado. Elige otro con --port.")
             return 1
-        url = f"http://127.0.0.1:{target_port}/"
+        query_params = []
+        if force_software:
+            query_params.append("software=1")
+        if video_quality:
+            query_params.append(f"quality={video_quality}")
+        query_str = f"?{'&'.join(query_params)}" if query_params else ""
+        url = f"http://127.0.0.1:{target_port}/{query_str}"
         print(f"[+] iPhone detectado: {target}", flush=True)
         preparation_log = log_path.with_name(log_path.stem + "-prepare.log")
         if not prepare_device(target, userspace, preparation_log):

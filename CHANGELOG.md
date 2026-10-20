@@ -1,3 +1,10 @@
+# 1.1.7 — 2026-10-20
+
+- Añade el selector de aplicaciones en segundo plano (App Switcher / Multitarea) con atajos `Ctrl+M` / `Ctrl+Tab`, botón en pantalla y comando `mirros --app-switcher`.
+- Incorpora un visor de aplicaciones instaladas en el iPhone con buscador desde la pestaña Dispositivo y mediante `mirros --list-apps`.
+- Añade perfiles de calidad de video por software (`economy`, `balanced`, `detail`), modo forzado (`--force-software`, `--video-quality`) e indicador visual del motor activo (`HEVC Nativo` / `Software MJPEG`).
+- Reorganiza la ayuda de línea de comandos (`mirros --help`) en categorías y valida activamente la conexión al socket `usbmuxd` en Linux.
+
 # 1.1.6 — 2026-10-20
 
 - Conserva la duración de una pulsación sostenida aunque la preparación del canal de control demore el primer toque.

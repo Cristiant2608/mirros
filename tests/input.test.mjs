@@ -127,3 +127,17 @@ test('returning from another window waits for keyboard detach before the first t
   assert.deepEqual(events,['contact','release','detach-start','detach-end','contact','release']);
   input.dispose();
 });
+
+test('swipe switcher sends gesture from bottom with pause before release', async () => {
+  const sent = [];
+  const input = createInput(async (_path, data) => sent.push(data));
+  await input.swipe('switcher');
+  assert.ok(sent.length >= 2);
+  assert.equal(sent[0].type, 'contact');
+  assert.equal(sent[0].x, 32768);
+  assert.equal(sent[0].y, 64500);
+  assert.equal(sent.at(-1).type, 'release');
+  assert.equal(sent.at(-1).x, 32768);
+  assert.equal(sent.at(-1).y, 38000);
+  input.dispose();
+});

@@ -4,40 +4,51 @@ import contextlib
 import struct
 import time
 from fractions import Fraction
+from concurrent.futures import ThreadPoolExecutor
 import av
+from av.video.reformatter import VideoReformatter
+
+VIDEO_PROFILES = {'economy': (960, 20), 'balanced': (1568, 30), 'detail': (2160, 30)}
 
 
 class SoftwareDecoder:
-    def __init__(self, description):
+    def __init__(self, description, quality='balanced'):
+        self.max_dimension, self.fps = VIDEO_PROFILES[quality]
         self.decoder = av.CodecContext.create('hevc', 'r')
         self.decoder.extradata = description
         self.decoder.thread_count = 2
         self.decoder.open()
         self.encoder = None
+        # Own the scaler rather than using VideoFrame.reformat's per-thread
+        # cache: to_thread may move successive frames across pool workers.
+        self.reformatter = VideoReformatter()
         self.last_sent = 0
 
     def decode(self, packet):
         frames = self.decoder.decode(av.Packet(packet))
-        if not frames or time.monotonic() - self.last_sent < 1 / 30:
+        if not frames or time.monotonic() - self.last_sent < 1 / self.fps:
             return None
         frame = frames[-1]
-        scale = min(1, 1568 / max(frame.width, frame.height))
+        scale = min(1, self.max_dimension / max(frame.width, frame.height))
         width = max(2, int(frame.width * scale) // 2 * 2)
         height = max(2, int(frame.height * scale) // 2 * 2)
         if self.encoder is None or (self.encoder.width, self.encoder.height) != (width, height):
             self.encoder = av.CodecContext.create('mjpeg', 'w')
             self.encoder.width, self.encoder.height = width, height
             self.encoder.pix_fmt = 'yuvj420p'
-            self.encoder.time_base = Fraction(1, 30)
+            self.encoder.thread_count = 2
+            self.encoder.time_base = Fraction(1, self.fps)
             self.encoder.open()
-        image = frame.reformat(width=width, height=height, format='yuvj420p')
+        image = self.reformatter.reformat(frame, width=width, height=height, format='yuvj420p')
         image.pts = None
         result = b''.join(bytes(value) for value in self.encoder.encode(image))
         self.last_sent = time.monotonic()
         return result or None
 
 
-async def software_stream(server, writer):
+async def software_stream(server, writer, quality='balanced'):
+    if quality not in VIDEO_PROFILES:
+        raise ValueError('Unknown video profile')
     from pymobiledevice3.remote.core_device.screen_stream import _SubState, hevc_decoder_configuration_record
     await server._ensure_fresh_stream(force=False)
     if not server._init_sequence:
@@ -67,6 +78,7 @@ async def software_stream(server, writer):
     writer.write(b'HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nTransfer-Encoding: chunked\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n')
     await writer.drain()
     decoder = None
+    worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='mirros-video')
     try:
         while True:
             message = await asyncio.wait_for(queue.get(), 15)
@@ -80,8 +92,8 @@ async def software_stream(server, writer):
                 offset = end
                 if decoder is None or kind == 2:
                     description = hevc_decoder_configuration_record(server._vps_nal, server._sps_nal, server._pps_nal)
-                    decoder = SoftwareDecoder(description)
-                jpeg = await asyncio.to_thread(decoder.decode, payload)
+                    decoder = SoftwareDecoder(description, quality)
+                jpeg = await asyncio.get_running_loop().run_in_executor(worker, decoder.decode, payload)
                 if jpeg:
                     packet = struct.pack('>I', len(jpeg)) + jpeg
                     writer.write(f'{len(packet):x}\r\n'.encode() + packet + b'\r\n')
@@ -89,6 +101,7 @@ async def software_stream(server, writer):
     except (ConnectionError, asyncio.CancelledError, asyncio.TimeoutError):
         pass
     finally:
+        worker.shutdown(wait=False, cancel_futures=True)
         retry.cancel()
         server._subscribers.pop(queue, None)
         with contextlib.suppress(Exception):

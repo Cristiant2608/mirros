@@ -14,7 +14,16 @@ def check_usbmuxd_socket() -> bool:
                 return True
         except OSError:
             return False
-    return any(os.path.exists(p) for p in ("/var/run/usbmuxd", "/run/usbmuxd"))
+    for path in ("/var/run/usbmuxd", "/run/usbmuxd"):
+        if os.path.exists(path):
+            try:
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+                    s.settimeout(1)
+                    s.connect(path)
+                    return True
+            except OSError:
+                continue
+    return False
 
 
 def list_connected_devices() -> List[str]:

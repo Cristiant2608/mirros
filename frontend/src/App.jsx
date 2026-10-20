@@ -7,7 +7,7 @@ import {useConnection} from './hooks/useConnection.js';
 import {usePhoneVideo} from './hooks/usePhoneVideo.js';
 import {FrameRate} from './components/FrameRate.jsx';
 import React, {useEffect, useRef, useState} from 'react';
-import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Volume1, Camera, Mouse, ArrowLeft, ArrowRight, RefreshCw, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Check, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, Download, Send, RotateCw, ChevronLeft, LogOut, Moon, Sun} from 'lucide-react';
+import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Volume1, Camera, Mouse, ArrowLeft, ArrowRight, RefreshCw, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Check, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, Download, Send, RotateCw, ChevronLeft, LogOut, Moon, Sun, Layers} from 'lucide-react';
 import {rotateDevice} from './orientation.js';
 import './style.css';
 
@@ -27,6 +27,59 @@ export default function App() {
   }));
   const [pointerPosition, setPointerPosition] = useState(null);
   const [rotating, setRotating] = useState(false);
+  const [videoQuality, setVideoQuality] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlQuality = params.get('quality');
+      if (urlQuality && ['economy', 'balanced', 'detail'].includes(urlQuality)) return urlQuality;
+    }
+    const saved = localStorage.getItem('videoQuality');
+    return ['economy', 'balanced', 'detail'].includes(saved) ? saved : 'balanced';
+  });
+  const [forceSoftware, setForceSoftware] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('software')) {
+        const val = params.get('software');
+        return val === '1' || val === 'true';
+      }
+    }
+    return localStorage.getItem('forceSoftware') === 'true';
+  });
+  useEffect(() => { localStorage.setItem('videoQuality', videoQuality); }, [videoQuality]);
+  useEffect(() => { localStorage.setItem('forceSoftware', String(forceSoftware)); }, [forceSoftware]);
+  const [showApps, setShowApps] = useState(false);
+  const [deviceApps, setDeviceApps] = useState([]);
+  const [loadingApps, setLoadingApps] = useState(false);
+  const [appFilter, setAppFilter] = useState('');
+  async function appSwitcher() {
+    if (!connected) return;
+    try {
+      if (input.current?.swipe) {
+        await input.current.swipe('switcher');
+      } else {
+        await post('/app-switcher', {});
+      }
+      setNotice('Selector de apps (multitarea) activado.');
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+  async function loadDeviceApps() {
+    if (!connected || loadingApps) return;
+    setLoadingApps(true);
+    try {
+      const res = await fetch('/apps');
+      if (!res.ok) throw new Error('No se pudo obtener la lista de aplicaciones.');
+      const data = await res.json();
+      setDeviceApps(Array.isArray(data) ? data : []);
+      setShowApps(true);
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setLoadingApps(false);
+    }
+  }
   async function rotatePhone() {
     if (!connected || rotating) return;
     setRotating(true);
@@ -56,7 +109,7 @@ export default function App() {
   const canvas = useRef(null), stage = useRef(null), [phoneSize, setPhoneSize] = useState({width: 280, height: 610});
   const floating = state.mode === 'phone', connected = state.phase === 'conectado', controlsVisible = state.controlsVisible !== false;
   const {audioEnabled, audioStatus, volume, setVolume, toggleAudio} = useAudio(connected);
-  const {dimensions, frames, live, videoStatus, rotation, video} = usePhoneVideo(canvas, connected, floating);
+  const {dimensions, frames, live, videoStatus, rotation, video, videoMode} = usePhoneVideo(canvas, connected, floating, videoQuality, forceSoftware);
   function toggleControls() { if (bridge) native('controls', !controlsVisible); else setState(value => ({...value, controlsVisible: !controlsVisible})); }
   useEffect(() => { document.body.classList.toggle('floating', floating); }, [floating]);
   useEffect(() => {
@@ -117,7 +170,7 @@ export default function App() {
       setNotice(err.message);
     }
   }
-  const input = usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError: setNotice, button, capture, setKeyboard, clipboardShortcut: runClipboardShortcut, wake: wakePhone});
+  const input = usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError: setNotice, button, capture, setKeyboard, clipboardShortcut: runClipboardShortcut, wake: wakePhone, appSwitcher});
   useEffect(() => { if (!notice) return; const timeout = setTimeout(() => setNotice(''), 4500); return () => clearTimeout(timeout); }, [notice]);
   function button(name) { if (connected) post('/button', {name, state: 'press'}).catch(error => setNotice(error.message)); }
   async function phoneAudioButton(name) {
@@ -156,6 +209,7 @@ export default function App() {
           <IconButton icon={ArrowLeft} label="Deslizar a la izquierda" disabled={!connected} onClick={() => input.current?.swipe('left')}/>
           <IconButton icon={ArrowRight} label="Deslizar a la derecha" disabled={!connected} onClick={() => input.current?.swipe('right')}/>
           <IconButton icon={Home} label="Inicio · Ctrl+H" disabled={!connected} onClick={() => button('home')}/>
+          <IconButton icon={Layers} label="Selector de apps · Ctrl+M" disabled={!connected} onClick={appSwitcher}/>
           <span className="control-separator"/>
           <IconButton icon={RotateCw} label="Girar vista 90°" disabled={!connected || rotating} onClick={rotatePhone}/>
           <IconButton icon={Maximize2} label="Usar todo el alto disponible" disabled={!bridge} onClick={() => native('fitHeight')}/>
@@ -192,11 +246,23 @@ export default function App() {
     <div className="workspace">
       <header className="toolbar"><div className="toolbar-title"><strong>{state.device?.name || 'iPhone'}</strong><ChevronRight size={14}/><span>{currentSection[2]}</span></div><div className="window-actions"><IconButton icon={Minus} label="Minimizar" onClick={() => native('minimize')}/><IconButton icon={Maximize2} label="Maximizar o restaurar" onClick={() => native('maximize')}/><IconButton icon={X} label="Cerrar Mirros" className="close-button" onClick={() => native('close')}/></div></header>
       <div className="workspace-content">
-        <section className="viewer" aria-label="Vista del iPhone"><div className="viewer-heading"><span className={`connection-pill ${connected ? 'connected' : ''}`}><i/>{connected ? 'USB conectado' : statusLabel}</span><span className="stream-info">{live ? <><FrameRate frames={frames}/> · {dimensions.width} × {dimensions.height}</> : 'Vista en directo'}</span></div>{preview}<div className="viewer-hints"><span><Mouse size={13}/>Clic y arrastrar</span><span><Scan size={13}/>Rueda para desplazar</span><span><Keyboard size={13}/>{keyboard ? 'Teclado activo' : 'Clic para escribir'}</span></div></section>
+        <section className="viewer" aria-label="Vista del iPhone"><div className="viewer-heading"><span className={`connection-pill ${connected ? 'connected' : ''}`}><i/>{connected ? 'USB conectado' : statusLabel}</span><span className="stream-info">{live ? <>{videoMode && <span className={`engine-badge ${videoMode}`} title={videoMode === 'software' ? 'Decodificación compatible por software' : 'Decodificación nativa HEVC'}>{videoMode === 'software' ? `Compatible (${{economy: 'Ahorro', balanced: 'Equilibrado', detail: 'Detalle'}[videoQuality] || 'Soft'})` : 'HEVC'}</span>}<FrameRate frames={frames}/> · {dimensions.width} × {dimensions.height}</> : 'Vista en directo'}</span></div>{preview}<div className="viewer-hints"><span><Mouse size={13}/>Clic y arrastrar</span><span><Scan size={13}/>Rueda para desplazar</span><span><Keyboard size={13}/>{keyboard ? 'Teclado activo' : 'Clic para escribir'}</span></div></section>
         <aside className="inspector" aria-label={currentSection[2]}><div className="inspector-heading"><span className="section-symbol"><SectionIcon size={20}/></span><div><h1>{currentSection[2]}</h1><p>{{phone: 'Dispositivo y ventana', audio: 'Salidas y volumen', clipboard: 'Copiar y enviar contenido', appearance: 'Tema, tamaño y gestos', help: 'Conexión y atajos'}[tab]}</p></div></div>
           <div className="inspector-content" key={tab}>
           {tab === 'phone' && <>
-            <section className="settings-group"><h2>Dispositivo</h2><div className="settings-box"><div className="info-row"><span>Nombre</span><strong>{state.device?.name || 'iPhone'}</strong></div><div className="info-row"><span>Conexión</span><strong>{connected ? 'USB' : 'No conectado'}</strong></div>{state.device?.version && <div className="info-row"><span>Versión</span><strong>iOS {state.device.version}</strong></div>}<button className="row-button" onClick={() => native('retry')}><RefreshCw size={15}/>Reconectar<ChevronRight size={14}/></button></div></section>
+            <section className="settings-group"><h2>Dispositivo</h2><div className="settings-box"><div className="info-row"><span>Nombre</span><strong>{state.device?.name || 'iPhone'}</strong></div><div className="info-row"><span>Conexión</span><strong>{connected ? 'USB' : 'No conectado'}</strong></div>{state.device?.version && <div className="info-row"><span>Versión</span><strong>iOS {state.device.version}</strong></div>}<button className="row-button" disabled={!connected} onClick={appSwitcher}><Layers size={15}/>Abrir selector de apps (Multitarea)<ChevronRight size={14}/></button><button className="row-button" disabled={!connected || loadingApps} onClick={loadDeviceApps}><Smartphone size={15}/>{loadingApps ? 'Cargando aplicaciones…' : 'Ver aplicaciones instaladas'}<ChevronRight size={14}/></button><button className="row-button" onClick={() => native('retry')}><RefreshCw size={15}/>Reconectar<ChevronRight size={14}/></button></div></section>
+            <section className="settings-group"><h2>Video</h2>
+              <div className="settings-box">
+                <Toggle label="Forzar video compatible" detail={videoMode === 'software' ? 'Decodificación compatible activa' : videoMode === 'native' ? 'Decodificación automática activa' : 'Detección al conectar'} value={forceSoftware} onClick={() => setForceSoftware(value => !value)}/>
+                <div className="stacked-row"><span>Calidad del video compatible</span>
+                  <div className="segmented" role="group" aria-label="Calidad del video compatible">
+                    {[['economy', 'Ahorro'], ['balanced', 'Equilibrado'], ['detail', 'Detalle']].map(([value, label]) => <button key={value} className={videoQuality === value ? 'selected' : ''} aria-pressed={videoQuality === value} onClick={() => setVideoQuality(value)}>{label}</button>)}
+                  </div>
+                </div>
+              </div>
+              <p className="group-description">{{economy: 'Hasta 960 px y 20 FPS.', balanced: 'Hasta 1568 px y 30 FPS.', detail: 'Hasta 2160 px y 30 FPS.'}[videoQuality]} Mantiene la imagen completa. Se aplica al video compatible; el modo automático conserva HEVC cuando el navegador lo admite. Cambiar el perfil reinicia solo el video.</p>
+              {videoMode === 'software' && videoQuality === 'detail' && <div className="note" style={{marginTop: 8}}><CircleHelp size={13}/><span>Si notas lentitud o sobrecarga de CPU, prueba el perfil <strong>Equilibrado</strong> o <strong>Ahorro</strong>.</span></div>}
+            </section>
             <section className="settings-group"><h2>Modo de pantalla física</h2>
               <div className="settings-box">
                 <div className="stacked-row">
@@ -247,7 +313,7 @@ export default function App() {
             <section className="settings-group"><h2>Actualizaciones</h2><div className="settings-box"><div className="info-row"><span>Versión instalada</span><strong>{state.version || '—'}</strong></div><button className="row-button" disabled={['comprobando','descargando'].includes(state.update?.phase)} onClick={() => native('updatesCheck')}><RefreshCw size={15}/>Buscar actualizaciones<ChevronRight size={14}/></button>{state.update?.phase === 'disponible' && <button className="row-button" onClick={() => native('updatesDownload')}><Download size={15}/>Descargar {state.update.version}<ChevronRight size={14}/></button>}{state.update?.phase === 'lista' && <button className="row-button" onClick={() => native('updatesInstall')}><RefreshCw size={15}/>Reiniciar y actualizar<ChevronRight size={14}/></button>}</div><p className="group-description">{state.update?.message || 'Consulta automáticamente las versiones publicadas en GitHub.'}{state.update?.phase === 'descargando' ? ` ${state.update.progress || 0} %` : ''}</p></section>
             <section className="settings-group"><h2>Conectar el iPhone</h2><ol className="steps"><li><span>1</span><p>Conecta un cable USB de datos.</p></li><li><span>2</span><p>Desbloquea el iPhone y acepta «Confiar».</p></li><li><span>3</span><p>Activa Modo Desarrollador en Ajustes → Privacidad y seguridad.</p></li></ol></section>
             <section className="settings-group"><h2>Controles</h2><div className="settings-box">{[['Tocar','Clic'],['Deslizar','Clic y arrastrar'],['Desplazar','Rueda del ratón'],['Inicio','Clic derecho']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><strong>{b}</strong></div>)}</div></section>
-            <section className="settings-group"><h2>Atajos sobre la pantalla</h2><div className="settings-box">{[['Inicio','Ctrl + H'],['Bloquear / Reposo','Ctrl + L'],['Solicitar despertar','Ctrl + U'],['Guardar captura','Ctrl + P']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><kbd>{b}</kbd></div>)}</div></section><button className="secondary-button" onClick={() => native('logs')}>Abrir registro de conexión</button>
+            <section className="settings-group"><h2>Atajos sobre la pantalla</h2><div className="settings-box">{[['Inicio','Ctrl + H'],['Selector de apps / Multitarea','Ctrl + M'],['Bloquear / Reposo','Ctrl + L'],['Solicitar despertar','Ctrl + U'],['Guardar captura','Ctrl + P']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><kbd>{b}</kbd></div>)}</div></section><button className="secondary-button" onClick={() => native('logs')}>Abrir registro de conexión</button>
           </>}
           </div>
         </aside>
@@ -255,6 +321,39 @@ export default function App() {
       <footer className="statusbar"><span className={state.phase === 'error' ? 'error-text' : ''}><i className={connected ? 'connected' : ''}/>{connected ? `${state.device?.name || 'iPhone'} conectado por USB` : state.message}</span><span>{audioEnabled ? <Volume2 size={12}/> : <VolumeX size={12}/>}Audio PC {audioEnabled ? 'activado' : 'desactivado'}</span></footer>
     </div>
     {state.phase === 'seleccion' && <div className="modal-backdrop"><section className="device-picker"><h2>Seleccionar iPhone</h2>{state.devices.map(device => <button key={device.udid} onClick={() => native('device', device.udid)}><Smartphone size={18}/>{device.name}<ChevronRight size={15}/></button>)}</section></div>}
+    {showApps && (
+      <div className="modal-backdrop" onClick={() => setShowApps(false)}>
+        <section className="device-picker" style={{width: 420, maxHeight: '80vh', display: 'flex', flexDirection: 'column'}} onClick={e => e.stopPropagation()}>
+          <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14}}>
+            <h2 style={{margin: 0, fontSize: 16}}>Aplicaciones ({deviceApps.length})</h2>
+            <IconButton icon={X} label="Cerrar" onClick={() => setShowApps(false)}/>
+          </div>
+          <input
+            type="search"
+            placeholder="Buscar aplicación…"
+            value={appFilter}
+            onChange={e => setAppFilter(e.target.value)}
+            style={{width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--panel)', color: 'var(--text)', fontSize: 11, marginBottom: 12, outline: 'none'}}
+            autoFocus
+          />
+          <div style={{overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minHeight: 120, maxHeight: 380}}>
+            {deviceApps.filter(app => !appFilter || app.name.toLowerCase().includes(appFilter.toLowerCase()) || app.bundle_id.toLowerCase().includes(appFilter.toLowerCase())).length === 0 ? (
+              <div style={{padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 11}}>No se encontraron aplicaciones</div>
+            ) : (
+              deviceApps.filter(app => !appFilter || app.name.toLowerCase().includes(appFilter.toLowerCase()) || app.bundle_id.toLowerCase().includes(appFilter.toLowerCase())).map(app => (
+                <div key={app.bundle_id} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', background: 'var(--control)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 11}}>
+                  <div style={{minWidth: 0, flex: 1}}>
+                    <strong style={{display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap'}}>{app.name}</strong>
+                    <small style={{color: 'var(--muted)', fontSize: 9, display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap'}}>{app.bundle_id}</small>
+                  </div>
+                  {app.version && <span style={{color: 'var(--muted)', fontSize: 10, marginLeft: 8, flexShrink: 0}}>v{app.version}</span>}
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+    )}
     {notice && <div className="toast" role="status">{notice}</div>}
   </div>;
 }

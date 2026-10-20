@@ -71,7 +71,7 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
     });
     return chain;
   }
-  async function gesture(start, end, duration, token) {
+  async function gesture(start, end, duration, token, hold = 0) {
     let final = start;
     try {
       await contact(start);
@@ -84,6 +84,9 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
         final = {x: clamp(start.x + (end.x - start.x) * progress), y: clamp(start.y + (end.y - start.y) * progress)};
         await contact(final);
         if (progress === 1) break;
+      }
+      if (!disposed && token === gestureToken && hold > 0) {
+        await sleep(hold);
       }
     } finally { await lift(final); }
   }
@@ -130,9 +133,16 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
       if (active || wheelBusy || disposed) return chain;
       wheelBusy = true;
       const token = ++gestureToken;
-      const paths = {left: [{x: 56000, y: 32768}, {x: 9000, y: 32768}], right: [{x: 9000, y: 32768}, {x: 56000, y: 32768}], home: [{x: 32768, y: 64000}, {x: 32768, y: 25000}]};
+      const paths = {
+        left: [{x: 56000, y: 32768}, {x: 9000, y: 32768}],
+        right: [{x: 9000, y: 32768}, {x: 56000, y: 32768}],
+        home: [{x: 32768, y: 64000}, {x: 32768, y: 25000}],
+        switcher: [{x: 32768, y: 64500}, {x: 32768, y: 38000}],
+      };
       if (!paths[direction]) { wheelBusy = false; return chain; }
-      enqueue(() => gesture(...paths[direction], 180, token));
+      const hold = direction === 'switcher' ? 350 : 0;
+      const duration = direction === 'switcher' ? 220 : 180;
+      enqueue(() => gesture(paths[direction][0], paths[direction][1], duration, token, hold));
       chain = chain.finally(() => { wheelBusy = false; });
       return chain;
     },
