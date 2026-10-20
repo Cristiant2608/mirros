@@ -36,3 +36,12 @@ html:has(body.floating),body.floating,body.floating #root{background:transparent
 .control-drag{display:grid;place-items:center;width:30px;height:28px;min-height:28px;-webkit-app-region:drag;color:var(--muted);cursor:move;margin-top:auto}
 .floating-app{position:relative}.floating-app .preview-stage{padding:8px;gap:0;flex-direction:row;justify-content:center}
 .floating-notice{bottom:8px;left:8px;right:8px;z-index:8}
+/* Custom iPhone pointer: visual only; input coordinates remain unchanged. */
+.phone-shell canvas{cursor:none}
+.phone-pointer{position:absolute;z-index:4;pointer-events:none;transform:translate(-2px,-2px) scale(var(--pointer-scale));transform-origin:top left;filter:drop-shadow(0 1px 2px #000b)}
+.pointer-flecha{width:0;height:0;border-top:14px solid var(--pointer-color);border-right:9px solid transparent;transform:translate(-2px,-2px) scale(var(--pointer-scale)) rotate(-8deg)}
+.pointer-flecha::after{content:"";position:absolute;left:2px;top:-12px;border-top:10px solid #1c2533;border-right:6px solid transparent}
+.pointer-círculo{width:16px;height:16px;border:2px solid var(--pointer-color);border-radius:50%;transform:translate(-50%,-50%) scale(var(--pointer-scale));background:#0003}
+.pointer-punto{width:10px;height:10px;border-radius:50%;background:var(--pointer-color);transform:translate(-50%,-50%) scale(var(--pointer-scale));box-shadow:0 0 0 2px #1c2533,0 0 0 3px var(--pointer-color)}
+.pointer-swatch{width:12px;height:12px;border-radius:50%;border:1px solid #fff8;box-shadow:0 0 0 1px var(--line);flex-shrink:0}
+.color-row{display:flex;align-items:center;justify-content:space-between;padding:12px 13px;font-size:10px}.color-row span{color:var(--muted)}.color-row input{width:42px;height:24px;padding:2px;border:1px solid var(--line);border-radius:6px;background:var(--control);cursor:pointer}

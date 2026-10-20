@@ -1,3 +1,9 @@
+# 1.1.5 — 2026-10-20
+
+- Sustituye el cursor `+` por un puntero visual limpio dentro de la pantalla del iPhone.
+- Añade opciones de flecha, círculo o punto, con color y tamaño configurables desde Ajustes → Apariencia → Ratón.
+- Conserva la precisión de las coordenadas táctiles: la personalización solo cambia la representación visual.
+
 # 1.1.4 — 2026-10-16
 
 - Modo AOD / Reposo experimental estilo Mac: permite que la pantalla física descanse mientras la duplicación e interacción continúan en el PC.

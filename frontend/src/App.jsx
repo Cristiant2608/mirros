@@ -20,6 +20,12 @@ export default function App() {
   const [tab, setTab] = useState('phone'), [notice, setNotice] = useState('');
   const [keyboard, setKeyboard] = useState(false), [text, setText] = useState('');
   const [sensitivity, setSensitivity] = useState(() => Number(localStorage.getItem('sensibilidad') || 1));
+  const [pointer, setPointer] = useState(() => ({
+    shape: localStorage.getItem('puntero-forma') || 'flecha',
+    color: localStorage.getItem('puntero-color') || '#ffffff',
+    size: Number(localStorage.getItem('puntero-tamano') || 100),
+  }));
+  const [pointerPosition, setPointerPosition] = useState(null);
   const [rotating, setRotating] = useState(false);
   async function rotatePhone() {
     if (!connected || rotating) return;
@@ -60,6 +66,19 @@ export default function App() {
     return () => media.removeEventListener('change', update);
   }, [state.theme]);
   function setTheme(theme) { if (bridge) native('theme', theme); else setState(value => ({...value, theme})); }
+  function updatePointer(key, value) {
+    setPointer(previous => {
+      const next = {...previous, [key]: value};
+      localStorage.setItem(`puntero-${key === 'shape' ? 'forma' : key === 'color' ? 'color' : 'tamano'}`, String(value));
+      return next;
+    });
+  }
+  function trackPointer(event) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    // The shell has a 5 px frame around the canvas; keep the visual marker aligned
+    // without changing the coordinates used by usePhoneInput.
+    setPointerPosition({x: event.clientX - rect.left + 5, y: event.clientY - rect.top + 5});
+  }
 
   useEffect(() => {
     const node = stage.current;
@@ -125,7 +144,8 @@ export default function App() {
   }
   const preview = <div className={`preview-stage ${floating ? 'is-floating' : ''}`} ref={stage}>
     <div className={`phone-shell ${live ? 'is-live' : ''}`} style={{width: phoneSize.width + 12, height: phoneSize.height + 12, '--phone-radius': `${Math.round(Math.min(phoneSize.width, phoneSize.height) * .125)}px`}}>
-      <canvas ref={canvas} tabIndex={0} aria-label="Pantalla del iPhone. Clic para tocar, arrastra para deslizar y usa la rueda para desplazarte." style={{width: phoneSize.width, height: phoneSize.height}}/>
+      <canvas ref={canvas} tabIndex={0} onPointerMove={trackPointer} onPointerLeave={() => setPointerPosition(null)} aria-label="Pantalla del iPhone. Clic para tocar, arrastra para deslizar y usa la rueda para desplazarte." style={{width: phoneSize.width, height: phoneSize.height}}/>
+      {pointerPosition && <span className={`phone-pointer pointer-${pointer.shape}`} aria-hidden="true" style={{left: pointerPosition.x, top: pointerPosition.y, '--pointer-color': pointer.color, '--pointer-scale': pointer.size / 100}}/>}
       {!live && <div className="phone-placeholder"><div className="placeholder-symbol">{connected || state.phase === 'preparando' ? <LoaderCircle size={26} className="spin"/> : <Cable size={28}/>}</div><strong>{state.phase === 'pausado' ? 'Sesión terminada' : state.phase === 'error' ? 'Conexión interrumpida' : state.phase === 'preparando' ? 'Preparando iPhone' : connected ? 'Cargando pantalla' : 'iPhone desconectado'}</strong><span>{state.phase === 'pausado' ? 'Puedes retirar el cable o volver a conectar.' : connected ? videoStatus : state.phase === 'preparando' ? 'Mantén el cable conectado.' : 'Conecta el cable USB y desbloquea el teléfono.'}</span>{['error','pausado'].includes(state.phase) && <button className="small-button" onClick={() => native('retry')}>Reintentar</button>}<span className="placeholder-line"/></div>}
     </div>
     <div className={`controls-panel ${controlsVisible ? 'expanded' : 'collapsed'}`} style={{height: phoneSize.height + 12}}>
@@ -221,7 +241,7 @@ export default function App() {
           {tab === 'appearance' && <>
             <section className="settings-group"><h2>Tema</h2><div className="theme-grid" role="group" aria-label="Tema de la interfaz">{themes.map(([id,label]) => <button key={id} aria-pressed={state.theme === id} onClick={() => setTheme(id)} className={state.theme === id ? 'chosen' : ''}><span className={`theme-preview theme-${id}`}><i/><b/><em/>{state.theme === id && <span><Check size={12}/></span>}</span><strong>{label}</strong></button>)}</div><div className="settings-box"><Toggle label="Usar tema del sistema" value={state.theme === 'sistema'} onClick={() => setTheme(state.theme === 'sistema' ? 'claro' : 'sistema')}/></div></section>
             <section className="settings-group"><h2>Teléfono flotante</h2><div className="settings-box"><div className="stacked-row"><span>Tamaño</span><div className="segmented" role="group" aria-label="Tamaño del teléfono">{['pequeño','mediano','grande'].map(size => <button key={size} aria-pressed={state.size === size} className={state.size === size ? 'selected' : ''} onClick={() => native('size', size)}>{size}</button>)}</div></div><Toggle label="Siempre encima" value={state.alwaysOnTop} onClick={() => native('pin', !state.alwaysOnTop)} disabled={!bridge}/></div></section>
-            <section className="settings-group"><h2>Ratón</h2><div className="settings-box"><label className="slider-row"><span>Sensibilidad de la rueda <output>{sensitivity.toFixed(1)}×</output></span><div><Mouse size={15}/><input aria-label="Sensibilidad de la rueda" type="range" min="0.5" max="2" step="0.1" value={sensitivity} onChange={event => {const value = Number(event.target.value); setSensitivity(value); localStorage.setItem('sensibilidad',value);}}/></div></label></div></section>
+            <section className="settings-group"><h2>Ratón</h2><div className="settings-box"><label className="slider-row"><span>Sensibilidad de la rueda <output>{sensitivity.toFixed(1)}×</output></span><div><Mouse size={15}/><input aria-label="Sensibilidad de la rueda" type="range" min="0.5" max="2" step="0.1" value={sensitivity} onChange={event => {const value = Number(event.target.value); setSensitivity(value); localStorage.setItem('sensibilidad',value);}}/></div></label><div className="stacked-row"><span>Puntero dentro del iPhone</span><div className="segmented" role="group" aria-label="Forma del puntero">{[['flecha','Flecha'],['círculo','Círculo'],['punto','Punto']].map(([id,label]) => <button key={id} aria-pressed={pointer.shape === id} className={pointer.shape === id ? 'selected' : ''} onClick={() => updatePointer('shape', id)}>{label}</button>)}</div></div><label className="slider-row"><span>Tamaño <output>{pointer.size} %</output></span><div><span className="pointer-swatch" style={{background: pointer.color}}/><input aria-label="Tamaño del puntero" type="range" min="50" max="200" step="10" value={pointer.size} onChange={event => updatePointer('size', Number(event.target.value))}/></div></label><label className="color-row"><span>Color</span><input aria-label="Color del puntero" type="color" value={pointer.color} onChange={event => updatePointer('color', event.target.value)}/></label></div><p className="group-description">El puntero solo cambia la apariencia. La posición enviada al iPhone mantiene la misma precisión.</p></section>
           </>}
           {tab === 'help' && <>
             <section className="settings-group"><h2>Actualizaciones</h2><div className="settings-box"><div className="info-row"><span>Versión instalada</span><strong>{state.version || '—'}</strong></div><button className="row-button" disabled={['comprobando','descargando'].includes(state.update?.phase)} onClick={() => native('updatesCheck')}><RefreshCw size={15}/>Buscar actualizaciones<ChevronRight size={14}/></button>{state.update?.phase === 'disponible' && <button className="row-button" onClick={() => native('updatesDownload')}><Download size={15}/>Descargar {state.update.version}<ChevronRight size={14}/></button>}{state.update?.phase === 'lista' && <button className="row-button" onClick={() => native('updatesInstall')}><RefreshCw size={15}/>Reiniciar y actualizar<ChevronRight size={14}/></button>}</div><p className="group-description">{state.update?.message || 'Consulta automáticamente las versiones publicadas en GitHub.'}{state.update?.phase === 'descargando' ? ` ${state.update.progress || 0} %` : ''}</p></section>
