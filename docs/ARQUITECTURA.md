@@ -1,23 +1,48 @@
 # Arquitectura
 
-MirrOS tiene dos entradas y un único adaptador del transporte USB:
+MirrOS tiene dos entradas (CLI y escritorio Electron) y un único adaptador del transporte USB sobre `pymobiledevice3`:
 
-```text
-CLI mirros → runner → procesos → backend → adaptador → pymobiledevice3 → iPhone
-Electron main → sesión USB → worker Python → adaptador → pymobiledevice3 → iPhone
-              ↕ IPC
-           React → proxy HTTP local → backend
+```mermaid
+flowchart LR
+    subgraph Desktop["Escritorio (Electron + React)"]
+        UI["React UI (frontend/src)"]
+        Main["Electron Main (desktop/main.cjs)"]
+        Session["Sesión USB (desktop/session.cjs)"]
+        UI <-->|"IPC / Proxy Local"| Main
+        Main --> Session
+    end
+    subgraph CLI["Terminal (mirros / ios-scrcpy)"]
+        CLICmd["cli.py / runner.py / apps.py"]
+    end
+    subgraph Backend["Worker Python (src/mirros)"]
+        Adapter["adapter.py (Rutas HTTP + Parches)"]
+        Control["control.py (WebSocket mirros-control-v1)"]
+        Video["video.py (HEVC / Software PyAV)"]
+        Audio["audio.py (AAC-ELD → PCM)"]
+        Display["display.py (Pantalla Dual / Modo AOD)"]
+    end
+    Session --> Adapter
+    CLICmd --> Adapter
+    UI <-->|"WS Binario / HTTP"| Control
+    Adapter --> Video
+    Adapter --> Audio
+    Adapter --> Display
+    Adapter <-->|"Túnel USB CoreDevice / DDI"| iPhone["iPhone (iOS 17.4+)"]
 ```
 
 ## Backend Python (`src/mirros`)
 
-- `cli.py`: argumentos, ayuda, versión y códigos de salida.
-- `runner.py`: detección, preparación DDI, disponibilidad HTTP y visor del navegador.
+- `cli.py`: argumentos organizados por categorías, ayuda, versión y códigos de salida.
+- `runner.py`: detección, preparación DDI, disponibilidad HTTP y visor del navegador con parámetros de calidad/software.
+- `apps.py`: consulta de aplicaciones instaladas (`InstallationProxyService`) para `--list-apps` y disparo del selector multitarea (`--app-switcher`).
 - `processes.py`: SIGTERM, procesos propios, cierre HTTP con plazo y terminación de respaldo.
-- `device.py`: descubrimiento USB nativo; no requiere `idevice_id` ni elige un teléfono arbitrariamente.
+- `device.py`: descubrimiento USB nativo y verificación activa del socket `usbmuxd` en Linux; no requiere `idevice_id` ni elige un teléfono arbitrariamente.
 - `backend.py`: entrada ejecutable; `adapter.py`: único punto de configuración de
-  los parches de `pymobiledevice3`, validación del contrato y liberación de entrada.
-- `video.py` y `audio.py`: códecs y alternativa de decodificación. El streaming por
+  los parches de `pymobiledevice3`, validación del contrato, liberación de entrada y rutas `/app-switcher`, `/apps` y `/display-mode`.
+- `control.py`: servidor WebSocket binario (`mirros-control-v1`) con confirmación por orden tras el despacho HID.
+- `display.py`: control de modo de pantalla física (Pantalla Dual vs Modo AOD / Reposo) y gesto HID de despertar/desbloqueo.
+- `diagnostics.py`: exportación JSON de diagnóstico técnico libre de UDIDs, rutas de usuario y datos del portapapeles.
+- `video.py` y `audio.py`: códecs y alternativa de decodificación por software con perfiles (`economy`, `balanced`, `detail`). El streaming por
   software también depende del contrato privado de suscriptores del backend fijado.
 
 El backend está fijado a 11.32.0. El adaptador comprueba versión, métodos y plantilla

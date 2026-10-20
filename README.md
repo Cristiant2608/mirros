@@ -1,5 +1,12 @@
 # MirrOS — Duplicación y control de iPhone por USB en Windows y Linux
 
+<p align="center">
+  <strong>🇪🇸 Español</strong> ·
+  <strong><a href="README.en.md">🇬🇧 Read in English</a></strong> ·
+  <strong><a href="https://cristiant2608.github.io/mirros/">🌐 Sitio Web Oficial</a></strong> ·
+  <strong><a href="https://github.com/Cristiant2608/mirros/releases/latest">⬇️ Descargar última versión (v1.1.7)</a></strong>
+</p>
+
 [![Última versión](https://img.shields.io/github/v/release/Cristiant2608/mirros?label=versi%C3%B3n&color=5269c4)](https://github.com/Cristiant2608/mirros/releases/latest)
 [![Descargas](https://img.shields.io/github/downloads/Cristiant2608/mirros/total?label=descargas&color=247454)](https://github.com/Cristiant2608/mirros/releases)
 [![Desktop Packages CI](https://github.com/Cristiant2608/mirros/actions/workflows/packages.yml/badge.svg)](https://github.com/Cristiant2608/mirros/actions/workflows/packages.yml)

@@ -1,17 +1,17 @@
-# Guía de uso — Mirros 1.1
+# Guía de uso — Mirros 1.1.7
 
 ## Instalar y conectar
 
-En Windows, descarga `Mirros-1.1.0-Windows.exe` de [Releases](https://github.com/Cristiant2608/mirros/releases). Necesita el servicio USB de Apple, incluido en Dispositivos Apple o iTunes. El EXE incluye Python y Electron.
+En Windows, descarga `Mirros-1.1.7-Windows.exe` de [Releases](https://github.com/Cristiant2608/mirros/releases). Necesita el servicio USB de Apple, incluido en Dispositivos Apple o iTunes. El EXE incluye Python y Electron.
 
-En Linux, descarga `Mirros-1.1.0-Linux-x64.AppImage`, dale permiso de ejecución y ábrelo:
+En Linux, descarga `Mirros-1.1.7-Linux-x64.AppImage`, dale permiso de ejecución y ábrelo:
 
 ```bash
-chmod +x Mirros-1.1.0-Linux-x64.AppImage
-./Mirros-1.1.0-Linux-x64.AppImage
+chmod +x Mirros-1.1.7-Linux-x64.AppImage
+./Mirros-1.1.7-Linux-x64.AppImage
 ```
 
-Instala `usbmuxd` mediante el gestor de paquetes y comprueba que pueda detectar el iPhone. En Ubuntu: `sudo apt install usbmuxd`; en Arch: `sudo pacman -S usbmuxd`. Para AppImage puede hacer falta FUSE 2 (`libfuse2` en Ubuntu 22.04 o `libfuse2t64` en 24.04). Si FUSE no está disponible, prueba `APPIMAGE_EXTRACT_AND_RUN=1 ./Mirros-1.1.0-Linux-x64.AppImage`.
+Instala `usbmuxd` mediante el gestor de paquetes y comprueba que pueda detectar el iPhone. En Ubuntu: `sudo apt install usbmuxd`; en Arch: `sudo pacman -S usbmuxd`. Para AppImage puede hacer falta FUSE 2 (`libfuse2` en Ubuntu 22.04 o `libfuse2t64` en 24.04). Si FUSE no está disponible, prueba `APPIMAGE_EXTRACT_AND_RUN=1 ./Mirros-1.1.7-Linux-x64.AppImage`.
 
 Guarda el ejecutable en una carpeta donde tu usuario tenga permiso de escritura para poder actualizarlo.
 
@@ -39,6 +39,16 @@ La barra vertical queda fuera del teléfono. Su pestaña la guarda bajo la vista
 El icono de monitor vuelve al panel. Arrastra el asa al final de la barra para mover la ventana flotante. Los bordes y esquinas cambian el tamaño del teléfono; los iconos conservan su tamaño. El botón de expandir usa el alto útil del monitor. La chincheta activa «Siempre encima».
 
 «Girar vista 90°» adapta la imagen, la ventana y los toques. También se pide el giro a iOS, pero una aplicación puede permanecer vertical. En ese caso, Mirros lo indica. Los cambios de orientación que comunica la interfaz de iOS se siguen automáticamente.
+
+Desde la pestaña **Dispositivo**, la barra superior o el panel flotante puedes abrir el **Selector de aplicaciones (Multitarea / App Switcher)** para ver y cambiar entre las aplicaciones abiertas en segundo plano (`Ctrl+M` o `Ctrl+Tab`). También puedes pulsar **Ver aplicaciones instaladas** para consultar y filtrar mediante buscador las aplicaciones de usuario instaladas en el iPhone.
+
+En la cabecera del visor se muestra una insignia con el motor de video activo (**HEVC Nativo** o **Software MJPEG**). En la pestaña **Pantalla** puedes elegir el perfil de rendimiento del decodificador por software (**Equilibrada**, **Económica** o **Detalle**) o forzar el modo compatible por software.
+
+## Apariencia y puntero configurable
+
+![Temas y sensibilidad](screenshots/apariencia.png)
+
+Elige Claro, Oscuro, Lavanda, Océano o el tema del sistema. La elección se conserva y se aplica a la barra flotante. Ajusta los tamaños predefinidos, la sensibilidad de la rueda y el **puntero del ratón dentro del iPhone** (forma de **Flecha**, **Círculo** o **Punto**, color y tamaño) desde **Apariencia**. La personalización del puntero es puramente visual y mantiene intacta la precisión de las coordenadas táctiles.
 
 ## Audio
 

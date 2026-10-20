@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Comunidad y Soporte (GitHub Discussions)
+    url: https://github.com/Cristiant2608/mirros/discussions
+    about: ¿Tienes dudas sobre cómo configurar usbmuxd en Linux, los drivers de Apple en Windows o el Modo Desarrollador? Pregunta aquí.
+  - name: 📖 Guía de Uso y Solución de Problemas
+    url: https://github.com/Cristiant2608/mirros/blob/main/docs/USO.md
+    about: Consulta los requisitos paso a paso, atajos de teclado y preguntas frecuentes antes de abrir un issue.
+  - name: 🔒 Reportar una vulnerabilidad de seguridad
+    url: https://github.com/Cristiant2608/mirros/security/advisories/new
+    about: Usa el canal privado de GitHub Security Advisories para problemas de seguridad.

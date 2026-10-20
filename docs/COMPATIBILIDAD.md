@@ -6,8 +6,10 @@ Windows y Linux usan la misma interfaz React y los mismos módulos de entrada, a
 | --- | --- | --- |
 | Interfaz, temas y pestaña de controles | Compartida; revisada localmente | Compartida; React y pruebas aprobados en Ubuntu |
 | Video HEVC | WebCodecs y alternativa PyAV | WebCodecs si está disponible; alternativa PyAV |
-| Decodificación por software | Probada con HEVC real generado | Misma prueba en Ubuntu |
-| Toques, rueda y teclado | Pruebas de orden, precisión y liberación | Mismas pruebas, más cierre POSIX de descendientes |
+| Decodificación por software | Perfiles `economy`, `balanced` y `detail` probados con HEVC real | Mismos perfiles y pruebas en Ubuntu |
+| Toques, rueda, bordes y teclado | Pruebas de orden, inicio en bordes (8px), pulsación larga y liberación | Mismas pruebas, más cierre POSIX de descendientes |
+| Selector de apps (Multitarea) y listado de apps | Gesto HID con retención (`/app-switcher`) y consulta USB (`/apps`) | Mismo código y pruebas automatizadas |
+| Puntero configurable y Modo AOD / Reposo | Flecha/círculo/punto personalizable y control de reposo/despertar | Misma interfaz y rutas validadas en CI |
 | Audio AAC-ELD | PyAV; sonido comprobado con iPhone | PyAV; configuración y sonido confirmados en Linux |
 | Portapapeles texto/PNG | Pruebas automatizadas; nueva transferencia física pendiente | Mismo código y pruebas; transferencia física pendiente |
 | Ventana flotante, transparencia y siempre encima | Ventana nativa Electron | Ventana Electron; depende del compositor, especialmente Wayland |

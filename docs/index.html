@@ -331,32 +331,36 @@
         <span>MirrOS</span>
       </a>
       <nav class="nav-links" aria-label="Navegación principal">
-        <a href="#caracteristicas">Características</a>
-        <a href="#capturas">Capturas</a>
-        <a href="#cli">Terminal / CLI</a>
-        <a href="#faq">Preguntas frecuentes</a>
+        <a href="#caracteristicas" data-es="Características" data-en="Features">Características</a>
+        <a href="#capturas" data-es="Capturas" data-en="Screenshots">Capturas</a>
+        <a href="#cli" data-es="Terminal / CLI" data-en="Terminal / CLI">Terminal / CLI</a>
+        <a href="#faq" data-es="Preguntas frecuentes" data-en="FAQ">Preguntas frecuentes</a>
+        <a href="https://github.com/Cristiant2608/mirros/blob/main/README.en.md">Docs (EN)</a>
         <a href="https://github.com/Cristiant2608/mirros">GitHub</a>
       </nav>
-      <a class="btn btn-primary" href="https://github.com/Cristiant2608/mirros/releases/latest">Descargar v1.1.7</a>
+      <div style="display:flex;gap:10px;align-items:center">
+        <button id="lang-toggle" class="btn" type="button" style="padding:8px 13px;font-size:13px;cursor:pointer" aria-label="Switch language ES/EN">🇪🇸 ES / 🇬🇧 EN</button>
+        <a class="btn btn-primary" href="https://github.com/Cristiant2608/mirros/releases/latest" data-es="Descargar v1.1.7" data-en="Download v1.1.7">Descargar v1.1.7</a>
+      </div>
     </div>
   </header>
 
   <main id="top" class="container">
     <section class="hero">
       <div class="pill"><i></i> Open Source · Windows x64 &amp; Linux x64 · iOS 17.4+</div>
-      <h1>Duplica la pantalla y controla tu iPhone por USB en Windows y Linux</h1>
-      <p class="subtitle">
+      <h1 data-es="Duplica la pantalla y controla tu iPhone por USB en Windows y Linux" data-en="Mirror and Control Your iPhone over USB on Windows &amp; Linux">Duplica la pantalla y controla tu iPhone por USB en Windows y Linux</h1>
+      <p class="subtitle" data-es="MirrOS es la alternativa libre estilo scrcpy para iOS: transmite vídeo HEVC de baja latencia, audio en tiempo real, gestos táctiles, multitarea de apps, teclado y portapapeles bidireccional entre tu iPhone y tu PC." data-en="MirrOS is the open-source scrcpy-like experience for iOS: low-latency HEVC video, real-time audio, HID touch gestures, App Switcher multitasking, keyboard, and bidirectional clipboard between your iPhone and PC.">
         <strong>MirrOS</strong> es la alternativa libre estilo <code>scrcpy</code> para iOS: transmite vídeo HEVC de baja latencia, audio en tiempo real, gestos táctiles, multitarea de apps, teclado y portapapeles bidireccional entre tu iPhone y tu PC.
       </p>
 
       <div class="cta-group">
-        <a class="btn btn-primary" href="https://github.com/Cristiant2608/mirros/releases/latest">
+        <a class="btn btn-primary" href="https://github.com/Cristiant2608/mirros/releases/latest" data-es="Descargar para Windows (.exe portátil)" data-en="Download for Windows (Portable .exe)">
           Descargar para Windows (.exe portátil)
         </a>
-        <a class="btn" href="https://github.com/Cristiant2608/mirros/releases/latest">
+        <a class="btn" href="https://github.com/Cristiant2608/mirros/releases/latest" data-es="Descargar para Linux (.AppImage)" data-en="Download for Linux (.AppImage)">
           Descargar para Linux (.AppImage)
         </a>
-        <a class="btn" href="https://github.com/Cristiant2608/mirros">
+        <a class="btn" href="https://github.com/Cristiant2608/mirros" data-es="Ver código en GitHub" data-en="View on GitHub">
           Ver código en GitHub
         </a>
       </div>
@@ -468,10 +472,26 @@ mirros --app-switcher</code></pre>
       <p>
         <strong>MirrOS</strong> · Código abierto bajo licencia <a href="https://github.com/Cristiant2608/mirros/blob/main/LICENSE">MIT</a> ·
         <a href="https://github.com/Cristiant2608/mirros">Repositorio en GitHub</a> ·
+        <a href="https://github.com/Cristiant2608/mirros/blob/main/README.en.md">English README</a> ·
         <a href="https://github.com/Cristiant2608/mirros/releases">Descargar Releases</a> ·
+        <a href="https://github.com/Cristiant2608/mirros/issues/new/choose">Reportar Bug / Compatibilidad</a> ·
         <a href="https://github.com/Cristiant2608/mirros/discussions">Comunidad y Soporte</a>
       </p>
     </div>
   </footer>
+  <script>
+    (() => {
+      let lang = 'es';
+      const btn = document.getElementById('lang-toggle');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        lang = lang === 'es' ? 'en' : 'es';
+        document.documentElement.lang = lang;
+        document.querySelectorAll('[data-' + lang + ']').forEach(el => {
+          el.textContent = el.getAttribute('data-' + lang);
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

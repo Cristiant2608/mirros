@@ -1,0 +1,48 @@
+name: 📱 Reporte de compatibilidad / Device Compatibility Report
+description: Comparte qué modelo de iPhone, versión de iOS y sistema operativo probaste con éxito o con limitaciones.
+title: "[Compatibilidad]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Usa esta plantilla para registrar pruebas con un **iPhone físico** en Windows o Linux y ayudar a mantener actualizada la matriz de [Compatibilidad](https://github.com/Cristiant2608/mirros/blob/main/docs/COMPATIBILIDAD.md).
+        > **Privacidad:** No adjuntes UDIDs, números de serie ni capturas con información personal.
+
+  - type: input
+    id: environment
+    attributes:
+      label: Sistema operativo y versión de MirrOS / OS & MirrOS Version
+      placeholder: "Ejemplo: Windows 11 24H2 / Ubuntu 24.04 (Wayland) — MirrOS 1.1.7"
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Modelo de iPhone y versión de iOS / iPhone Model & iOS Version
+      placeholder: "Ejemplo: iPhone 14 Pro — iOS 18.2"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Funciones verificadas físicamente / Verified Features
+      description: Marca únicamente las funciones que probaste directamente con el dispositivo conectado por USB.
+      options:
+        - label: Detección USB y preparación automática de imagen de desarrollo (DDI)
+        - label: Vídeo en directo (indica abajo si usó HEVC Nativo o Software MJPEG)
+        - label: Toques, arrastres, rueda del ratón y gestos desde los bordes
+        - label: Selector de aplicaciones / Multitarea (`Ctrl+M`) y listado de apps instaladas
+        - label: Escritura con teclado del PC y liberación al cambiar de ventana
+        - label: Audio del iPhone en el PC
+        - label: Portapapeles bidireccional (`Ctrl+C` / `Ctrl+V`) con texto e imagen PNG
+        - label: Modo AOD / Reposo (`Ctrl+L`) y Despertar (`Ctrl+U`)
+        - label: Desconexión segura y reconexión del cable
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Observaciones / Notes
+      placeholder: "Indica cualquier detalle adicional (FPS aproximados, modo de video usado, compositor Linux, etc.)."

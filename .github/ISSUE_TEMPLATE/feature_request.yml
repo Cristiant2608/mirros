@@ -1,0 +1,26 @@
+name: ✨ Propuesta de mejora / Feature Request
+description: Sugiere una mejora para el escritorio Electron/React, la CLI o el transporte USB.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Qué necesidad o problema resuelve? / Problem or Use Case
+      description: Explica qué quieres lograr al usar MirrOS en Windows o Linux.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Solución propuesta / Proposed Solution
+      description: Describe cómo debería funcionar en la interfaz gráfica o en la terminal (`mirros`).
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexto técnico adicional / Additional Context (opcional)
+      description: "¿Sabes si `pymobiledevice3` o iOS 17.4+ exponen el servicio necesario por USB?"
