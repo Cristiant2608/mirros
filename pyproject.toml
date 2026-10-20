@@ -5,9 +5,30 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mirros"
 version = "1.1.7"
-description = "Visualiza y controla tu iPhone desde Windows o Linux"
+description = "Visualiza y controla tu iPhone por USB desde Windows o Linux (alternativa scrcpy para iOS)"
+readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
+keywords = [
+    "iphone-mirroring",
+    "ios",
+    "iphone",
+    "scrcpy",
+    "ios-scrcpy",
+    "screen-mirroring",
+    "remote-control",
+    "usb",
+    "windows",
+    "linux",
+    "pymobiledevice3",
+]
 dependencies = ["pymobiledevice3==11.32.0", "wsproto>=1.3.2,<2"]
+
+[project.urls]
+Homepage = "https://github.com/Cristiant2608/mirros"
+Repository = "https://github.com/Cristiant2608/mirros.git"
+Releases = "https://github.com/Cristiant2608/mirros/releases"
+Issues = "https://github.com/Cristiant2608/mirros/issues"
 
 [project.scripts]
 mirros = "mirros.cli:main"

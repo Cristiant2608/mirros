@@ -1,12 +1,29 @@
-# MirrOS
+# MirrOS — Duplicación y control de iPhone por USB en Windows y Linux
 
-Pantalla y control de iPhone por USB para Linux y Windows. Incluye una aplicación
-React/Electron y un comando de terminal que abre el visor de `pymobiledevice3`.
+[![Última versión](https://img.shields.io/github/v/release/Cristiant2608/mirros?label=versi%C3%B3n&color=5269c4)](https://github.com/Cristiant2608/mirros/releases/latest)
+[![Descargas](https://img.shields.io/github/downloads/Cristiant2608/mirros/total?label=descargas&color=247454)](https://github.com/Cristiant2608/mirros/releases)
+[![Desktop Packages CI](https://github.com/Cristiant2608/mirros/actions/workflows/packages.yml/badge.svg)](https://github.com/Cristiant2608/mirros/actions/workflows/packages.yml)
+[![Plataformas](https://img.shields.io/badge/plataformas-Windows%20x64%20%7C%20Linux%20x64-blue)](https://github.com/Cristiant2608/mirros/releases/latest)
+[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-lightgrey)](LICENSE)
+
+**MirrOS** permite ver la pantalla, escuchar el audio y controlar tu **iPhone por USB desde Windows y Linux** con baja latencia (alternativa de código abierto estilo `scrcpy` para iOS / *iPhone Mirroring* en PC). Incluye una aplicación de escritorio lista para usar (**React + Electron**) y una herramienta de línea de comandos (`mirros` / `ios-scrcpy`) impulsada por `pymobiledevice3` y Apple CoreDevice.
+
+> **🇬🇧 English Summary — iPhone Screen Mirroring & USB Control for Windows and Linux (`scrcpy` for iOS):**
+> **MirrOS** brings native-like **iPhone Mirroring to Windows and Linux PCs over USB** (iOS 17.4+). It streams low-latency **HEVC hardware video** (with automatic **PyAV software fallback**), **AAC-ELD audio**, **HID touch/swipe gestures**, **App Switcher (multitasking)**, **PC keyboard & bidirectional clipboard (`Ctrl+C` / `Ctrl+V`)**, and **Always-On Display (AOD) standby mode**—packaged as standalone portable `.exe` (Windows x64) and `.AppImage` (Linux x64) binaries with Python bundled.
 
 ![Interfaz con contenido simulado](docs/screenshots/pantalla.png)
 
 Las capturas del repositorio son simuladas. Las pruebas automáticas y las pruebas
 con un teléfono se registran por separado en [Compatibilidad](docs/COMPATIBILIDAD.md).
+
+## Características principales / Key Features
+
+- **Vídeo fluido por USB:** Decodificación HEVC nativa vía WebCodecs y alternativa automática por software (PyAV/MJPEG con perfiles `economy`, `balanced` y `detail`).
+- **Control total (ratón, gestos y teclado):** Toques, arrastres, rueda proporcional, gestos desde los bordes (Notificaciones, Centro de control, Inicio), **Selector de apps en segundo plano (Multitarea)** (`Ctrl+M` / `Ctrl+Tab`), puntero personalizable y escritura directa con el teclado del PC.
+- **Audio en tiempo real:** Reproducción PCM mediante `AudioWorklet` con reserva adaptable y controles de volumen independientes para el PC y el iPhone.
+- **Portapapeles bidireccional:** Copia y pega texto Unicode e imágenes PNG entre el PC y el iPhone con `Ctrl+C` y `Ctrl+V`.
+- **Modo AOD / Reposo y ventana flotante:** Permite dejar descansar la pantalla física del iPhone mientras sigues interactuando desde el PC, con modo de teléfono flotante sin bordes y «Siempre encima».
+- **Portátil y autónomo:** Ejecutables portátiles para Windows (`.exe`) y Linux (`.AppImage`) con actualizaciones verificadas por SHA-256.
 
 ## Descargar los portátiles
 
@@ -14,9 +31,9 @@ Descarga los archivos desde [GitHub Releases](https://github.com/Cristiant2608/m
 
 | Archivo | Uso |
 | --- | --- |
-| `Mirros-1.1.3-Windows.exe` | Portátil Windows x64: descargar y abrir. |
-| `Mirros-1.1.3-Linux-x64.AppImage` | Portátil Linux x64: dar permiso de ejecución y abrir. |
-| `Mirros-1.1.3-Source.zip` | Código fuente de la misma versión. |
+| `Mirros-1.1.7-Windows.exe` | Portátil Windows x64: descargar y abrir. |
+| `Mirros-1.1.7-Linux-x64.AppImage` | Portátil Linux x64: dar permiso de ejecución y abrir. |
+| `Mirros-1.1.7-Source.zip` | Código fuente de la misma versión. |
 | `SHA256SUMS.txt` | Sumas SHA-256 de los tres archivos. |
 
 Los portátiles incluyen Electron y Python. El equipo de destino necesita el servicio
@@ -26,8 +43,8 @@ estar en Modo Desarrollador. La primera preparación puede necesitar Internet.
 En Linux:
 
 ```bash
-chmod +x Mirros-1.1.3-Linux-x64.AppImage
-./Mirros-1.1.3-Linux-x64.AppImage
+chmod +x Mirros-1.1.7-Linux-x64.AppImage
+./Mirros-1.1.7-Linux-x64.AppImage
 ```
 
 La cámara y el micrófono del iPhone requieren detener la duplicación mediante
@@ -106,6 +123,10 @@ genera el EXE portátil en `dist/windows`. Los paquetes publicados se descargan 
 | `--udid UDID` | Selecciona el teléfono; obligatorio cuando hay varios. |
 | `--browser RUTA` | Selecciona un navegador Chromium. |
 | `--audio` / `--no-audio` | Activa o desactiva el audio inicial del visor; desactivado por defecto. |
+| `--force-software` | Fuerza la decodificación de video por software (MJPEG con PyAV) en lugar de WebCodecs HEVC. |
+| `--video-quality {economy,balanced,detail}` | Selecciona el perfil de calidad/rendimiento para el video por software (`balanced` por defecto). |
+| `--app-switcher` | Abre el selector de aplicaciones en segundo plano (multitarea) en una sesión activa. |
+| `--list-apps` | Lista en la terminal las aplicaciones de usuario instaladas en el iPhone conectado por USB. |
 | `--no-userspace` | Usa un túnel externo para el dispositivo. |
 
 Sin `--port`, busca un puerto libre desde 8080. El servidor escucha en
