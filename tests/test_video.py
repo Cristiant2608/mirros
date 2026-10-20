@@ -3,17 +3,17 @@ import struct
 import unittest
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 import av
 from mirros.video import SoftwareDecoder
 from pymobiledevice3.remote.core_device.screen_stream import hevc_decoder_configuration_record
 
 
-def hevc_fixture():
+def hevc_fixture(width=320, height=640):
     encoder = av.CodecContext.create('libx265', 'w')
-    encoder.width, encoder.height, encoder.pix_fmt = 320, 640, 'yuv420p'
+    encoder.width, encoder.height, encoder.pix_fmt = width, height, 'yuv420p'
     encoder.options = {'preset':'ultrafast', 'tune':'zerolatency', 'x265-params':'log-level=error:bframes=0:repeat-headers=1'}
-    frame = av.VideoFrame(320, 640, 'yuv420p')
+    frame = av.VideoFrame(width, height, 'yuv420p')
     for plane in frame.planes:
         plane.update(bytes([128]) * plane.buffer_size)
     packets = [*encoder.encode(frame), *encoder.encode(None)]
@@ -25,6 +25,24 @@ def hevc_fixture():
 
 
 class SoftwareVideoTests(unittest.TestCase):
+    def test_profiles_preserve_full_aspect_ratio_and_limit_output_size(self):
+        description, nals = hevc_fixture(1280, 2560)
+        packet = b''.join(struct.pack('>I', len(nal)) + nal for nal in nals)
+        for quality, expected in [('economy', (480, 960)), ('balanced', (784, 1568)), ('detail', (1080, 2160))]:
+            with self.subTest(quality=quality):
+                jpeg = SoftwareDecoder(description, quality).decode(packet)
+                frame = av.CodecContext.create('mjpeg', 'r').decode(av.Packet(jpeg))[0]
+                self.assertEqual((frame.width, frame.height), expected)
+
+    def test_profile_throttles_jpeg_output_without_skipping_hevc_decode(self):
+        description, nals = hevc_fixture()
+        packet = b''.join(struct.pack('>I', len(nal)) + nal for nal in nals)
+        decoder = SoftwareDecoder(description, 'economy')
+        with patch('mirros.video.time.monotonic', side_effect=[100, 100, 100.01, 100.06, 100.06]):
+            self.assertIsNotNone(decoder.decode(packet))
+            self.assertIsNone(decoder.decode(packet))
+            self.assertIsNotNone(decoder.decode(packet))
+
     def test_real_hevc_packet_decodes_to_complete_jpeg_without_browser_hevc(self):
         description, nals = hevc_fixture()
         decoder = SoftwareDecoder(description)
@@ -35,6 +53,23 @@ class SoftwareVideoTests(unittest.TestCase):
 
 
 class SoftwareStreamTests(unittest.IsolatedAsyncioTestCase):
+    async def test_profile_query_reaches_decoder_and_invalid_profiles_are_rejected(self):
+        from mirros.adapter import orientation_connection
+        for quality in ['economy', 'balanced', 'detail', 'invalid']:
+            with self.subTest(quality=quality):
+                reader = asyncio.StreamReader()
+                reader.feed_data(f'GET /frames.bin?quality={quality} HTTP/1.1\r\nHost: localhost\r\n\r\n'.encode())
+                reader.feed_eof()
+                writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+                server = SimpleNamespace(_refuse_request=Mock(return_value=None))
+                with patch('mirros.video.software_stream', new_callable=AsyncMock) as stream:
+                    await orientation_connection(server, reader, writer, AsyncMock())
+                    if quality == 'invalid':
+                        stream.assert_not_awaited()
+                        self.assertIn(b'400 Bad Request', writer.write.call_args.args[0])
+                    else:
+                        stream.assert_awaited_once_with(server, writer, quality)
+
     async def test_http_stream_emits_real_jpeg_and_unregisters_on_disconnect(self):
         from mirros.video import software_stream
         _, nals = hevc_fixture()

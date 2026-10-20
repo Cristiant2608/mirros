@@ -314,3 +314,35 @@ class DisplayModeTests(unittest.IsolatedAsyncioTestCase):
         await orientation_connection(server, reader, writer, AsyncMock())
         self.assertIn(b'"status": "ok"', writer.write.call_args.args[0])
         self.assertTrue(uhs.send_touchscreen.awaited)
+
+    async def test_app_switcher_endpoint(self):
+        from unittest.mock import Mock
+        from mirros.adapter import orientation_connection
+        uhs = SimpleNamespace(send_touchscreen=AsyncMock())
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None),
+                                 _hid_lock=asyncio.Lock(), _ensure_hid=AsyncMock(), _uhs=uhs)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'POST /app-switcher HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        body = writer.write.call_args.args[0]
+        self.assertIn(b'"status": "ok"', body)
+        self.assertIn(b'"method": "gesture"', body)
+        self.assertTrue(uhs.send_touchscreen.awaited)
+
+    async def test_apps_endpoint(self):
+        from unittest.mock import Mock, patch
+        from mirros.adapter import orientation_connection
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None),
+                                 _rsd='dummy_rsd')
+        apps_fixture = [{'name': 'TestApp', 'bundle_id': 'com.test.app', 'version': '1.0'}]
+        with patch('mirros.adapter.list_device_apps', new=AsyncMock(return_value=apps_fixture)):
+            reader = asyncio.StreamReader()
+            reader.feed_data(b'GET /apps HTTP/1.1\r\nHost: localhost\r\n\r\n')
+            reader.feed_eof()
+            writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader, writer, AsyncMock())
+            body = writer.write.call_args.args[0]
+            self.assertIn(b'200 OK', body)
+            self.assertIn(b'com.test.app', body)

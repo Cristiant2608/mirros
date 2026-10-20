@@ -12,9 +12,8 @@ const tagIndex = args.indexOf('--tag');
 if (tagIndex >= 0 && args[tagIndex + 1] !== `v${version}`) {
   throw new Error(`La etiqueta debe ser v${version}.`);
 }
-for (const name of ['package.json', 'package-lock.json']) {
+for (const name of ['package.json']) {
   const filename = path.join(root, name);
-  if (!fs.existsSync(filename)) continue;
   const data = JSON.parse(fs.readFileSync(filename, 'utf8'));
   if (args.includes('--write')) {
     data.version = version;

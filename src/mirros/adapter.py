@@ -7,6 +7,7 @@ import json
 import sys
 import contextlib
 import time
+from urllib.parse import urlsplit, parse_qs
 from importlib.metadata import version
 
 
@@ -227,12 +228,81 @@ async def wake_device(server):
     return {'status': 'ok'}
 
 
+async def trigger_app_switcher(server):
+    """Abre el selector de aplicaciones de iOS (multitarea / apps en segundo plano)."""
+    try:
+        await server._ensure_hid()
+        async with server._hid_lock:
+            uhs = getattr(server, '_uhs', None)
+            if uhs is not None:
+                from pymobiledevice3.remote.core_device.hid_service import (
+                    TOUCHSCREEN_STATE_CONTACT,
+                    TOUCHSCREEN_STATE_RELEASE,
+                )
+                start_x, start_y = 32768, 64500
+                end_y = 38000
+                steps = 10
+                cur_y = start_y
+                try:
+                    await uhs.send_touchscreen(TOUCHSCREEN_STATE_CONTACT, start_x, start_y)
+                    await asyncio.sleep(0.02)
+                    for i in range(1, steps + 1):
+                        cur_y = int(start_y + (end_y - start_y) * (i / steps))
+                        await uhs.send_touchscreen(TOUCHSCREEN_STATE_CONTACT, start_x, cur_y)
+                        await asyncio.sleep(0.015)
+                    # Pausa en el centro para que iOS active el App Switcher
+                    await asyncio.sleep(0.35)
+                finally:
+                    await uhs.send_touchscreen(TOUCHSCREEN_STATE_RELEASE, start_x, cur_y)
+                return {'status': 'ok', 'method': 'gesture'}
+
+            indigo = getattr(server, '_indigo', None)
+            if indigo is not None:
+                from pymobiledevice3.remote.core_device.screen_stream import _NAMED_BUTTONS
+                from pymobiledevice3.remote.core_device.hid_service import HID_BUTTON_STATE_DOWN, HID_BUTTON_STATE_UP
+                usage_page, usage_code, _ = _NAMED_BUTTONS['home']
+                await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_DOWN)
+                await asyncio.sleep(0.05)
+                await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
+                await asyncio.sleep(0.08)
+                await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_DOWN)
+                await asyncio.sleep(0.05)
+                await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
+                return {'status': 'ok', 'method': 'double-home'}
+            raise RuntimeError('HID no disponible')
+    except Exception as error:
+        logging.getLogger(__name__).warning('No se pudo abrir el selector de apps: %s', error)
+        return {'status': 'error', 'message': str(error)}
+
+
+async def list_device_apps(server):
+    """Obtiene la lista de aplicaciones instaladas en el iPhone."""
+    from pymobiledevice3.services.installation_proxy import InstallationProxyService
+
+    async with InstallationProxyService(server._rsd) as service:
+        apps = await service.get_apps(application_type='User')
+    result = []
+    for bundle_id, data in sorted(
+        apps.items(),
+        key=lambda x: (x[1].get('CFBundleDisplayName') or x[1].get('CFBundleName') or x[0]).lower(),
+    ):
+        name = data.get('CFBundleDisplayName') or data.get('CFBundleName') or bundle_id
+        version = data.get('CFBundleShortVersionString') or data.get('CFBundleVersion') or ''
+        result.append({'bundle_id': bundle_id, 'name': name, 'version': str(version)})
+    return result
+
+
 async def orientation_connection(server, reader, writer, original):
     # Upstream consumes all subsequent HID requests on a persistent socket itself.
     # Dispatch them here so the next request can still reach MirrOS-only routes.
     while True:
         line = await reader.readline()
         request = line.split()[:2]
+        video_quality = 'balanced'
+        if len(request) == 2 and request[0] == b'GET' and request[1].startswith(b'/frames.bin?'):
+            query = parse_qs(urlsplit(request[1].decode('utf-8', errors='ignore')).query, keep_blank_values=True)
+            video_quality = query.get('quality', ['balanced'])[0]
+            request[1] = b'/frames.bin'
         hid = len(request) == 2 and request[0] == b'POST' and request[1] in (b'/key', b'/touch', b'/button')
         allowed_routes = (
             [b'GET', b'/control'],
@@ -244,6 +314,8 @@ async def orientation_connection(server, reader, writer, original):
             [b'GET', b'/display-mode'],
             [b'POST', b'/display-mode'],
             [b'POST', b'/wake'],
+            [b'POST', b'/app-switcher'],
+            [b'GET', b'/apps'],
         )
         if not hid and request not in allowed_routes:
             return await original(server, PrefixedReader(line, reader), writer)
@@ -278,8 +350,13 @@ async def orientation_connection(server, reader, writer, original):
         from mirros.control import serve_control
         return await serve_control(server, reader, writer, headers, release_input)
     elif request == [b'GET', b'/frames.bin']:
-        from mirros.video import software_stream
-        return await software_stream(server, writer)
+        from mirros.video import software_stream, VIDEO_PROFILES
+        if video_quality not in VIDEO_PROFILES:
+            writer.write(b'HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+            await writer.drain()
+            writer.close()
+            return
+        return await software_stream(server, writer, video_quality)
     elif request == [b'POST', b'/session/end']:
         writer.write(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok')
         task = getattr(server, '_mirros_serve_task', None)
@@ -317,6 +394,20 @@ async def orientation_connection(server, reader, writer, original):
         result = await wake_device(server)
         body = json.dumps(result).encode()
         status = b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK'
+        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+    elif request == [b'POST', b'/app-switcher']:
+        result = await trigger_app_switcher(server)
+        body = json.dumps(result).encode()
+        status = b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK'
+        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+    elif request == [b'GET', b'/apps']:
+        try:
+            apps = await asyncio.wait_for(list_device_apps(server), 10)
+            body = json.dumps(apps).encode()
+            status = b'200 OK'
+        except Exception as error:
+            logging.getLogger(__name__).warning('No se pudo listar aplicaciones: %s', error)
+            body, status = json.dumps({'error': str(error)}).encode(), b'503 Service Unavailable'
         writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
     else:
         try:

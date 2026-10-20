@@ -97,7 +97,7 @@ async function start() {
     publish, getState: () => state, writeLog: data => logStream.write(data),
   });
   const webRoot = app.isPackaged ? path.join(process.resourcesPath, 'web') : path.join(root, 'src', 'mirros', 'web');
-  if (!fs.existsSync(path.join(webRoot, 'index.html'))) throw new Error('Falta la interfaz. Ejecuta npm run build antes de abrir Mirros.');
+  if (!fs.existsSync(path.join(webRoot, 'index.html'))) throw new Error('Falta la interfaz. Ejecuta pnpm run build antes de abrir Mirros.');
   proxyServer = http.createServer((req, res) => {
     let pathname;
     try { pathname = new URL(req.url, 'http://localhost').pathname; }

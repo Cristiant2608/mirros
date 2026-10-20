@@ -81,6 +81,7 @@ Una modificación en `main` necesita un paquete publicado para actualizar un EXE
 | Acción | Atajo |
 | --- | --- |
 | Inicio | Ctrl+H o clic derecho |
+| Selector de apps (Multitarea) | Ctrl+M o Ctrl+Tab |
 | Bloquear iPhone | Ctrl+L |
 | Guardar captura | Ctrl+P |
 | Volumen del iPhone | Ctrl+[ y Ctrl+] |
