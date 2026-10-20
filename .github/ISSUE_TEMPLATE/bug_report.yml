@@ -1,0 +1,64 @@
+name: 🐛 Reporte de error / Bug Report
+description: Reporta un fallo de conexión USB, video, audio, entrada táctil o escritorio (sin datos personales).
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por ayudar a mejorar **MirrOS**.
+        > **Privacidad:** No incluyas tu UDID, nombre personal del iPhone, rutas con tu nombre de usuario ni contenido privado del portapapeles.
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Sistema operativo / Operating System
+      options:
+        - Windows 11 x64
+        - Windows 10 x64
+        - Linux — Ubuntu / Debian
+        - Linux — Arch / CachyOS / Manjaro
+        - Linux — Fedora / RHEL
+        - Linux — Otra distribución
+    validations:
+      required: true
+
+  - type: dropdown
+    id: method
+    attributes:
+      label: Método de ejecución / Installation Method
+      options:
+        - Ejecutable portátil Windows (.exe)
+        - Ejecutable portátil Linux (.AppImage)
+        - Desde código fuente — Escritorio (pnpm start)
+        - Desde código fuente — Terminal CLI (mirros / ios-scrcpy)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión de MirrOS e iOS / MirrOS & iOS Version
+      description: "Ejemplo: MirrOS 1.1.7, iPhone 15 con iOS 18.1 (en Linux indica también X11 o Wayland)."
+      placeholder: "MirrOS 1.1.7 / iOS 18.1 / Wayland"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: ¿Qué ocurrió y cómo se reproduce? / What happened & steps to reproduce?
+      description: Describe los pasos exactos y el comportamiento observado frente al esperado.
+      placeholder: |
+        1. Conectar iPhone por USB con Modo Desarrollador activo.
+        2. Abrir MirrOS y pulsar...
+        3. Resultado observado: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnóstico sanitizado / Sanitized Diagnostics (opcional)
+      description: "Pega la salida de `mirros --diagnose` o `python -m mirros.diagnostics` (verifica que no contenga rutas ni datos privados)."
+      render: json
