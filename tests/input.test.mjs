@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const source = fs.readFileSync(new URL('../frontend/src/input.js', import.meta.url), 'utf8');
-const {coordinates, wheelPath, createInput} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const {coordinates, edgeStart, wheelPath, createInput} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 globalThis.requestAnimationFrame = callback => setTimeout(callback, 1);
 globalThis.cancelAnimationFrame = clearTimeout;
 test('maps scaled canvas taps and clamps outside edges', () => {
@@ -43,13 +43,54 @@ test('tiny pointer jitter remains a tap at the original pixel', async () => {
   input.down(1,{x:30000,y:30000});input.move(1,{x:30100,y:30100});await input.release(1,{x:30100,y:30100});
   assert.deepEqual(sent.map(e=>e.type),['contact','release']);assert.deepEqual(sent[1],{type:'release',x:30000,y:30000});input.dispose();
 });
-test('slow transport keeps only the latest pending move and preserves release', async () => {
+test('slow transport preserves a bounded swipe path, including its first move and release', async () => {
   const sent=[];let unblock;const blocked=new Promise(r=>unblock=r);
   const input=createInput(async(_,data)=>{sent.push(data);if(sent.length===1)await blocked;});
   input.down(1,{x:10000,y:10000});
   for(let i=0;i<30;i++){input.move(1,{x:10000+i*500,y:20000+i*500});await new Promise(r=>setTimeout(r,2));}
   const done=input.release(1,{x:50000,y:55000});unblock();await done;
-  assert.equal(sent.length,3);assert.deepEqual(sent[1],{type:'contact',x:50000,y:55000});assert.equal(sent.at(-1).type,'release');input.dispose();
+  assert(sent.length>3 && sent.length<=26);
+  assert.deepEqual(sent[1],{type:'contact',x:10000,y:20000});
+  assert.deepEqual(sent.at(-2),{type:'contact',x:50000,y:55000});
+  assert.deepEqual(sent.at(-1),{type:'release',x:50000,y:55000});input.dispose();
+});
+
+test('a delayed down preserves a stationary long press instead of replaying a tap', async () => {
+  let unblock, downAt;
+  const blocked = new Promise(resolve => { unblock = resolve; });
+  const sent = [];
+  const input = createInput(async (_, data) => {
+    if (!sent.length) { await blocked; downAt = performance.now(); }
+    sent.push({...data, at: performance.now()});
+  });
+  input.down(1, {x: 30000, y: 30000});
+  await new Promise(resolve => setTimeout(resolve, 550));
+  const released = input.release(1);
+  unblock(); await released;
+  assert.equal(sent.length, 2);
+  assert(sent[1].at - downAt >= 520, 'the device must receive the hold duration after the delayed down');
+  input.dispose();
+});
+
+test('edge swipes start at the device edge at any preview scale; interior taps stay exact', () => {
+  for (const width of [200, 400]) {
+    const size = {width, height: width * 2};
+    assert.deepEqual(edgeStart({x: 60000, y: 4 / size.height * 65535}, size), {x: 60000, y: 0});
+    assert.deepEqual(edgeStart({x: 32768, y: 65535 - 4 / size.height * 65535}, size), {x: 32768, y: 65535});
+    assert.deepEqual(edgeStart({x: 32768, y: 32768}, size), {x: 32768, y: 32768});
+  }
+});
+
+test('an initial transport delay still gives a programmatic swipe intermediate positions', async () => {
+  const sent = [];
+  const input = createInput(async (_, data) => {
+    if (!sent.length) await new Promise(resolve => setTimeout(resolve, 220));
+    sent.push(data);
+  });
+  await input.swipe('home');
+  assert(sent.filter(data => data.type === 'contact').length > 4);
+  assert.deepEqual(sent.at(-1), {type:'release', x:32768, y:25000});
+  input.dispose();
 });
 test('wheel movement is proportional and supports horizontal scrolling',()=>{
   const tiny=wheelPath({x:30000,y:30000},1,1,650),large=wheelPath({x:30000,y:30000},120,1,650);
