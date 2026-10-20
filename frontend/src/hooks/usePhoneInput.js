@@ -1,5 +1,5 @@
 import {useEffect, useRef} from 'react';
-import {createInput, coordinates, keyUsages} from '../input.js';
+import {createInput, coordinates, edgeStart, keyUsages} from '../input.js';
 import {devicePoint} from '../orientation.js';
 import {post} from '../transport.js';
 
@@ -12,9 +12,19 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
     const send = (path, data) => post(path, path === '/touch' ? {...data, ...devicePoint(data, rotation)} : data);
     const controls = createInput(send, error => callbacks.current.onError(error.message), {getSize: () => node.getBoundingClientRect()}); input.current = controls;
     const point = event => coordinates(event.clientX, event.clientY, node.getBoundingClientRect());
-    const down = event => { if (event.button !== 0) return; event.preventDefault(); node.focus({preventScroll: true}); if (controls.down(event.pointerId, point(event))) node.setPointerCapture(event.pointerId); };
-    const move = event => controls.move(event.pointerId, point(event.getCoalescedEvents?.().at(-1) || event));
-    const up = event => controls.release(event.pointerId, point(event));
+    let startOffset = {x: 0, y: 0};
+    const gesturePoint = event => { const p = point(event); return p && {x: Math.max(0, Math.min(65535, p.x + startOffset.x)), y: Math.max(0, Math.min(65535, p.y + startOffset.y))}; };
+    const down = event => {
+      if (event.button !== 0 || !event.isPrimary) return;
+      event.preventDefault(); node.focus({preventScroll: true});
+      const raw = point(event), start = edgeStart(raw, node.getBoundingClientRect());
+      if (controls.down(event.pointerId, start)) {
+        startOffset = {x: start.x - raw.x, y: start.y - raw.y};
+        node.setPointerCapture(event.pointerId);
+      }
+    };
+    const move = event => controls.move(event.pointerId, gesturePoint(event.getCoalescedEvents?.().at(-1) || event));
+    const up = event => controls.release(event.pointerId, gesturePoint(event));
     const release = () => controls.release(null);
     const wheel = event => { event.preventDefault(); controls.wheel(point(event), event.deltaY, event.deltaMode, node.clientHeight, sensitivity, event.deltaX, node.clientWidth); };
     const context = event => { event.preventDefault(); callbacks.current.button('home'); };

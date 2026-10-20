@@ -1,3 +1,10 @@
+# 1.1.6 — 2026-10-20
+
+- Conserva la duración de una pulsación sostenida aunque la preparación del canal de control demore el primer toque.
+- Conserva una trayectoria acotada de los arrastres bajo latencia, incluido el primer movimiento y la posición final.
+- Facilita iniciar gestos de sistema desde los bordes de la vista: Notificaciones, Centro de control y deslizamiento hacia arriba.
+- Inicia el tiempo de los deslizamientos automáticos después de confirmar el contacto inicial.
+
 # 1.1.5 — 2026-10-20
 
 - Sustituye el cursor `+` por un puntero visual limpio dentro de la pantalla del iPhone.

@@ -3,6 +3,13 @@ export function coordinates(clientX, clientY, rect) {
   if (!(rect.width > 0 && rect.height > 0)) return null;
   return {x: clamp((clientX - rect.left) / rect.width * 65535), y: clamp((clientY - rect.top) / rect.height * 65535)};
 }
+// iOS requires system gestures to begin at the physical edge. The rounded
+// preview makes that single pixel difficult to hit with a mouse.
+export function edgeStart(point, size, margin = 8) {
+  if (!point) return point;
+  const snap = (value, pixels) => value / 65535 * pixels <= margin ? 0 : (65535 - value) / 65535 * pixels <= margin ? 65535 : value;
+  return {x: snap(point.x, size.width), y: snap(point.y, size.height)};
+}
 export function wheelPath(point, delta, sensitivity = 1, viewSize = 650, horizontal = false) {
   const distance = Math.min(22000, Math.abs(delta) / Math.max(1, viewSize) * 65535 * sensitivity);
   const direction = Math.sign(delta);
@@ -25,15 +32,25 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
     if (!session?.pending) return;
     if (!session.dragged && distance(session, session.pending) < 3) return;
     session.dragged = true;
-    // At most one waiting move per finger. Slow HTTP never builds a stale path.
+    session.samples.push({point: session.pending, at: session.pendingAt});
+    session.pending = null;
+    // Keep a bounded path, including its first movement and final position.
+    // Dropping every intermediate sample turns edge swipes into teleports.
+    if (session.samples.length > 24) session.samples.splice(1, 1);
     if (session.moveQueued) return;
     session.moveQueued = true;
     enqueue(async () => {
-      session.moveQueued = false;
-      const point = session.pending; session.pending = null;
-      if (point && (point.x !== session.last.x || point.y !== session.last.y)) {
-        session.last = point;
-        await contact(point);
+      try {
+        while (session.samples.length && !disposed && !session.cancelled) {
+          const {point, at} = session.samples.shift();
+          await sleep(Math.max(0, at - session.startedAt - (performance.now() - session.sentAt)));
+          if (point.x !== session.last.x || point.y !== session.last.y) {
+            session.last = point;
+            await contact(point);
+          }
+        }
+      } finally {
+        session.moveQueued = false;
       }
     });
   }
@@ -41,23 +58,24 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
     const session = active;
     if (!session || (id != null && id !== session.id)) return chain;
     if (scheduled != null) { cancelAnimationFrame(scheduled); scheduled = null; }
-    if (point) session.pending = point;
+    const releasedAt = performance.now();
+    if (id == null) { session.cancelled = true; session.pending = null; session.samples.length = 0; }
+    if (point) { session.pending = point; session.pendingAt = releasedAt; }
     flushMove(session);
     active = null;
-    const end = session.dragged ? (session.pending || point || session.last) : session.start;
     enqueue(async () => {
-      // Tap dwell starts when the down is sent, not when it waited in the queue.
-      const minimum = session.dragged ? 16 : 40;
+      // Preserve the user's hold even when opening HID delayed the down ACK.
+      const minimum = disposed || session.cancelled ? 0 : Math.max(session.dragged ? 16 : 40, releasedAt - session.startedAt);
       await sleep(Math.max(0, minimum - (performance.now() - session.sentAt)));
-      await lift(end);
+      await lift(session.dragged ? session.last : session.start);
     });
     return chain;
   }
   async function gesture(start, end, duration, token) {
     let final = start;
-    const began = performance.now();
     try {
       await contact(start);
+      const began = performance.now();
       while (!disposed && token === gestureToken) {
         const elapsed = performance.now() - began;
         if (elapsed < duration) await sleep(Math.min(12, duration - elapsed));
@@ -87,14 +105,15 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
       if (active || disposed || !point) return false;
       // A click interrupts wheel/programmatic motion after lifting its finger.
       ++gestureToken; wheelDelta = 0; clearTimeout(wheelTimer); wheelTimer = null;
-      const session = {id, start: point, last: point, pending: null, moveQueued: false, dragged: false, sentAt: 0, size: getSize()};
+      const session = {id, start: point, last: point, pending: null, samples: [], pendingAt: 0, moveQueued: false, dragged: false, sentAt: 0, startedAt: performance.now(), size: getSize()};
       active = session;
-      enqueue(async () => { session.sentAt = performance.now(); await contact(point); });
+      enqueue(async () => { await contact(point); session.sentAt = performance.now(); });
       return true;
     },
     move(id, point) {
       if (!active || id !== active.id || !point) return;
       active.pending = point;
+      active.pendingAt = performance.now();
       if (scheduled == null) scheduled = requestAnimationFrame(() => flushMove());
     },
     release,

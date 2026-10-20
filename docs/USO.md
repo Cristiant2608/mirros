@@ -148,3 +148,9 @@ un enlace simbólico en ese destino. En POSIX se crea con permisos `0600`.
 Sin `--output` imprime el JSON en la terminal. Revisa el informe antes de
 adjuntarlo manualmente a una incidencia. Este módulo complementa `mirros
 --diagnose`, cuya salida de terminal puede incluir identificadores del teléfono.
+
+## Gestos de sistema y pulsación sostenida
+
+Mantén el botón izquierdo pulsado para mantener el dedo en la pantalla; suéltalo para levantarlo. Puedes arrastrar después de una pulsación larga.
+
+Para Notificaciones, comienza cerca del borde superior izquierdo y arrastra hacia abajo. Para Centro de control, comienza en el borde superior derecho. Para Inicio o mostrar la pantalla de desbloqueo, comienza abajo y arrastra hacia arriba. Mirros facilita iniciar estos gestos en los 8 píxeles junto al borde de la vista. Face ID y el código siguen dependiendo de iOS.
