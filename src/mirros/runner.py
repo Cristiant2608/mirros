@@ -1,5 +1,6 @@
 """Arranque nativo en Windows y Linux y gestión del servidor de pantalla."""
 
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,17 @@ from urllib.request import Request, urlopen
 from mirros.processes import TerminationRequested, shutdown_signals, start_process, stop_process, stop_server
 
 from mirros.device import check_usbmuxd_socket, list_connected_devices
+
+_LAST_INSPECTED_DEVICE: dict = {}
+
+
+def hevc_browser_flags() -> list[str]:
+    if sys.platform.startswith("linux"):
+        return [
+            "--enable-features=PlatformHEVCDecoderSupport,VaapiVideoDecoder,VaapiVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL",
+            "--ignore-gpu-blocklist",
+        ]
+    return ["--enable-features=PlatformHEVCDecoderSupport"]
 
 
 def get_available_port(start_port: int = 8080) -> int:
@@ -76,6 +88,25 @@ def wait_for_server(process: subprocess.Popen, port: int, timeout: float = 90) -
 
 def prepare_device(udid: str, userspace: bool, log_path: Path) -> bool:
     """Monta DDI antes de abrir RSD: sin DDI el HTML funciona, pero no el video/HID."""
+    _LAST_INSPECTED_DEVICE.clear()
+    try:
+        from mirros.device import inspect_device
+        info = asyncio.run(inspect_device(udid, reveal_developer_mode=True))
+        if isinstance(info, dict):
+            _LAST_INSPECTED_DEVICE.update(info)
+    except Exception:
+        info = {}
+    if info.get("paired") is False:
+        print("[!] El iPhone no confía aún en este equipo. Desbloquéalo y pulsa 'Confiar'.", flush=True)
+        return False
+    if info.get("developer_mode") is False:
+        if info.get("developer_mode_revealed"):
+            print("[!] Modo Desarrollador desactivado. Ya es visible en Ajustes > Privacidad y seguridad > Modo Desarrollador.", flush=True)
+        else:
+            print("[!] Modo Desarrollador desactivado. Actívalo en Ajustes > Privacidad y seguridad.", flush=True)
+        return False
+    if userspace and info.get("userspace_supported") is False:
+        userspace = False
     command = [sys.executable, "-m", "pymobiledevice3", "mounter", "auto-mount"]
     if userspace:
         command.append("--userspace")
@@ -190,6 +221,8 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
         preparation_log = log_path.with_name(log_path.stem + "-prepare.log")
         if not prepare_device(target, userspace, preparation_log):
             return 1
+        if userspace and _LAST_INSPECTED_DEVICE.get("udid") == target and _LAST_INSPECTED_DEVICE.get("userspace_supported") is False:
+            userspace = False
         print(f"[*] Iniciando pantalla en {url} (registro: {log_path})", flush=True)
         with log_path.open("w", encoding="utf-8") as log:
             env = {**os.environ, "PYTHONUTF8": "1", "PYTHONUNBUFFERED": "1",
@@ -215,9 +248,12 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                     browser_command = [
                         browser, f"--app={url}", f"--user-data-dir={profile}",
                         "--window-size=480,960", "--no-first-run", "--no-default-browser-check",
-                        "--enable-features=PlatformHEVCDecoderSupport",
+                        "--disable-background-networking", "--log-level=3",
+                        *hevc_browser_flags(),
                     ]
-                    browser_process = start_process(browser_command)
+                    browser_process = start_process(
+                        browser_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                    )
                     try:
                         return monitor(server, browser_process, log_path)
                     finally:

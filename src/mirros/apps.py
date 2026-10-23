@@ -16,19 +16,26 @@ def list_apps_cli(udid: Optional[str] = None) -> int:
         print("[!] El servicio usbmuxd no está disponible.")
         return 1
 
-    devices = list_connected_devices()
+    try:
+        devices = list_connected_devices()
+    except Exception as error:
+        print(f"[!] No se pudo consultar USB ({type(error).__name__}).")
+        return 1
     if not devices:
         print("[!] No se detectó ningún iPhone conectado por USB.")
         return 1
     if udid and udid not in devices:
         print(f"[!] Dispositivo {udid} no encontrado. Disponibles: {', '.join(devices)}")
         return 1
+    if not udid and len(devices) > 1:
+        print("[!] Hay varios dispositivos. Usa --udid con uno de: " + ", ".join(devices))
+        return 1
     target = udid or devices[0]
 
     async def _fetch():
-        lockdown = await create_using_usbmux(serial=target)
-        async with InstallationProxyService(lockdown) as service:
-            return await service.get_apps(application_type="User")
+        async with await asyncio.wait_for(create_using_usbmux(serial=target), timeout=5) as lockdown:
+            async with InstallationProxyService(lockdown) as service:
+                return await asyncio.wait_for(service.get_apps(application_type="User"), timeout=15)
 
     try:
         print(f"[*] Conectando con iPhone ({target})...", flush=True)
@@ -71,4 +78,24 @@ def app_switcher_cli(port: Optional[int] = None) -> int:
     except Exception as error:
         print(f"[!] No se pudo comunicar con MirrOS en el puerto {target_port}: {error}")
         print("    Inicia primero MirrOS (ej. 'mirros') para enviar atajos a la sesión activa.")
+        return 1
+
+
+def launch_app_cli(bundle_id: str, port: Optional[int] = None) -> int:
+    """Abre una aplicación instalada en el iPhone a través de una sesión activa de MirrOS."""
+    target_port = port or 8080
+    url = f"http://127.0.0.1:{target_port}/apps/launch"
+    payload = json.dumps({"bundle_id": bundle_id.strip()}).encode("utf-8")
+    try:
+        req = Request(url, data=payload, headers={"Content-Type": "application/json"})
+        with urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data.get("status") == "ok":
+                print(f"[+] Aplicación {data.get('bundle_id', bundle_id)} abierta en el iPhone.")
+                return 0
+            print(f"[!] Error desde MirrOS: {data.get('message', 'desconocido')}")
+            return 1
+    except Exception as error:
+        print(f"[!] No se pudo abrir la aplicación desde MirrOS en el puerto {target_port}: {error}")
+        print("    Inicia primero MirrOS (ej. 'mirros') para abrir aplicaciones en la sesión activa.")
         return 1

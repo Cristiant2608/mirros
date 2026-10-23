@@ -4,7 +4,7 @@
   <strong><a href="README.md">🇪🇸 Leer en Español</a></strong> ·
   <strong>🇬🇧 English</strong> ·
   <strong><a href="https://cristiant2608.github.io/mirros/">🌐 Official Website</a></strong> ·
-  <strong><a href="https://github.com/Cristiant2608/mirros/releases/latest">⬇️ Download Latest Release (v1.1.7)</a></strong>
+  <strong><a href="https://github.com/Cristiant2608/mirros/releases/latest">⬇️ Download Latest Release (v1.2.0)</a></strong>
 </p>
 
 [![Latest Release](https://img.shields.io/github/v/release/Cristiant2608/mirros?label=release&color=5269c4)](https://github.com/Cristiant2608/mirros/releases/latest)
@@ -25,6 +25,7 @@
 
 | Feature | Description |
 | --- | --- |
+| **Live Camera Viewfinder & Mic Isolation** | Direct live camera feed on canvas via DVT Instruments bypass (`GET /camera-frame`) with full touch control (shutter, zoom `0.5x`/`1x`/`2x`, lens flip) and non-blocking microphone isolation (preventing Apple CoreDevice 9022 error). |
 | **Low-Latency USB Video** | Native **HEVC** hardware decoding via Chromium WebCodecs, with automatic **PyAV/FFmpeg software fallback** (`economy`, `balanced`, and `detail` profiles) when browser HEVC is unavailable. |
 | **HID Touch, Edge Swipes & Pointer** | Accurate normalized touch, long press hold preservation, proportional vertical/horizontal mouse wheel scrolling, 8px edge-snap gestures (Notifications, Control Center, Home), and customizable in-phone cursor (Arrow, Circle, Dot). |
 | **App Switcher & Installed Apps** | Open iOS background multitasking (**App Switcher**) via toolbar button, `Ctrl+M` / `Ctrl+Tab`, or `mirros --app-switcher`, plus a searchable **Installed Applications** viewer (`mirros --list-apps`). |
@@ -41,19 +42,19 @@ Download the latest binaries from [GitHub Releases](https://github.com/Cristiant
 
 | File | Usage |
 | --- | --- |
-| `Mirros-1.1.7-Windows.exe` | **Windows x64 Portable:** download and run the `.exe`. |
-| `Mirros-1.1.7-Linux-x64.AppImage` | **Linux x64 Portable:** make executable (`chmod +x`) and run. |
-| `Mirros-1.1.7-Source.zip` | Source code archive from the verified release tag. |
+| `Mirros-1.2.0-Windows.exe` | **Windows x64 Portable:** download and run the `.exe`. |
+| `Mirros-1.2.0-Linux-x64.AppImage` | **Linux x64 Portable:** make executable (`chmod +x`) and run. |
+| `Mirros-1.2.0-Source.zip` | Source code archive from the verified release tag. |
 | `SHA256SUMS.txt` | SHA-256 checksums for all release artifacts. |
 
 On Linux:
 
 ```bash
-chmod +x Mirros-1.1.7-Linux-x64.AppImage
-./Mirros-1.1.7-Linux-x64.AppImage
+chmod +x Mirros-1.2.0-Linux-x64.AppImage
+./Mirros-1.2.0-Linux-x64.AppImage
 ```
 
-> **Note on iPhone Camera & Microphone:** CoreDevice screen streaming prevents simultaneous use of the iPhone's physical camera and microphone. Click **Safe Disconnect** (*Desconectar de forma segura*) and wait for the session to close before opening the Camera app on your iPhone.
+> **iPhone Camera & Microphone:** MirrOS automatically activates the hybrid live viewfinder when camera or microphone apps are opened, allowing full touch interaction, photo/video capture, and audio recording without Apple CoreDevice collisions.
 
 ---
 

@@ -30,9 +30,12 @@ class SoftwareVideoTests(unittest.TestCase):
         packet = b''.join(struct.pack('>I', len(nal)) + nal for nal in nals)
         for quality, expected in [('economy', (480, 960)), ('balanced', (784, 1568)), ('detail', (1080, 2160))]:
             with self.subTest(quality=quality):
-                jpeg = SoftwareDecoder(description, quality).decode(packet)
+                decoder = SoftwareDecoder(description, quality)
+                jpeg = decoder.decode(packet)
                 frame = av.CodecContext.create('mjpeg', 'r').decode(av.Packet(jpeg))[0]
                 self.assertEqual((frame.width, frame.height), expected)
+                self.assertEqual(decoder.encoder.qmin, decoder.qscale)
+                self.assertEqual(decoder.encoder.qmax, decoder.qscale)
 
     def test_profile_throttles_jpeg_output_without_skipping_hevc_decode(self):
         description, nals = hevc_fixture()

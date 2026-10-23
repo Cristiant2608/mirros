@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mirros"
-version = "1.1.7"
+version = "1.2.0"
 description = "Visualiza y controla tu iPhone por USB desde Windows o Linux (alternativa scrcpy para iOS)"
 readme = "README.md"
 license = { file = "LICENSE" }

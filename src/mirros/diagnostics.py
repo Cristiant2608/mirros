@@ -9,10 +9,46 @@ import platform
 import shutil
 import sys
 
+ALLOWED_ERROR_CODES = frozenset({
+    'transport_closed',
+    'video_stalled',
+    'clipboard_unavailable',
+    'apps_unavailable',
+    'app_launch_failed',
+    'app_switcher_failed',
+    'wake_failed',
+    'aod_failed',
+    'orientation_unavailable',
+    'usb_unavailable',
+    'usb_not_paired',
+    'developer_mode_disabled',
+    'media_in_use',
+    'media_pause_failed',
+    'style_failed',
+})
+_RECENT_ERRORS = []
+_MAX_RECENT_ERRORS = 20
+
+
+def record_diagnostic_error(code: str) -> None:
+    """Record an allowlisted error code with UTC timestamp; never store raw exception messages."""
+    if code not in ALLOWED_ERROR_CODES:
+        return
+    _RECENT_ERRORS.append({
+        'code': code,
+        'at': datetime.now(timezone.utc).isoformat(),
+    })
+    if len(_RECENT_ERRORS) > _MAX_RECENT_ERRORS:
+        del _RECENT_ERRORS[:-_MAX_RECENT_ERRORS]
+
+
+def clear_diagnostic_errors() -> None:
+    _RECENT_ERRORS.clear()
+
 
 def collect_report(probe_usb=False):
     packages = {}
-    for name in ('mirros', 'pymobiledevice3', 'av'):
+    for name in ('mirros', 'pymobiledevice3', 'av', 'pmd-pytcp'):
         try:
             packages[name] = version(name)
         except PackageNotFoundError:
@@ -27,6 +63,7 @@ def collect_report(probe_usb=False):
                   ('node', 'wl-copy', 'wl-paste', 'chromium', 'google-chrome', 'msedge')},
         'desktop': {'wayland': bool(os.environ.get('WAYLAND_DISPLAY'))},
         'usb': {'status': 'not_probed'},
+        'recent_errors': list(_RECENT_ERRORS),
     }
     if probe_usb:
         from mirros.device import list_connected_devices
@@ -34,6 +71,7 @@ def collect_report(probe_usb=False):
             report['usb'] = {'status': 'ok', 'device_count': len(list_connected_devices())}
         except Exception:
             # Exceptions may contain serials, paths or device names: never export them.
+            record_diagnostic_error('usb_unavailable')
             report['usb'] = {'status': 'unavailable'}
     return report
 

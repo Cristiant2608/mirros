@@ -152,3 +152,139 @@ test('session applies preferred aod displayMode upon connection', async () => {
     await f.session.close();
   }
 });
+
+test('diagnostics worker returns allowlisted JSON without altering session state', async () => {
+  let state = {phase: 'buscando'};
+  const session = createSession({
+    workerArgs: args => {
+      assert.deepEqual(args, ['diagnostics']);
+      return [process.execPath, ['-e', 'console.log(JSON.stringify({schema_version:1,usb:{status:"ok",device_count:1}}))']];
+    },
+    publish: patch => { state = {...state, ...patch}; },
+    getState: () => state,
+    writeLog: () => {},
+  });
+  try {
+    const report = await session.diagnostics();
+    assert.deepEqual(report, {schema_version: 1, usb: {status: 'ok', device_count: 1}});
+    assert.equal(state.phase, 'buscando');
+  } finally {
+    await session.close();
+  }
+});
+
+test('unpaired or developer-mode-disabled phones report actionable instructions without spawning prepare', async () => {
+  for (const [device, expectedText] of [
+    [{udid: 'unpaired', paired: false}, 'Confiar'],
+    [{udid: 'no-dev', paired: true, developer_mode: false, developer_mode_revealed: true}, 'Modo Desarrollador'],
+  ]) {
+    let state = {phase: 'buscando'};
+    const spawned = [];
+    const session = createSession({
+      workerArgs: args => ['fake-worker', args],
+      spawnProcess: (_file, args) => {
+        spawned.push(args);
+        const child = Object.assign(new EventEmitter(), {stdout: new PassThrough(), stderr: new PassThrough(), pid: 1, exitCode: null});
+        queueMicrotask(() => {
+          if (args[0] === 'status') child.stdout.write(JSON.stringify({devices: [device]}));
+          child.exitCode = 0;
+          child.emit('exit', 0);
+        });
+        return child;
+      },
+      publish: patch => { state = {...state, ...patch}; },
+      getState: () => state,
+      writeLog: () => {},
+    });
+    try {
+      await session.scan();
+      assert.equal(state.phase, 'buscando');
+      assert.match(state.message, new RegExp(expectedText));
+      assert.deepEqual(spawned, [['status']]);
+    } finally {
+      await session.close();
+    }
+  }
+});
+
+test('iOS below 17.4 falls back from --userspace to --tunnel udid', async () => {
+  let state = {phase: 'buscando'};
+  const spawned = [];
+  const stopWorker = async child => {
+    if (!child || child.exitCode !== null) return;
+    child.exitCode = 0;
+    child.emit('exit', 0);
+  };
+  const session = createSession({
+    workerArgs: args => ['fake-worker', args],
+    spawnProcess: (_file, args) => {
+      spawned.push(args);
+      const child = Object.assign(new EventEmitter(), {stdout: new PassThrough(), stderr: new PassThrough(), pid: 1, exitCode: null});
+      if (args[0] !== 'serve') {
+        queueMicrotask(() => {
+          if (args[0] === 'status') {
+            child.stdout.write(JSON.stringify({devices: [{udid: 'ios17-2', version: '17.2', userspace_supported: false}]}));
+          }
+          stopWorker(child);
+        });
+      }
+      return child;
+    },
+    fetchRequest: async () => ({ok: true, json: async () => ({codec: 'hev1', description: 'fixture'})}),
+    stopWorker,
+    endSession: stopWorker,
+    publish: patch => { state = {...state, ...patch}; },
+    getState: () => state,
+    writeLog: () => {},
+  });
+  try {
+    await session.scan();
+    assert.equal(state.phase, 'conectado');
+    assert.deepEqual(spawned[1], ['prepare', '--tunnel', 'ios17-2']);
+    assert.ok(spawned[2].includes('--tunnel') && spawned[2].includes('ios17-2'));
+    assert.ok(!spawned[2].includes('--userspace'));
+  } finally {
+    await session.close();
+  }
+});
+
+test('serve exiting with CoreDevice 9022 reports camera or microphone in use', async () => {
+  let state = {phase: 'buscando'};
+  const stopWorker = async child => {
+    if (!child || child.exitCode !== null) return;
+    child.exitCode = 0;
+    child.emit('exit', 0);
+  };
+  const session = createSession({
+    workerArgs: args => ['fake-worker', args],
+    spawnProcess: (_file, args) => {
+      const child = Object.assign(new EventEmitter(), {stdout: new PassThrough(), stderr: new PassThrough(), pid: 1, exitCode: null});
+      queueMicrotask(() => {
+        if (args[0] === 'status') {
+          child.stdout.write(JSON.stringify({devices: [{udid: 'cam-busy'}]}));
+          stopWorker(child);
+        } else if (args[0] === 'prepare') {
+          stopWorker(child);
+        } else if (args[0] === 'serve') {
+          child.stderr.write('CoreDeviceError: Camera or microphone is in use (9022)\n');
+          child.exitCode = 1;
+          child.emit('exit', 1);
+        }
+      });
+      return child;
+    },
+    fetchRequest: async () => { throw new Error('offline'); },
+    stopWorker,
+    endSession: stopWorker,
+    publish: patch => { state = {...state, ...patch}; },
+    getState: () => state,
+    writeLog: () => {},
+  });
+  try {
+    await session.scan();
+    assert.equal(state.phase, 'error');
+    assert.match(state.message, /cámara o el micrófono/i);
+  } finally {
+    await session.close();
+  }
+});

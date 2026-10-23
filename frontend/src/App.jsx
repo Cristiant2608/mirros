@@ -6,15 +6,16 @@ import {useAudio} from './hooks/useAudio.js';
 import {useConnection} from './hooks/useConnection.js';
 import {usePhoneVideo} from './hooks/usePhoneVideo.js';
 import {FrameRate} from './components/FrameRate.jsx';
+import {AppsModal} from './components/AppsModal.jsx';
+import {InspectorContent} from './components/InspectorContent.jsx';
 import React, {useEffect, useRef, useState} from 'react';
-import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Volume1, Camera, Mouse, ArrowLeft, ArrowRight, RefreshCw, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Check, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, Download, Send, RotateCw, ChevronLeft, LogOut, Moon, Sun, Layers} from 'lucide-react';
+import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Camera, CameraOff, Play, Mouse, ArrowLeft, ArrowRight, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, RotateCw, ChevronLeft, LogOut, Moon, Sun, Layers} from 'lucide-react';
 import {rotateDevice} from './orientation.js';
 import './style.css';
 
 
 const platformLabel = navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Linux') ? 'Linux' : 'tu sistema';
 const sections = [[Smartphone, 'phone', 'Pantalla'], [Volume2, 'audio', 'Audio'], [Clipboard, 'clipboard', 'Portapapeles'], [Palette, 'appearance', 'Apariencia'], [CircleHelp, 'help', 'Ayuda']];
-const themes = [['claro', 'Claro'], ['oscuro', 'Oscuro'], ['lavanda', 'Lavanda'], ['oceano', 'Océano']];
 export default function App() {
   const [state, setState] = useConnection();
   const [tab, setTab] = useState('phone'), [notice, setNotice] = useState('');
@@ -51,7 +52,7 @@ export default function App() {
   const [showApps, setShowApps] = useState(false);
   const [deviceApps, setDeviceApps] = useState([]);
   const [loadingApps, setLoadingApps] = useState(false);
-  const [appFilter, setAppFilter] = useState('');
+  const [launchingApp, setLaunchingApp] = useState(null);
   async function appSwitcher() {
     if (!connected) return;
     try {
@@ -78,6 +79,37 @@ export default function App() {
       setNotice(err.message);
     } finally {
       setLoadingApps(false);
+    }
+  }
+  async function launchDeviceApp(app) {
+    if (!connected || launchingApp) return;
+    setLaunchingApp(app.bundle_id);
+    try {
+      await post('/apps/launch', {bundle_id: app.bundle_id});
+      setShowApps(false);
+      setNotice(`Abriendo ${app.name} en el iPhone…`);
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setLaunchingApp(null);
+    }
+  }
+  async function exportDiagnostics() {
+    try {
+      if (bridge) {
+        const msg = await native('diagnostics');
+        if (msg) setNotice(msg);
+      } else {
+        const res = await fetch('/diagnostics');
+        if (!res.ok) throw new Error('No se pudo generar el diagnóstico.');
+        const blob = new Blob([JSON.stringify(await res.json(), null, 2) + '\n'], {type: 'application/json'});
+        const url = URL.createObjectURL(blob), link = document.createElement('a');
+        link.download = 'diagnostico-mirros.json'; link.href = url; link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setNotice('Diagnóstico exportado.');
+      }
+    } catch (error) {
+      setNotice(error.message.replace(/^Error invoking remote method '[^']+': Error: /, ''));
     }
   }
   async function rotatePhone() {
@@ -107,9 +139,159 @@ export default function App() {
     finally { clipboardLock.current = false; setClipboardBusy(false); }
   }
   const canvas = useRef(null), stage = useRef(null), [phoneSize, setPhoneSize] = useState({width: 280, height: 610});
+  const [mediaPaused, setMediaPaused] = useState(false), [mediaPauseReason, setMediaPauseReason] = useState(null), [mediaBusy, setMediaBusy] = useState(false), [iosStyle, setIosStyle] = useState(null);
+  const [cameraLive, setCameraLive] = useState(false), [takingPhoto, setTakingPhoto] = useState(false);
+  const mediaBusyRef = useRef(false), mediaStateRef = useRef({paused: false, reason: null});
   const floating = state.mode === 'phone', connected = state.phase === 'conectado', controlsVisible = state.controlsVisible !== false;
-  const {audioEnabled, audioStatus, volume, setVolume, toggleAudio} = useAudio(connected);
-  const {dimensions, frames, live, videoStatus, rotation, video, videoMode} = usePhoneVideo(canvas, connected, floating, videoQuality, forceSoftware);
+  const {audioEnabled, audioStatus, volume, setVolume, toggleAudio} = useAudio(connected && !mediaPaused);
+  const {dimensions, frames, live, videoStatus, rotation, video, videoMode} = usePhoneVideo(canvas, connected && !mediaPaused, floating, videoQuality, forceSoftware);
+  function applyMediaState(paused, reason) {
+    const nextReason = paused ? (reason || 'manual') : null;
+    mediaStateRef.current = {paused, reason: nextReason};
+    setMediaPaused(paused);
+    setMediaPauseReason(nextReason);
+  }
+  useEffect(() => {
+    if (!connected) {
+      applyMediaState(false, null);
+      setIosStyle(null);
+      return;
+    }
+    let cancelled = false;
+    const syncMediaState = () => {
+      if (mediaBusyRef.current) return;
+      fetch('/media-state', {cache: 'no-store'}).then(r => r.ok ? r.json() : null).then(data => {
+        if (cancelled || mediaBusyRef.current || !data || typeof data.paused !== 'boolean') return;
+        const previous = mediaStateRef.current;
+        if (previous.paused === data.paused && previous.reason === (data.paused ? data.reason || 'manual' : null)) return;
+        if (data.paused && !previous.paused && data.reason === 'auto_sensor') {
+          setNotice('Cámara detectada en el iPhone. Activando visor en vivo…');
+        } else if (!data.paused && previous.paused && previous.reason === 'auto_sensor') {
+          setNotice('Cámara cerrada en el iPhone. Pantalla reanudada a 60 FPS.');
+        }
+        applyMediaState(data.paused, data.reason);
+      }).catch(() => {});
+    };
+    syncMediaState();
+    const interval = setInterval(syncMediaState, 400);
+    fetch('/style').then(r => r.ok ? r.json() : null).then(data => {
+      if (!cancelled && data && (data.style === 'light' || data.style === 'dark')) setIosStyle(data.style);
+    }).catch(() => {});
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [connected]);
+  async function toggleMediaPause(nextPaused = !mediaPaused, {exitApp = false} = {}) {
+    if (!connected || mediaBusyRef.current) return false;
+    mediaBusyRef.current = true;
+    setMediaBusy(true);
+    try {
+      const res = await fetch('/media-state', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({paused: Boolean(nextPaused), exit_app: Boolean(exitApp && !nextPaused)}),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (body.code === 'media_in_use') applyMediaState(true, body.reason || 'auto_sensor');
+        throw new Error(body.message || body.error || 'No se pudo cambiar el estado de cámara y micrófono.');
+      }
+      applyMediaState(Boolean(nextPaused), body.reason || 'manual');
+      setNotice(nextPaused
+        ? 'Cámara y micrófono liberados en el iPhone. Pulsa Reanudar pantalla cuando termines.'
+        : exitApp ? 'Cámara cerrada en el iPhone. Reanudando pantalla…' : 'Reanudando pantalla del iPhone…');
+      return true;
+    } catch (err) {
+      setNotice(err.message);
+      return false;
+    } finally {
+      mediaBusyRef.current = false;
+      setMediaBusy(false);
+    }
+  }
+  useEffect(() => {
+    if (!connected || !mediaPaused) {
+      setCameraLive(false);
+      return;
+    }
+    let cancelled = false;
+    const abort = new AbortController();
+
+    async function streamCamera() {
+      while (!cancelled) {
+        try {
+          const res = await fetch('/camera-frame', {
+            signal: abort.signal,
+            cache: 'no-store',
+          });
+          if (!res.ok) {
+            await new Promise(r => setTimeout(r, 200));
+            continue;
+          }
+          const blob = await res.blob();
+          if (cancelled) break;
+          const bitmap = await createImageBitmap(blob);
+          if (cancelled) {
+            bitmap.close();
+            break;
+          }
+          const c = canvas.current;
+          if (c) {
+            if (c.width !== bitmap.width || c.height !== bitmap.height) {
+              c.width = bitmap.width;
+              c.height = bitmap.height;
+            }
+            const ctx = c.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(bitmap, 0, 0);
+              if (!cancelled) setCameraLive(true);
+            }
+          }
+          bitmap.close();
+        } catch {
+          if (cancelled) break;
+          await new Promise(r => setTimeout(r, 200));
+        }
+      }
+    }
+
+    streamCamera();
+    return () => {
+      cancelled = true;
+      abort.abort();
+      setCameraLive(false);
+    };
+  }, [connected, mediaPaused]);
+  async function handleCameraShutter() {
+    if (takingPhoto) return;
+    setTakingPhoto(true);
+    try {
+      const res = await fetch('/camera-shutter', {method: 'POST'});
+      if (res.ok) {
+        setNotice('Disparador activado (foto / video).');
+      } else {
+        button('volume-down');
+      }
+    } catch {
+      button('volume-down');
+    } finally {
+      setTimeout(() => setTakingPhoto(false), 350);
+    }
+  }
+  async function changeIosStyle(style) {
+    if (!connected) return;
+    try {
+      const res = await fetch('/style', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({style}),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'No se pudo cambiar el aspecto de iOS.');
+      setIosStyle(style);
+      setNotice(`Aspecto ${style === 'dark' ? 'oscuro' : 'claro'} aplicado en el iPhone.`);
+    } catch (err) {
+      setNotice(err.message);
+    }
+  }
   function toggleControls() { if (bridge) native('controls', !controlsVisible); else setState(value => ({...value, controlsVisible: !controlsVisible})); }
   useEffect(() => { document.body.classList.toggle('floating', floating); }, [floating]);
   useEffect(() => {
@@ -163,8 +345,15 @@ export default function App() {
   async function wakePhone() {
     if (!connected) return;
     try {
+      if (mediaPaused) {
+        const resumed = await toggleMediaPause(false);
+        if (!resumed) return;
+      }
       if (bridge) await native('wake');
-      else await post('/wake', {});
+      else {
+        await post('/wake', {});
+        if (state.displayMode === 'aod') setState(v => ({...v, displayMode: 'dual'}));
+      }
       setNotice('Despertando iPhone…');
     } catch (err) {
       setNotice(err.message);
@@ -179,7 +368,7 @@ export default function App() {
     catch (error) { setNotice(error.message); }
   }
   async function capture() {
-    if (!live || !canvas.current) return;
+    if ((!live && !cameraLive) || !canvas.current) return;
     try {
       const image = await new Promise((resolve, reject) => canvas.current.toBlob(blob => blob ? resolve(blob) : reject(new Error('No se pudo crear la captura.')), 'image/png'));
       if (bridge) {
@@ -195,11 +384,36 @@ export default function App() {
     event.preventDefault(); if (!text.trim()) return;
     try { await post('/clipboard', {text}); await post('/key', {usages: [227, 25]}); await post('/key', {usages: []}); setText(''); setNotice('Texto enviado al iPhone.'); } catch (error) { setNotice(error.message); }
   }
+  const isDisplaying = live || cameraLive;
   const preview = <div className={`preview-stage ${floating ? 'is-floating' : ''}`} ref={stage}>
-    <div className={`phone-shell ${live ? 'is-live' : ''}`} style={{width: phoneSize.width + 12, height: phoneSize.height + 12, '--phone-radius': `${Math.round(Math.min(phoneSize.width, phoneSize.height) * .125)}px`}}>
+    <div className={`phone-shell ${isDisplaying ? 'is-live' : ''}`} style={{width: phoneSize.width + 12, height: phoneSize.height + 12, '--phone-radius': `${Math.round(Math.min(phoneSize.width, phoneSize.height) * .125)}px`}}>
       <canvas ref={canvas} tabIndex={0} onPointerMove={trackPointer} onPointerLeave={() => setPointerPosition(null)} aria-label="Pantalla del iPhone. Clic para tocar, arrastra para deslizar y usa la rueda para desplazarte." style={{width: phoneSize.width, height: phoneSize.height}}/>
       {pointerPosition && <span className={`phone-pointer pointer-${pointer.shape}`} aria-hidden="true" style={{left: pointerPosition.x, top: pointerPosition.y, '--pointer-color': pointer.color, '--pointer-scale': pointer.size / 100}}/>}
-      {!live && <div className="phone-placeholder"><div className="placeholder-symbol">{connected || state.phase === 'preparando' ? <LoaderCircle size={26} className="spin"/> : <Cable size={28}/>}</div><strong>{state.phase === 'pausado' ? 'Sesión terminada' : state.phase === 'error' ? 'Conexión interrumpida' : state.phase === 'preparando' ? 'Preparando iPhone' : connected ? 'Cargando pantalla' : 'iPhone desconectado'}</strong><span>{state.phase === 'pausado' ? 'Puedes retirar el cable o volver a conectar.' : connected ? videoStatus : state.phase === 'preparando' ? 'Mantén el cable conectado.' : 'Conecta el cable USB y desbloquea el teléfono.'}</span>{['error','pausado'].includes(state.phase) && <button className="small-button" onClick={() => native('retry')}>Reintentar</button>}<span className="placeholder-line"/></div>}
+      {cameraLive && <>
+        <div className="camera-live-overlay-top">
+          <span className="camera-dot" />
+          <span>Cámara y micro en vivo · Control táctil activo</span>
+        </div>
+        <div className="camera-live-overlay-bottom">
+          <button
+            type="button"
+            className={`camera-shutter-btn ${takingPhoto ? 'shutter-active' : ''}`}
+            onClick={handleCameraShutter}
+            title="Tomar foto / Iniciar video (o pulsa la pantalla)"
+            aria-label="Disparador de cámara"
+          >
+            <span className="camera-shutter-inner" />
+          </button>
+          <button
+            type="button"
+            className="camera-exit-btn"
+            onClick={() => toggleMediaPause(false, {exitApp: true})}
+          >
+            Salir de Cámara
+          </button>
+        </div>
+      </>}
+      {!isDisplaying && <div className="phone-placeholder"><div className="placeholder-symbol">{connected && mediaPaused ? <CameraOff size={26}/> : connected && state.displayMode === 'aod' ? <Moon size={26}/> : connected || state.phase === 'preparando' ? <LoaderCircle size={26} className="spin"/> : <Cable size={28}/>}</div><strong>{state.phase === 'pausado' ? 'Sesión terminada' : state.phase === 'error' ? 'Conexión interrumpida' : state.phase === 'preparando' ? 'Preparando iPhone' : connected && mediaPaused ? 'Cargando visor en vivo…' : connected && state.displayMode === 'aod' ? 'iPhone en reposo' : connected ? 'Cargando pantalla' : 'iPhone desconectado'}</strong><span>{state.phase === 'pausado' ? 'Puedes retirar el cable o volver a conectar.' : connected && mediaPaused ? 'Conectando con el visor en vivo para que uses cámara y micrófono desde el computador.' : connected && state.displayMode === 'aod' ? 'Captura en espera durante el reposo. Despierta el iPhone para continuar.' : connected ? videoStatus : state.phase === 'preparando' ? 'Mantén el cable conectado.' : 'Conecta el cable USB y desbloquea el teléfono.'}</span>{['error','pausado'].includes(state.phase) && <button className="small-button" onClick={() => native('retry')}>Reintentar</button>}{connected && mediaPaused && <div className="placeholder-actions"><button className="small-button" disabled={mediaBusy} onClick={() => toggleMediaPause(false, {exitApp: true})}>Salir de Cámara y reanudar</button><button className="small-button" disabled={mediaBusy} onClick={() => toggleMediaPause(false)}>Reanudar pantalla</button></div>}{connected && !mediaPaused && state.displayMode === 'aod' && <button className="small-button" onClick={wakePhone}>Despertar iPhone</button>}<span className="placeholder-line"/></div>}
     </div>
     <div className={`controls-panel ${controlsVisible ? 'expanded' : 'collapsed'}`} style={{height: phoneSize.height + 12}}>
       <button className="controls-tab" aria-label={controlsVisible ? 'Guardar controles' : 'Desplegar controles'} aria-expanded={controlsVisible} title={controlsVisible ? 'Guardar controles' : 'Desplegar controles'} onClick={toggleControls}>{controlsVisible ? <ChevronLeft size={13}/> : <ChevronRight size={13}/>}</button>
@@ -218,7 +432,8 @@ export default function App() {
           <span className="control-separator"/>
           <IconButton icon={audioEnabled ? Volume2 : VolumeX} label={audioEnabled ? 'Desactivar audio del PC' : 'Activar audio del PC'} active={audioEnabled} onClick={toggleAudio}/>
           <IconButton icon={VolumeX} label="Alternar silencio del iPhone" disabled={!connected} onClick={() => phoneAudioButton('mute')}/>
-          <IconButton icon={Camera} label="Guardar captura · Ctrl+P" disabled={!live} onClick={capture}/>
+          <IconButton icon={Camera} label="Guardar captura · Ctrl+P" disabled={!isDisplaying} onClick={capture}/>
+          <IconButton icon={mediaPaused ? Play : CameraOff} label={mediaPaused ? 'Reanudar pantalla del iPhone' : 'Liberar cámara y micrófono del iPhone'} active={mediaPaused} disabled={!connected || mediaBusy} onClick={() => toggleMediaPause(!mediaPaused)}/>
           <span className="control-separator"/>
           <IconButton icon={state.displayMode === 'aod' ? Sun : Moon} label={state.displayMode === 'aod' ? 'Modo actual: reposo experimental (clic para Pantalla Dual)' : 'Solicitar reposo experimental'} active={state.displayMode === 'aod'} disabled={!connected} onClick={() => setDisplayMode(state.displayMode === 'aod' ? 'dual' : 'aod')}/>
           <IconButton icon={Sun} label="Solicitar despertar iPhone · Ctrl+U" disabled={!connected} onClick={wakePhone}/>
@@ -246,114 +461,23 @@ export default function App() {
     <div className="workspace">
       <header className="toolbar"><div className="toolbar-title"><strong>{state.device?.name || 'iPhone'}</strong><ChevronRight size={14}/><span>{currentSection[2]}</span></div><div className="window-actions"><IconButton icon={Minus} label="Minimizar" onClick={() => native('minimize')}/><IconButton icon={Maximize2} label="Maximizar o restaurar" onClick={() => native('maximize')}/><IconButton icon={X} label="Cerrar Mirros" className="close-button" onClick={() => native('close')}/></div></header>
       <div className="workspace-content">
-        <section className="viewer" aria-label="Vista del iPhone"><div className="viewer-heading"><span className={`connection-pill ${connected ? 'connected' : ''}`}><i/>{connected ? 'USB conectado' : statusLabel}</span><span className="stream-info">{live ? <>{videoMode && <span className={`engine-badge ${videoMode}`} title={videoMode === 'software' ? 'Decodificación compatible por software' : 'Decodificación nativa HEVC'}>{videoMode === 'software' ? `Compatible (${{economy: 'Ahorro', balanced: 'Equilibrado', detail: 'Detalle'}[videoQuality] || 'Soft'})` : 'HEVC'}</span>}<FrameRate frames={frames}/> · {dimensions.width} × {dimensions.height}</> : 'Vista en directo'}</span></div>{preview}<div className="viewer-hints"><span><Mouse size={13}/>Clic y arrastrar</span><span><Scan size={13}/>Rueda para desplazar</span><span><Keyboard size={13}/>{keyboard ? 'Teclado activo' : 'Clic para escribir'}</span></div></section>
+        <section className="viewer" aria-label="Vista del iPhone"><div className="viewer-heading"><span className={`connection-pill ${connected ? 'connected' : ''}`}><i/>{connected ? 'USB conectado' : statusLabel}</span><span className="stream-info">{live ? <>{videoMode && <span className={`engine-badge ${videoMode}`} title={videoMode === 'software' ? 'Decodificación compatible por software' : 'Decodificación nativa HEVC'}>{videoMode === 'software' ? `Compatible (${{economy: 'Ahorro', balanced: 'Equilibrado', detail: 'Detalle'}[videoQuality] || 'Soft'})` : 'HEVC'}</span>}<FrameRate frames={frames}/> · {dimensions.width} × {dimensions.height}</> : cameraLive ? <><span className="engine-badge detail" title="Visor en directo vía DVT Instruments">Cámara</span> · Directo DVT</> : 'Vista en directo'}</span></div>{preview}<div className="viewer-hints"><span><Mouse size={13}/>Clic y arrastrar</span><span><Scan size={13}/>Rueda para desplazar</span><span><Keyboard size={13}/>{keyboard ? 'Teclado activo' : 'Clic para escribir'}</span></div></section>
         <aside className="inspector" aria-label={currentSection[2]}><div className="inspector-heading"><span className="section-symbol"><SectionIcon size={20}/></span><div><h1>{currentSection[2]}</h1><p>{{phone: 'Dispositivo y ventana', audio: 'Salidas y volumen', clipboard: 'Copiar y enviar contenido', appearance: 'Tema, tamaño y gestos', help: 'Conexión y atajos'}[tab]}</p></div></div>
-          <div className="inspector-content" key={tab}>
-          {tab === 'phone' && <>
-            <section className="settings-group"><h2>Dispositivo</h2><div className="settings-box"><div className="info-row"><span>Nombre</span><strong>{state.device?.name || 'iPhone'}</strong></div><div className="info-row"><span>Conexión</span><strong>{connected ? 'USB' : 'No conectado'}</strong></div>{state.device?.version && <div className="info-row"><span>Versión</span><strong>iOS {state.device.version}</strong></div>}<button className="row-button" disabled={!connected} onClick={appSwitcher}><Layers size={15}/>Abrir selector de apps (Multitarea)<ChevronRight size={14}/></button><button className="row-button" disabled={!connected || loadingApps} onClick={loadDeviceApps}><Smartphone size={15}/>{loadingApps ? 'Cargando aplicaciones…' : 'Ver aplicaciones instaladas'}<ChevronRight size={14}/></button><button className="row-button" onClick={() => native('retry')}><RefreshCw size={15}/>Reconectar<ChevronRight size={14}/></button></div></section>
-            <section className="settings-group"><h2>Video</h2>
-              <div className="settings-box">
-                <Toggle label="Forzar video compatible" detail={videoMode === 'software' ? 'Decodificación compatible activa' : videoMode === 'native' ? 'Decodificación automática activa' : 'Detección al conectar'} value={forceSoftware} onClick={() => setForceSoftware(value => !value)}/>
-                <div className="stacked-row"><span>Calidad del video compatible</span>
-                  <div className="segmented" role="group" aria-label="Calidad del video compatible">
-                    {[['economy', 'Ahorro'], ['balanced', 'Equilibrado'], ['detail', 'Detalle']].map(([value, label]) => <button key={value} className={videoQuality === value ? 'selected' : ''} aria-pressed={videoQuality === value} onClick={() => setVideoQuality(value)}>{label}</button>)}
-                  </div>
-                </div>
-              </div>
-              <p className="group-description">{{economy: 'Hasta 960 px y 20 FPS.', balanced: 'Hasta 1568 px y 30 FPS.', detail: 'Hasta 2160 px y 30 FPS.'}[videoQuality]} Mantiene la imagen completa. Se aplica al video compatible; el modo automático conserva HEVC cuando el navegador lo admite. Cambiar el perfil reinicia solo el video.</p>
-              {videoMode === 'software' && videoQuality === 'detail' && <div className="note" style={{marginTop: 8}}><CircleHelp size={13}/><span>Si notas lentitud o sobrecarga de CPU, prueba el perfil <strong>Equilibrado</strong> o <strong>Ahorro</strong>.</span></div>}
-            </section>
-            <section className="settings-group"><h2>Modo de pantalla física</h2>
-              <div className="settings-box">
-                <div className="stacked-row">
-                  <span>Modo</span>
-                  <div className="segmented" role="group" aria-label="Modo de pantalla física">
-                    <button className={state.displayMode !== 'aod' ? 'selected' : ''} aria-pressed={state.displayMode !== 'aod'} onClick={() => setDisplayMode('dual')}>Pantalla Dual</button>
-                    <button className={state.displayMode === 'aod' ? 'selected' : ''} aria-pressed={state.displayMode === 'aod'} onClick={() => setDisplayMode('aod')}>Reposo experimental</button>
-                  </div>
-                </div>
-                <button className="row-button" disabled={!connected} onClick={() => button('lock')}>
-                  <Moon size={15}/>Solicitar reposo del iPhone<ChevronRight size={14}/>
-                </button>
-                <button className="row-button" disabled={!connected} onClick={wakePhone}>
-                  <Sun size={15}/>Despertar pantalla del iPhone<ChevronRight size={14}/>
-                </button>
-              </div>
-              <p className="group-description">
-                {state.displayMode === 'aod'
-                  ? 'Solicita bloquear el iPhone y deja de renovar la prevención de reposo. La captura puede detenerse; todavía requiere validación física.'
-                  : 'Pantalla Dual: mantiene la pantalla del iPhone encendida simultáneamente con la ventana en tu PC.'}
-              </p>
-            </section>
-            <section className="settings-group"><h2>Ventana</h2><div className="settings-box"><Toggle label="Siempre encima" detail="Mantener visible sobre otras ventanas" value={state.alwaysOnTop} onClick={() => native('pin', !state.alwaysOnTop)} disabled={!bridge}/><button className="row-button" onClick={() => native('mode', 'phone')} disabled={!bridge}><ExternalLink size={15}/>Abrir teléfono flotante<ChevronRight size={14}/></button></div></section>
-            <section className="settings-group"><h2>Sesión</h2><div className="settings-box"><button className="row-button" disabled={!connected} onClick={() => native('disconnect')}><LogOut size={16}/>Desconectar de forma segura<ChevronRight size={14}/></button></div><p className="group-description">Libera teclado y toques antes de retirar el cable. Cerrar Mirros también termina la sesión.</p></section>
-            <section className="settings-group"><h2>Orientación</h2><div className="settings-box"><button className="row-button" disabled={!connected || rotating} onClick={rotatePhone}><RotateCw size={16}/>Girar vista 90°<ChevronRight size={14}/></button></div><p className="group-description">La vista sigue la orientación de iOS. El botón también gira la imagen si la aplicación permanece vertical.</p></section>
-            <section className="settings-group"><h2>Acciones</h2><div className="action-grid">{[[Home,'Inicio','home'],[LockKeyhole,'Bloquear','lock'],[Camera,'Captura','capture']].map(([Icon,label,command]) => <button key={command} disabled={command === 'capture' ? !live : !connected} onClick={() => command === 'capture' ? capture() : button(command)}><Icon size={20}/><span>{label}</span></button>)}</div><p className="group-description">Mantén el iPhone despierto para una captura continua. Despertar no sustituye Face ID ni el código de iOS.</p></section>
-            <div className="note"><Mouse size={16}/><p>Haz clic para tocar y arrastra para deslizar. El clic derecho vuelve a Inicio.</p></div>
-          </>}
-          {tab === 'audio' && <>
-            <section className="settings-group"><h2>Este PC</h2><div className="settings-box"><Toggle label="Reproducir audio en el PC" detail={audioStatus} value={audioEnabled} onClick={toggleAudio}/><label className="slider-row"><span>Volumen <output>{Math.round(volume * 100)} %</output></span><div><Volume1 size={15}/><input aria-label="Volumen del PC" type="range" min="0" max="1" step="0.05" value={volume} disabled={!audioEnabled} onChange={event => setVolume(Number(event.target.value))}/><Volume2 size={16}/></div></label></div><p className="group-description">Usa la salida de sonido predeterminada de {platformLabel}.</p></section>
-            <section className="settings-group"><h2>iPhone</h2><div className="settings-box"><div className="volume-buttons"><button disabled={!connected} aria-label="Bajar volumen del iPhone" onClick={() => phoneAudioButton('volume-down')}><Volume1 size={18}/>Bajar</button><button disabled={!connected} aria-label="Subir volumen del iPhone" onClick={() => phoneAudioButton('volume-up')}><Volume2 size={18}/>Subir</button></div><button className="row-button" disabled={!connected} onClick={() => phoneAudioButton('mute')}><VolumeX size={16}/>Alternar silencio<ChevronRight size={14}/></button></div><p className="group-description">El estado se muestra en iOS. Silencio puede no afectar a música o videos.</p></section>
-            <div className="note"><Volume2 size={17}/><p>Para escuchar solo en el iPhone, desactiva el audio del PC.</p></div>
-          </>}
-          {tab === 'clipboard' && <>
-            <section className="settings-group"><h2>Copiar y pegar</h2><div className="settings-box"><div className="info-row"><span>Copiar la selección del iPhone al PC</span><kbd>Ctrl + C</kbd></div><div className="info-row"><span>Pegar del PC en el iPhone</span><kbd>Ctrl + V</kbd></div></div><p className="group-description">Haz clic en la pantalla del iPhone para usar los atajos. En las aplicaciones del PC, copia y pega normalmente. Texto e imágenes compatibles.</p>{clipboardBusy && <p className="group-description" role="status">Preparando el portapapeles… iOS puede tardar con contenido de algunas aplicaciones.</p>}</section>
-            <details className="settings-group"><summary>Transferencia manual y envío de texto</summary>
-            <section className="settings-group"><h2>Compartir portapapeles</h2><div className="transfer-stack"><button disabled={!bridge || !connected || clipboardBusy} onClick={() => shareClipboard('toPhone')}><span className="transfer-icon"><Send size={20}/></span><span><strong>PC → iPhone</strong><small>Enviar lo que copiaste en el PC</small></span><ChevronRight size={16}/></button><button disabled={!bridge || !connected || clipboardBusy} onClick={() => shareClipboard('toPC')}><span className="transfer-icon"><Download size={20}/></span><span><strong>iPhone → PC</strong><small>Traer lo que copiaste en el iPhone</small></span><ChevronRight size={16}/></button></div><p className="group-description">{clipboardBusy ? 'Transfiriendo… iOS puede tardar hasta un minuto y medio con contenido de algunas aplicaciones.' : 'Texto e imágenes. Después, pega en la aplicación de destino.'}</p></section>
-            <section className="settings-group"><h2>Enviar texto</h2><form className="text-form" onSubmit={sendText}><textarea value={text} onChange={event => setText(event.target.value)} placeholder="Escribe o pega aquí…" aria-label="Texto para enviar al iPhone"/><button className="primary-button" disabled={!connected || !text.trim()}><Send size={15}/>Pegar en el iPhone</button></form><p className="group-description">Selecciona primero un campo de texto en el teléfono.</p></section>
-            </details>
-            <div className="note"><Clipboard size={16}/><p>El portapapeles se comparte al copiar o pegar sobre el iPhone. No se lee en segundo plano.</p></div>
-          </>}
-          {tab === 'appearance' && <>
-            <section className="settings-group"><h2>Tema</h2><div className="theme-grid" role="group" aria-label="Tema de la interfaz">{themes.map(([id,label]) => <button key={id} aria-pressed={state.theme === id} onClick={() => setTheme(id)} className={state.theme === id ? 'chosen' : ''}><span className={`theme-preview theme-${id}`}><i/><b/><em/>{state.theme === id && <span><Check size={12}/></span>}</span><strong>{label}</strong></button>)}</div><div className="settings-box"><Toggle label="Usar tema del sistema" value={state.theme === 'sistema'} onClick={() => setTheme(state.theme === 'sistema' ? 'claro' : 'sistema')}/></div></section>
-            <section className="settings-group"><h2>Teléfono flotante</h2><div className="settings-box"><div className="stacked-row"><span>Tamaño</span><div className="segmented" role="group" aria-label="Tamaño del teléfono">{['pequeño','mediano','grande'].map(size => <button key={size} aria-pressed={state.size === size} className={state.size === size ? 'selected' : ''} onClick={() => native('size', size)}>{size}</button>)}</div></div><Toggle label="Siempre encima" value={state.alwaysOnTop} onClick={() => native('pin', !state.alwaysOnTop)} disabled={!bridge}/></div></section>
-            <section className="settings-group"><h2>Ratón</h2><div className="settings-box"><label className="slider-row"><span>Sensibilidad de la rueda <output>{sensitivity.toFixed(1)}×</output></span><div><Mouse size={15}/><input aria-label="Sensibilidad de la rueda" type="range" min="0.5" max="2" step="0.1" value={sensitivity} onChange={event => {const value = Number(event.target.value); setSensitivity(value); localStorage.setItem('sensibilidad',value);}}/></div></label><div className="stacked-row"><span>Puntero dentro del iPhone</span><div className="segmented" role="group" aria-label="Forma del puntero">{[['flecha','Flecha'],['círculo','Círculo'],['punto','Punto']].map(([id,label]) => <button key={id} aria-pressed={pointer.shape === id} className={pointer.shape === id ? 'selected' : ''} onClick={() => updatePointer('shape', id)}>{label}</button>)}</div></div><label className="slider-row"><span>Tamaño <output>{pointer.size} %</output></span><div><span className="pointer-swatch" style={{background: pointer.color}}/><input aria-label="Tamaño del puntero" type="range" min="50" max="200" step="10" value={pointer.size} onChange={event => updatePointer('size', Number(event.target.value))}/></div></label><label className="color-row"><span>Color</span><input aria-label="Color del puntero" type="color" value={pointer.color} onChange={event => updatePointer('color', event.target.value)}/></label></div><p className="group-description">El puntero solo cambia la apariencia. La posición enviada al iPhone mantiene la misma precisión.</p></section>
-          </>}
-          {tab === 'help' && <>
-            <section className="settings-group"><h2>Actualizaciones</h2><div className="settings-box"><div className="info-row"><span>Versión instalada</span><strong>{state.version || '—'}</strong></div><button className="row-button" disabled={['comprobando','descargando'].includes(state.update?.phase)} onClick={() => native('updatesCheck')}><RefreshCw size={15}/>Buscar actualizaciones<ChevronRight size={14}/></button>{state.update?.phase === 'disponible' && <button className="row-button" onClick={() => native('updatesDownload')}><Download size={15}/>Descargar {state.update.version}<ChevronRight size={14}/></button>}{state.update?.phase === 'lista' && <button className="row-button" onClick={() => native('updatesInstall')}><RefreshCw size={15}/>Reiniciar y actualizar<ChevronRight size={14}/></button>}</div><p className="group-description">{state.update?.message || 'Consulta automáticamente las versiones publicadas en GitHub.'}{state.update?.phase === 'descargando' ? ` ${state.update.progress || 0} %` : ''}</p></section>
-            <section className="settings-group"><h2>Conectar el iPhone</h2><ol className="steps"><li><span>1</span><p>Conecta un cable USB de datos.</p></li><li><span>2</span><p>Desbloquea el iPhone y acepta «Confiar».</p></li><li><span>3</span><p>Activa Modo Desarrollador en Ajustes → Privacidad y seguridad.</p></li></ol></section>
-            <section className="settings-group"><h2>Controles</h2><div className="settings-box">{[['Tocar','Clic'],['Deslizar','Clic y arrastrar'],['Desplazar','Rueda del ratón'],['Inicio','Clic derecho']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><strong>{b}</strong></div>)}</div></section>
-            <section className="settings-group"><h2>Atajos sobre la pantalla</h2><div className="settings-box">{[['Inicio','Ctrl + H'],['Selector de apps / Multitarea','Ctrl + M'],['Bloquear / Reposo','Ctrl + L'],['Solicitar despertar','Ctrl + U'],['Guardar captura','Ctrl + P']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><kbd>{b}</kbd></div>)}</div></section><button className="secondary-button" onClick={() => native('logs')}>Abrir registro de conexión</button>
-          </>}
-          </div>
+          <InspectorContent
+            tab={tab} state={state} connected={connected} live={live} bridge={bridge} native={native}
+            videoMode={videoMode} videoQuality={videoQuality} setVideoQuality={setVideoQuality} forceSoftware={forceSoftware} setForceSoftware={setForceSoftware}
+            mediaPaused={mediaPaused} mediaPauseReason={mediaPauseReason} mediaBusy={mediaBusy} toggleMediaPause={toggleMediaPause} iosStyle={iosStyle} changeIosStyle={changeIosStyle}
+            loadingApps={loadingApps} loadDeviceApps={loadDeviceApps} appSwitcher={appSwitcher} setDisplayMode={setDisplayMode} wakePhone={wakePhone} rotatePhone={rotatePhone} rotating={rotating}
+            button={button} capture={capture} audioEnabled={audioEnabled} audioStatus={audioStatus} volume={volume} setVolume={setVolume} toggleAudio={toggleAudio} phoneAudioButton={phoneAudioButton}
+            platformLabel={platformLabel} clipboardBusy={clipboardBusy} shareClipboard={shareClipboard} text={text} setText={setText} sendText={sendText}
+            setTheme={setTheme} sensitivity={sensitivity} setSensitivity={setSensitivity} pointer={pointer} updatePointer={updatePointer} exportDiagnostics={exportDiagnostics}
+          />
         </aside>
       </div>
       <footer className="statusbar"><span className={state.phase === 'error' ? 'error-text' : ''}><i className={connected ? 'connected' : ''}/>{connected ? `${state.device?.name || 'iPhone'} conectado por USB` : state.message}</span><span>{audioEnabled ? <Volume2 size={12}/> : <VolumeX size={12}/>}Audio PC {audioEnabled ? 'activado' : 'desactivado'}</span></footer>
     </div>
     {state.phase === 'seleccion' && <div className="modal-backdrop"><section className="device-picker"><h2>Seleccionar iPhone</h2>{state.devices.map(device => <button key={device.udid} onClick={() => native('device', device.udid)}><Smartphone size={18}/>{device.name}<ChevronRight size={15}/></button>)}</section></div>}
-    {showApps && (
-      <div className="modal-backdrop" onClick={() => setShowApps(false)}>
-        <section className="device-picker" style={{width: 420, maxHeight: '80vh', display: 'flex', flexDirection: 'column'}} onClick={e => e.stopPropagation()}>
-          <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14}}>
-            <h2 style={{margin: 0, fontSize: 16}}>Aplicaciones ({deviceApps.length})</h2>
-            <IconButton icon={X} label="Cerrar" onClick={() => setShowApps(false)}/>
-          </div>
-          <input
-            type="search"
-            placeholder="Buscar aplicación…"
-            value={appFilter}
-            onChange={e => setAppFilter(e.target.value)}
-            style={{width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--panel)', color: 'var(--text)', fontSize: 11, marginBottom: 12, outline: 'none'}}
-            autoFocus
-          />
-          <div style={{overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 6, minHeight: 120, maxHeight: 380}}>
-            {deviceApps.filter(app => !appFilter || app.name.toLowerCase().includes(appFilter.toLowerCase()) || app.bundle_id.toLowerCase().includes(appFilter.toLowerCase())).length === 0 ? (
-              <div style={{padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 11}}>No se encontraron aplicaciones</div>
-            ) : (
-              deviceApps.filter(app => !appFilter || app.name.toLowerCase().includes(appFilter.toLowerCase()) || app.bundle_id.toLowerCase().includes(appFilter.toLowerCase())).map(app => (
-                <div key={app.bundle_id} style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', background: 'var(--control)', border: '1px solid var(--line)', borderRadius: 8, fontSize: 11}}>
-                  <div style={{minWidth: 0, flex: 1}}>
-                    <strong style={{display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap'}}>{app.name}</strong>
-                    <small style={{color: 'var(--muted)', fontSize: 9, display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap'}}>{app.bundle_id}</small>
-                  </div>
-                  {app.version && <span style={{color: 'var(--muted)', fontSize: 10, marginLeft: 8, flexShrink: 0}}>v{app.version}</span>}
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      </div>
-    )}
+    {showApps && <AppsModal apps={deviceApps} loadingApps={loadingApps} launchingApp={launchingApp} onLaunch={launchDeviceApp} onRefresh={loadDeviceApps} onClose={() => setShowApps(false)}/>}
     {notice && <div className="toast" role="status">{notice}</div>}
   </div>;
 }

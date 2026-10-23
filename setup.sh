@@ -4,7 +4,9 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_PATH="$PROJECT_DIR/bin/mirros"
+DESKTOP_BIN_PATH="$PROJECT_DIR/bin/mirros-desktop"
 LOCAL_BIN="$HOME/.local/bin"
+APPLICATIONS_DIR="$HOME/.local/share/applications"
 
 echo "=========================================================="
 echo "            Configurador de MirrOS para Linux             "
@@ -65,14 +67,44 @@ else
     "$PROJECT_DIR/.venv/bin/python" -m pip check
 fi
 
-# 4. Enlace simbólico en ~/.local/bin
+# 4. Enlace simbólico en ~/.local/bin y acceso en el menú de aplicaciones
 mkdir -p "$LOCAL_BIN"
 ln -sf "$BIN_PATH" "$LOCAL_BIN/mirros"
 ln -sf "$BIN_PATH" "$LOCAL_BIN/ios-scrcpy"
+if [ -f "$DESKTOP_BIN_PATH" ]; then
+    chmod +x "$DESKTOP_BIN_PATH"
+    ln -sf "$DESKTOP_BIN_PATH" "$LOCAL_BIN/mirros-desktop"
+fi
 echo "[+] Enlace global creado: $LOCAL_BIN/mirros"
 
+mkdir -p "$APPLICATIONS_DIR"
+LAUNCHER_EXEC="$BIN_PATH"
+if [ -f "$DESKTOP_BIN_PATH" ]; then
+    LAUNCHER_EXEC="$DESKTOP_BIN_PATH"
+fi
+cat > "$APPLICATIONS_DIR/mirros.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=MirrOS
+GenericName=Pantalla y control de iPhone
+Comment=Pantalla, audio y control de iPhone por USB
+Exec=$LAUNCHER_EXEC
+Icon=$PROJECT_DIR/desktop/icon.png
+Terminal=false
+Categories=Utility;
+StartupWMClass=mirros
+Keywords=iPhone;iOS;USB;Screen;Mirror;scrcpy;
+EOF
+chmod 644 "$APPLICATIONS_DIR/mirros.desktop"
+if command -v update-desktop-database &> /dev/null; then
+    update-desktop-database "$APPLICATIONS_DIR" 2>/dev/null || true
+fi
+echo "[+] Acceso directo en el menú creado: $APPLICATIONS_DIR/mirros.desktop"
+
 echo -e "\n=========================================================="
-echo "   ¡Listo! Puedes ejecutar 'mirros' desde tu terminal.    "
+echo "   ¡Listo! Puedes abrir 'MirrOS' desde el menú de apps    "
+echo "   o ejecutar 'mirros' / 'mirros-desktop' en terminal.    "
 echo "=========================================================="
 
 case ":$PATH:" in

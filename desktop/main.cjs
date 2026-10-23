@@ -12,7 +12,11 @@ const {createSession} = require('./session.cjs');
 const {deviceRequest} = require('./device-request.cjs');
 const {workerArgs: buildWorkerArgs, resizeBounds, orientedBounds} = require('./runtime.cjs');
 
-app.commandLine.appendSwitch('enable-features', 'PlatformHEVCDecoderSupport');
+const hevcFeatures = process.platform === 'linux'
+  ? 'PlatformHEVCDecoderSupport,VaapiVideoDecoder,VaapiVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL'
+  : 'PlatformHEVCDecoderSupport';
+app.commandLine.appendSwitch('enable-features', hevcFeatures);
+if (process.platform === 'linux') app.commandLine.appendSwitch('ignore-gpu-blocklist');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 if (process.env.MIRROS_DEBUG_PORT) app.commandLine.appendSwitch('remote-debugging-port', process.env.MIRROS_DEBUG_PORT);
 if (process.env.MIRROS_TEST_PROFILE) app.setPath('userData', process.env.MIRROS_TEST_PROFILE);
@@ -35,7 +39,7 @@ async function checkForUpdates() {
 let state = {phase: 'buscando', message: 'Conecta tu iPhone por USB', device: null, version:app.getVersion(), update:{phase:'inactivo',message:'Actualizaciones desde GitHub'}, ...preferences};
 let aspectRatio = 1264 / 2752;
 const root = path.resolve(__dirname, '..');
-const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard', '/display-mode', '/wake']);
+const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard', '/display-mode', '/media-state', '/style', '/wake', '/app-switcher', '/apps', '/apps/launch', '/diagnostics', '/camera-frame', '/camera-shutter']);
 const assets = new Map([['/', ['index.html', 'text/html']], ['/viewer.js', ['viewer.js', 'application/javascript']], ['/viewer.css', ['viewer.css', 'text/css']], ['/audio-worklet.js', ['audio-worklet.js', 'application/javascript']]]);
 
 function publish(patch = {}) {
@@ -123,7 +127,10 @@ async function start() {
   guiPort = proxyServer.address().port;
   ipcMain.handle('mirros:state', () => ({...state, alwaysOnTop: window?.isAlwaysOnTop() ?? preferences.alwaysOnTop}));
   ipcMain.handle('mirros:action', async (event, name, value) => {
-    if (event.sender !== window?.webContents) throw new Error('Ventana no autorizada');
+    if (event.sender !== window?.webContents) {
+      if ((switching && BrowserWindow.fromWebContents(event.sender)) || quitting || !window) return null;
+      throw new Error('Ventana no autorizada');
+    }
     switch (name) {
       case 'updatesCheck': await checkForUpdates(); return;
       case 'updatesDownload': {
@@ -212,12 +219,26 @@ async function start() {
       }
       case 'wake': {
         await deviceRequest(fetch, session?.port, '/wake');
+        if (preferences.displayMode === 'aod') {
+          preferences.displayMode = 'dual';
+          savePreferences();
+          publish();
+        }
         return 'Despertando iPhone…';
       }
       case 'disconnect': await session.disconnect(); return;
       case 'retry': await session.retry(); return;
       case 'device': await session.select(value); return;
       case 'logs': shell.showItemInFolder(path.join(app.getPath('userData'), 'mirros.log')); return;
+      case 'diagnostics': {
+        const report = await session.diagnostics();
+        const {canceled, filePath} = await dialog.showSaveDialog(window, {
+          title: 'Exportar diagnóstico', defaultPath: 'diagnostico-mirros.json', filters: [{name: 'JSON', extensions: ['json']}],
+        });
+        if (canceled || !filePath) return null;
+        fs.writeFileSync(filePath, JSON.stringify(report, null, 2) + '\n', {encoding: 'utf8', mode: 0o600});
+        return 'Diagnóstico exportado.';
+      }
       default: throw new Error('Acción no válida');
     }
     savePreferences(); publish();
