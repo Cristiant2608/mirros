@@ -34,6 +34,9 @@ class SetupTests(unittest.TestCase):
             self.assertEqual(calls.count('-m pip check'), 2)
             self.assertEqual((root / 'home/.local/bin/mirros').resolve(), root / 'bin/mirros')
             self.assertEqual((root / 'home/.local/bin/ios-scrcpy').resolve(), root / 'bin/mirros')
+            desktop_entry = root / 'home/.local/share/applications/mirros.desktop'
+            self.assertTrue(desktop_entry.is_file())
+            self.assertIn('Name=MirrOS', desktop_entry.read_text())
 
     def test_uv_environment_is_used_when_available(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -64,3 +67,6 @@ class SetupTests(unittest.TestCase):
             self.assertIn('uv pip check', calls)
             self.assertEqual((root / 'home/.local/bin/mirros').resolve(), root / 'bin/mirros')
             self.assertEqual((root / 'home/.local/bin/ios-scrcpy').resolve(), root / 'bin/mirros')
+            desktop_entry = root / 'home/.local/share/applications/mirros.desktop'
+            self.assertTrue(desktop_entry.is_file())
+            self.assertIn('Name=MirrOS', desktop_entry.read_text())

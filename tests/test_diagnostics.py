@@ -42,6 +42,18 @@ class DiagnosticTests(unittest.TestCase):
                 write_report({'replacement':True}, path)
             self.assertEqual(json.loads(path.read_text()), {'schema_version':1})
 
+    def test_recent_errors_allowlist_and_bound_history(self):
+        from mirros.diagnostics import clear_diagnostic_errors, record_diagnostic_error
+        clear_diagnostic_errors()
+        self.addCleanup(clear_diagnostic_errors)
+        record_diagnostic_error('/home/private-user/secret-udid')
+        for _ in range(25):
+            record_diagnostic_error('transport_closed')
+        report = collect_report()
+        self.assertEqual(len(report['recent_errors']), 20)
+        self.assertTrue(all(item['code'] == 'transport_closed' for item in report['recent_errors']))
+        self.assertNotIn('private-user', json.dumps(report))
+
 
 class LegacyDiagnosticTests(unittest.TestCase):
     def run_diagnostic(self, **discovery):

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Lanzador de escritorio para MirrOS (Electron con respaldo a visor web)
+set -e
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+
+if [ -x "$SCRIPT_DIR/node_modules/electron/dist/electron" ] && [ -f "$SCRIPT_DIR/src/mirros/web/index.html" ]; then
+    exec "$SCRIPT_DIR/node_modules/electron/dist/electron" "$SCRIPT_DIR" "$@"
+elif [ -x "$SCRIPT_DIR/node_modules/.bin/electron" ] && [ -f "$SCRIPT_DIR/src/mirros/web/index.html" ]; then
+    exec "$SCRIPT_DIR/node_modules/.bin/electron" "$SCRIPT_DIR" "$@"
+else
+    exec "$SCRIPT_DIR/bin/mirros" "$@"
+fi

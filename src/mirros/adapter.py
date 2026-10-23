@@ -6,6 +6,7 @@ import logging
 import json
 import sys
 import contextlib
+import posixpath
 import time
 from urllib.parse import urlsplit, parse_qs
 from importlib.metadata import version
@@ -135,23 +136,68 @@ class PrefixedReader:
         return getattr(self.reader, name)
 
 
+async def close_orientation(server):
+    service = getattr(server, '_mirros_springboard', None)
+    server._mirros_springboard = None
+    server._mirros_springboard_rsd = None
+    if service is not None:
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(service.close(), 1)
+
+
 async def read_orientation(server):
-    from pymobiledevice3.services.springboard import SpringBoardServicesService
-    async with SpringBoardServicesService(server._rsd) as service:
-        value = await service.get_interface_orientation()
-    return {1: 'portrait', 2: 'portraitUpsideDown', 3: 'landscapeLeft', 4: 'landscapeRight'}[int(value)]
+    if getattr(server, '_mirros_display_mode', 'dual') == 'aod':
+        cached = getattr(server, '_mirros_last_orientation', None)
+        if cached:
+            return cached
+    lock = getattr(server, '_mirros_orientation_lock', None)
+    if lock is None:
+        lock = asyncio.Lock()
+        server._mirros_orientation_lock = lock
+    async with lock:
+        from pymobiledevice3.services.springboard import SpringBoardServicesService
+        service = getattr(server, '_mirros_springboard', None)
+        current_rsd = getattr(server, '_rsd', None)
+        if service is not None and getattr(server, '_mirros_springboard_rsd', current_rsd) is not current_rsd:
+            await close_orientation(server)
+            service = None
+        for attempt in range(2):
+            try:
+                if service is None:
+                    service = SpringBoardServicesService(current_rsd)
+                    await service.connect()
+                    server._mirros_springboard = service
+                    server._mirros_springboard_rsd = current_rsd
+                value = await service.get_interface_orientation()
+                orientation = {1: 'portrait', 2: 'portraitUpsideDown', 3: 'landscapeLeft', 4: 'landscapeRight'}[int(value)]
+                server._mirros_last_orientation = orientation
+                return orientation
+            except Exception:
+                await close_orientation(server)
+                service = None
+                if attempt == 1:
+                    raise
 
 
 def session_health(server):
     """Cached codec data does not prove that the USB tunnel is still usable."""
+    from mirros.diagnostics import record_diagnostic_error
     try:
         connection = server._rsd.service
         if connection.reader.at_eof() or connection.writer.is_closing():
+            record_diagnostic_error('transport_closed')
             return {'healthy': False, 'reason': 'transport_closed'}
     except Exception:
+        record_diagnostic_error('transport_closed')
         return {'healthy': False, 'reason': 'transport_closed'}
+    if getattr(server, '_mirros_media_paused', False):
+        return {'healthy': True, 'reason': 'media_paused'}
     last_frame = server._last_good_au_t or getattr(server, '_mirros_started', 0)
     age = asyncio.get_running_loop().time() - last_frame
+    if age >= 20 and getattr(server, '_mirros_display_mode', 'dual') == 'aod':
+        return {'healthy': True, 'reason': 'aod_idle'}
+    if age >= 20:
+        record_diagnostic_error('video_stalled')
     return {'healthy': age < 20, 'reason': 'ok' if age < 20 else 'video_stalled'}
 
 
@@ -182,6 +228,8 @@ async def set_display_mode(server, mode: str):
                     finally:
                         await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
             except Exception as error:
+                from mirros.diagnostics import record_diagnostic_error
+                record_diagnostic_error('aod_failed')
                 logging.getLogger(__name__).warning('No se pudo enviar bloqueo para modo AOD: %s', error)
                 return {'status': 'error', 'message': 'No se pudo solicitar reposo al iPhone.'}
         server._mirros_display_mode = 'aod'
@@ -198,9 +246,20 @@ async def set_display_mode(server, mode: str):
 
 async def wake_device(server):
     """Send a wake gesture. Authentication remains controlled by iOS."""
+    was_aod = getattr(server, '_mirros_display_mode', 'dual') == 'aod'
     try:
         await server._ensure_hid()
         async with server._hid_lock:
+            indigo = getattr(server, '_indigo', None)
+            if was_aod and indigo is not None:
+                from pymobiledevice3.remote.core_device.screen_stream import _NAMED_BUTTONS
+                from pymobiledevice3.remote.core_device.hid_service import HID_BUTTON_STATE_DOWN, HID_BUTTON_STATE_UP
+                usage_page, usage_code, _ = _NAMED_BUTTONS['home']
+                with contextlib.suppress(Exception):
+                    await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_DOWN)
+                    await asyncio.sleep(0.04)
+                    await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
+                    await asyncio.sleep(0.08)
             uhs = getattr(server, '_uhs', None)
             if uhs is not None:
                 from pymobiledevice3.remote.core_device.hid_service import (
@@ -223,9 +282,260 @@ async def wake_device(server):
             else:
                 raise RuntimeError('HID no disponible')
     except Exception as error:
+        from mirros.diagnostics import record_diagnostic_error
+        record_diagnostic_error('wake_failed')
         logging.getLogger(__name__).warning('No se pudo despertar el dispositivo: %s', error)
         return {'status': 'error', 'message': 'No se pudo enviar el gesto al iPhone.'}
-    return {'status': 'ok'}
+    server._mirros_display_mode = 'dual'
+    server._mirros_keep_awake = True
+    event = getattr(server, '_mirros_keep_awake_event', None)
+    if event is not None:
+        event.set()
+    server._consecutive_restarts = 0
+    with contextlib.suppress(Exception):
+        server._last_good_au_t = asyncio.get_running_loop().time()
+    if not getattr(server, '_mirros_media_paused', False):
+        if getattr(server, '_active_service', None) is not None and callable(getattr(server, '_request_recovery_idr', None)):
+            with contextlib.suppress(Exception):
+                server._request_recovery_idr(reason='wake')
+        elif callable(getattr(server, '_ensure_fresh_stream', None)):
+            asyncio.create_task(server._ensure_fresh_stream(force=True))
+    return {'status': 'ok', 'mode': 'dual', 'keepAwake': True}
+
+
+SENSOR_BUNDLE_IDS = frozenset({
+    'com.apple.camera',
+    'com.apple.VoiceMemos',
+    'com.apple.Magnifier',
+    'com.apple.facetime',
+    'net.whatsapp.WhatsApp',
+    'com.burbn.instagram',
+    'ph.telegra.Telegraph',
+    'us.zoom.videomeetings',
+    'com.google.Meet',
+    'com.skype.skype',
+    'com.microsoft.teams',
+})
+
+
+def classify_sensor_log(filename: str, message: str):
+    """Clasifica eventos de os_trace de cámara o micrófono en 'hot', 'cold' o None."""
+    if not filename or not message:
+        return None
+    # os_trace entrega la ruta completa del ejecutable (p. ej. /usr/libexec/cameracaptured).
+    filename = posixpath.basename(filename)
+    if filename == 'cameracaptured':
+        # Solo el estado MediaSafetyNet es fiable; "Looking for ... in the Main Display layout"
+        # se registra con cualquier cambio de pantalla (incluso bloqueada) y no indica uso real.
+        if 'MediaSafetyNet state:' not in message:
+            return None
+        if 'Cam(Hot:' in message or 'Mic(Hot:' in message:
+            return 'hot'
+        if 'Cam(Cold:' in message and 'Mic(Hot:' not in message:
+            return 'cold'
+        if 'Mic(Cold:' in message and 'Cam(Hot:' not in message:
+            return 'cold'
+    elif filename == 'audiomxd':
+        if 'is now Foreground' in message and any(f'Client {bundle_id}' in message for bundle_id in SENSOR_BUNDLE_IDS):
+            return 'hot'
+        # Notas de Voz u otras apps liberan el micrófono al pasar a segundo plano o terminar.
+        if 'is now Background' in message and any(f'Client {bundle_id}' in message for bundle_id in SENSOR_BUNDLE_IDS):
+            return 'cold'
+    return None
+
+
+async def press_button_indigo(server, button_name: str) -> bool:
+    """Envía un botón de hardware mediante IndigoHIDService incluso cuando DisplayService está detenido."""
+    from pymobiledevice3.remote.core_device.hid_service import (
+        HID_BUTTON_STATE_DOWN,
+        HID_BUTTON_STATE_UP,
+        IndigoHIDService,
+    )
+    from pymobiledevice3.remote.core_device.screen_stream import _NAMED_BUTTONS
+
+    button_info = _NAMED_BUTTONS.get(button_name)
+    if not button_info:
+        return False
+    usage_page, usage_code, _ = button_info
+    indigo = getattr(server, '_indigo', None)
+    if indigo is not None:
+        try:
+            await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_DOWN)
+            await asyncio.sleep(0.05)
+            await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
+            return True
+        except Exception:
+            logging.getLogger(__name__).debug('Reintentando botón %s con sesión IndigoHID dedicada', button_name, exc_info=True)
+    try:
+        async with IndigoHIDService(server._rsd) as temp_indigo:
+            await temp_indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_DOWN)
+            await asyncio.sleep(0.05)
+            await temp_indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
+        return True
+    except Exception as error:
+        logging.getLogger(__name__).warning('No se pudo enviar botón %s por IndigoHID: %s', button_name, error)
+        return False
+
+
+async def press_home_indigo(server) -> bool:
+    """Envía el botón Inicio mediante IndigoHIDService incluso cuando DisplayService está detenido."""
+    return await press_button_indigo(server, 'home')
+
+
+def _is_media_9022(error: BaseException) -> bool:
+    if getattr(error, 'code', None) == 9022:
+        return True
+    try:
+        from pymobiledevice3.remote.core_device.display_service import is_media_in_use_error
+        if is_media_in_use_error(error):
+            return True
+    except Exception:
+        pass
+    msg = str(error)
+    return '9022' in msg or 'in use' in msg.lower() or 'in_use' in msg.lower()
+
+
+def get_media_state(server):
+    paused = bool(getattr(server, '_mirros_media_paused', False))
+    reason = getattr(server, '_mirros_media_pause_reason', 'manual') if paused else None
+    return {'paused': paused, 'reason': reason}
+
+
+async def set_media_state(server, paused: bool, *, reason: str = 'manual', exit_app: bool = False):
+    """Pausa o reanuda la observación remota de CoreDevice para liberar cámara y micrófono en el iPhone."""
+    from mirros.diagnostics import record_diagnostic_error
+    if not isinstance(paused, bool):
+        return {'status': 'error', 'message': 'Estado multimedia no válido.'}
+    pause_reason = reason if reason in ('manual', 'auto_sensor') else 'manual'
+    if paused:
+        server._mirros_media_paused = True
+        server._mirros_media_pause_reason = pause_reason
+        with contextlib.suppress(Exception):
+            server._mirros_media_paused_at = asyncio.get_running_loop().time()
+        try:
+            if hasattr(server, '_stream_lock') and callable(getattr(server, '_stop_active_stream', None)):
+                async with server._stream_lock:
+                    await server._stop_active_stream()
+            elif callable(getattr(server, '_stop_active_stream', None)):
+                await server._stop_active_stream()
+            if hasattr(server, '_audio_lock') and callable(getattr(server, '_stop_audio_stream', None)):
+                async with server._audio_lock:
+                    await server._stop_audio_stream()
+            elif callable(getattr(server, '_stop_audio_stream', None)):
+                await server._stop_audio_stream()
+            from pymobiledevice3.remote.core_device.display_service import DisplayService
+            await asyncio.wait_for(DisplayService.stop_all_streams(server._rsd), timeout=6.0)
+        except Exception as error:
+            server._mirros_media_paused = False
+            server._mirros_media_pause_reason = None
+            record_diagnostic_error('media_pause_failed')
+            logging.getLogger(__name__).warning('No se pudo liberar la sesión multimedia: %s', error)
+            return {'status': 'error', 'paused': False, 'message': 'No se pudo liberar cámara y micrófono en el iPhone.'}
+        return {'status': 'ok', 'paused': True, 'reason': pause_reason}
+
+    if exit_app:
+        await press_home_indigo(server)
+        await asyncio.sleep(0.7)
+
+    server._mirros_media_paused = False
+    server._mirros_media_pause_reason = None
+    server._mirros_display_mode = 'dual'
+    server._mirros_keep_awake = True
+    event = getattr(server, '_mirros_keep_awake_event', None)
+    if event is not None:
+        event.set()
+    server._mirros_media_resuming = True
+    try:
+        if callable(getattr(server, '_ensure_audio_stream', None)):
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(server._ensure_audio_stream(), timeout=10.0)
+        if callable(getattr(server, '_ensure_fresh_stream', None)):
+            for attempt in range(3 if exit_app else 1):
+                try:
+                    await asyncio.wait_for(server._ensure_fresh_stream(force=True), timeout=15.0)
+                    break
+                except Exception as err:
+                    if exit_app and attempt < 2 and _is_media_9022(err):
+                        await asyncio.sleep(0.5)
+                        continue
+                    raise
+        server._consecutive_restarts = 0
+        with contextlib.suppress(Exception):
+            server._last_good_au_t = asyncio.get_running_loop().time()
+        return {'status': 'ok', 'paused': False, 'reason': None}
+    except Exception as error:
+        server._mirros_media_paused = True
+        if _is_media_9022(error):
+            server._mirros_media_pause_reason = 'auto_sensor'
+            record_diagnostic_error('media_in_use')
+            return {
+                'status': 'error',
+                'code': 'media_in_use',
+                'paused': True,
+                'reason': 'auto_sensor',
+                'message': 'Cierra primero la app Cámara o micrófono en el iPhone para reanudar la pantalla.',
+            }
+        server._mirros_media_pause_reason = 'manual'
+        record_diagnostic_error('media_pause_failed')
+        logging.getLogger(__name__).warning('No se pudo reanudar la sesión multimedia: %s', error)
+        return {'status': 'error', 'paused': True, 'reason': 'manual', 'message': 'No se pudo reanudar la transmisión de pantalla.'}
+    finally:
+        server._mirros_media_resuming = False
+
+
+async def get_ios_style(server):
+    from pymobiledevice3.remote.core_device.configuration_service import ConfigurationService
+    async with ConfigurationService(server._rsd) as cfg:
+        style = await cfg.get_user_interface_style()
+    return {'style': str(style)}
+
+
+async def set_ios_style(server, style: str):
+    if style not in ('light', 'dark'):
+        return {'status': 'error', 'message': 'Aspecto de iOS no válido.'}
+    try:
+        from pymobiledevice3.remote.core_device.configuration_service import ConfigurationService
+        async with ConfigurationService(server._rsd) as cfg:
+            await cfg.set_user_interface_style(style)
+        return {'status': 'ok', 'style': style}
+    except Exception as error:
+        from mirros.diagnostics import record_diagnostic_error
+        record_diagnostic_error('style_failed')
+        logging.getLogger(__name__).warning('No se pudo cambiar el aspecto de iOS a %s: %s', style, error)
+        return {'status': 'error', 'message': 'No se pudo cambiar el aspecto en el iPhone.'}
+
+
+async def guarded_fresh_stream(server, original, force=False):
+    """Evita que el watchdog o peticiones secundarias reinicien el stream durante AOD o pausa de cámara."""
+    if getattr(server, '_mirros_media_paused', False):
+        raise RuntimeError('Captura multimedia en pausa para liberar cámara y micrófono.')
+    if force and getattr(server, '_mirros_display_mode', 'dual') == 'aod':
+        server._consecutive_restarts = 0
+        with contextlib.suppress(Exception):
+            server._last_good_au_t = asyncio.get_running_loop().time()
+        return None
+    try:
+        return await original(server, force=force)
+    except Exception as error:
+        from pymobiledevice3.remote.core_device.display_service import is_media_in_use_error
+        if is_media_in_use_error(error) or getattr(error, 'code', None) == 9022:
+            if not getattr(server, '_mirros_media_resuming', False):
+                schedule_auto_pause(server)
+        raise
+
+
+def schedule_auto_pause(server):
+    """Marca la pausa al instante (detiene el watchdog) y libera DisplayService en segundo plano."""
+    if getattr(server, '_mirros_media_paused', False):
+        return None
+    server._mirros_media_paused = True
+    server._mirros_media_pause_reason = 'auto_sensor'
+    pending = getattr(server, '_mirros_auto_pause_task', None)
+    if pending is not None and not pending.done():
+        return pending
+    task = asyncio.create_task(set_media_state(server, True, reason='auto_sensor'))
+    server._mirros_auto_pause_task = task
+    return task
 
 
 async def trigger_app_switcher(server):
@@ -271,8 +581,10 @@ async def trigger_app_switcher(server):
                 return {'status': 'ok', 'method': 'double-home'}
             raise RuntimeError('HID no disponible')
     except Exception as error:
+        from mirros.diagnostics import record_diagnostic_error
+        record_diagnostic_error('app_switcher_failed')
         logging.getLogger(__name__).warning('No se pudo abrir el selector de apps: %s', error)
-        return {'status': 'error', 'message': str(error)}
+        return {'status': 'error', 'message': 'No se pudo abrir el selector de aplicaciones.'}
 
 
 async def list_device_apps(server):
@@ -292,9 +604,189 @@ async def list_device_apps(server):
     return result
 
 
+async def launch_device_app(server, bundle_id: str):
+    """Abre una aplicación de usuario en el iPhone mediante CoreDevice."""
+    if not isinstance(bundle_id, str) or not bundle_id.strip() or len(bundle_id.strip()) > 255 or any(c.isspace() for c in bundle_id.strip()):
+        return {'status': 'error', 'message': 'Identificador de aplicación no válido.'}
+    clean_id = bundle_id.strip()
+    try:
+        if clean_id in SENSOR_BUNDLE_IDS and not getattr(server, '_mirros_media_paused', False):
+            await set_media_state(server, True, reason='auto_sensor')
+        from pymobiledevice3.remote.core_device.app_service import AppServiceService
+        async with AppServiceService(server._rsd) as service:
+            await service.launch_application(clean_id, kill_existing=False)
+        return {
+            'status': 'ok',
+            'bundle_id': clean_id,
+            'media_paused': bool(getattr(server, '_mirros_media_paused', False)),
+        }
+    except Exception as error:
+        from mirros.diagnostics import record_diagnostic_error
+        record_diagnostic_error('app_launch_failed')
+        logging.getLogger(__name__).warning('No se pudo abrir la aplicación %s: %s', clean_id, error)
+        return {'status': 'error', 'message': 'No se pudo abrir la aplicación en el iPhone.'}
+
+
+async def sensor_activity_loop(server):
+    """Detecta en tiempo real la apertura o cierre de Cámara/Micrófono en el iPhone para liberar o reanudar DisplayService."""
+    from pymobiledevice3.services.os_trace import OsActivityStreamFlag, OsTraceService
+
+    stream_flags = (
+        OsActivityStreamFlag.PAYLOAD
+        | OsActivityStreamFlag.INFO
+        | OsActivityStreamFlag.DEBUG
+    )
+    resume_task = None
+
+    async def delayed_resume():
+        try:
+            await asyncio.sleep(0.85)
+            for attempt in range(3):
+                if not (getattr(server, '_mirros_media_paused', False)
+                        and getattr(server, '_mirros_media_pause_reason', None) == 'auto_sensor'):
+                    return
+                result = await set_media_state(server, False)
+                if result.get('code') != 'media_in_use':
+                    return
+                await asyncio.sleep(1.5)
+        except asyncio.CancelledError:
+            return
+        except Exception:
+            logging.getLogger(__name__).debug('Auto-resume tras cierre de cámara falló', exc_info=True)
+
+    log = logging.getLogger(__name__)
+    failures = 0
+    try:
+        while True:
+            sensor_state = None
+            try:
+                async with OsTraceService(server._rsd) as trace:
+                    log.info('Monitor de cámara y micrófono activo')
+                    failures = 0
+                    async for entry in trace.syslog(stream_flags=stream_flags):
+                        state = classify_sensor_log(entry.filename, entry.message)
+                        if state is None or state == sensor_state:
+                            continue
+                        previous, sensor_state = sensor_state, state
+                        if state == 'hot':
+                            # Solo en la transición: si el usuario reanuda a mano con la cámara abierta, no se le contradice.
+                            if resume_task is not None and not resume_task.done():
+                                resume_task.cancel()
+                                resume_task = None
+                            if not getattr(server, '_mirros_media_paused', False):
+                                log.info('Cámara o micrófono en uso en el iPhone: pausando captura')
+                                await set_media_state(server, True, reason='auto_sensor')
+                        elif previous == 'hot' and (
+                            getattr(server, '_mirros_media_paused', False)
+                            and getattr(server, '_mirros_media_pause_reason', None) == 'auto_sensor'
+                        ):
+                            if resume_task is None or resume_task.done():
+                                log.info('Cámara o micrófono liberados en el iPhone: reanudando captura')
+                                resume_task = asyncio.create_task(delayed_resume())
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                failures += 1
+                (log.warning if failures == 1 else log.debug)(
+                    'Monitor de cámara y micrófono no disponible (%s); reintentando', type(error).__name__,
+                )
+                await asyncio.sleep(min(2.0 * failures, 15.0))
+    except asyncio.CancelledError:
+        if resume_task is not None and not resume_task.done():
+            resume_task.cancel()
+        return
+
+
+def _png_to_jpeg(png_bytes: bytes, quality: int = 75) -> bytes:
+    """Convierte un fotograma PNG a JPEG comprimido para acelerar el transporte USB y decodificación."""
+    import io
+    from PIL import Image
+    with Image.open(io.BytesIO(png_bytes)) as img:
+        out = io.BytesIO()
+        img.convert('RGB').save(out, format='JPEG', quality=quality)
+        return out.getvalue()
+
+
+async def close_camera_snapshot(server):
+    stack = getattr(server, '_mirros_snapshot_stack', None)
+    server._mirros_snapshot_stack = None
+    server._mirros_snapshot = None
+    if stack is not None:
+        with contextlib.suppress(Exception):
+            await stack.aclose()
+
+
+async def camera_snapshot(server) -> tuple[bytes, str]:
+    """Captura la pantalla por DVT; a diferencia de DisplayService, incluye el visor de la cámara.
+    Devuelve (datos_imagen, content_type).
+    """
+    lock = getattr(server, '_mirros_snapshot_lock', None)
+    if lock is None:
+        lock = asyncio.Lock()
+        server._mirros_snapshot_lock = lock
+    async with lock:
+        shot = getattr(server, '_mirros_snapshot', None)
+        if shot is None:
+            from pymobiledevice3.services.dvt.instruments.dvt_provider import DvtProvider
+            from pymobiledevice3.services.dvt.instruments.screenshot import Screenshot
+            stack = contextlib.AsyncExitStack()
+            try:
+                dvt = await stack.enter_async_context(DvtProvider(server._rsd))
+                shot = await stack.enter_async_context(Screenshot(dvt))
+            except Exception:
+                await stack.aclose()
+                raise
+            server._mirros_snapshot_stack = stack
+            server._mirros_snapshot = shot
+        try:
+            png_data = await asyncio.wait_for(shot.get_screenshot(), 8)
+        except Exception:
+            await close_camera_snapshot(server)
+            raise
+
+    try:
+        jpeg_data = await asyncio.to_thread(_png_to_jpeg, png_data, 75)
+        return jpeg_data, 'image/jpeg'
+    except Exception:
+        return png_data, 'image/png'
+
+
+MIRROS_ROUTES = frozenset({
+    (b'GET', b'/camera-frame'),
+    (b'POST', b'/camera-shutter'),
+    (b'GET', b'/control'),
+    (b'GET', b'/orientation'),
+    (b'POST', b'/session/end'),
+    (b'GET', b'/frames.bin'),
+    (b'GET', b'/health'),
+    (b'GET', b'/clipboard/state'),
+    (b'GET', b'/display-mode'),
+    (b'POST', b'/display-mode'),
+    (b'GET', b'/media-state'),
+    (b'POST', b'/media-state'),
+    (b'GET', b'/style'),
+    (b'POST', b'/style'),
+    (b'POST', b'/wake'),
+    (b'POST', b'/app-switcher'),
+    (b'GET', b'/apps'),
+    (b'POST', b'/apps/launch'),
+    (b'GET', b'/diagnostics'),
+})
+
+
+def write_json(writer, status: bytes, payload):
+    body = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
+    writer.write(
+        b'HTTP/1.1 ' + status +
+        b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' +
+        str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body
+    )
+
+
 async def orientation_connection(server, reader, writer, original):
     # Upstream consumes all subsequent HID requests on a persistent socket itself.
     # Dispatch them here so the next request can still reach MirrOS-only routes.
+    from mirros.diagnostics import record_diagnostic_error
     while True:
         line = await reader.readline()
         request = line.split()[:2]
@@ -304,20 +796,8 @@ async def orientation_connection(server, reader, writer, original):
             video_quality = query.get('quality', ['balanced'])[0]
             request[1] = b'/frames.bin'
         hid = len(request) == 2 and request[0] == b'POST' and request[1] in (b'/key', b'/touch', b'/button')
-        allowed_routes = (
-            [b'GET', b'/control'],
-            [b'GET', b'/orientation'],
-            [b'POST', b'/session/end'],
-            [b'GET', b'/frames.bin'],
-            [b'GET', b'/health'],
-            [b'GET', b'/clipboard/state'],
-            [b'GET', b'/display-mode'],
-            [b'POST', b'/display-mode'],
-            [b'POST', b'/wake'],
-            [b'POST', b'/app-switcher'],
-            [b'GET', b'/apps'],
-        )
-        if not hid and request not in allowed_routes:
+        route_key = tuple(request) if len(request) == 2 else ()
+        if not hid and route_key not in MIRROS_ROUTES:
             return await original(server, PrefixedReader(line, reader), writer)
         headers = {}
         while True:
@@ -335,7 +815,16 @@ async def orientation_connection(server, reader, writer, original):
             writer.close()
             return
         body = await server._read_body(reader, headers)
-        server._hid_queue.put_nowait((request[1].decode(), body))
+        if request[1] == b'/button' and getattr(server, '_mirros_media_paused', False):
+            try:
+                bdata = json.loads(body.decode('utf-8'))
+                bname = bdata.get('name') if isinstance(bdata, dict) else None
+                if bname:
+                    asyncio.create_task(press_button_indigo(server, bname))
+            except Exception:
+                pass
+        else:
+            server._hid_queue.put_nowait((request[1].decode(), body))
         keep_alive = headers.get('connection', '').lower() != 'close'
         connection = b'keep-alive' if keep_alive else b'close'
         writer.write(b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: ' + connection + b'\r\n\r\nok')
@@ -364,21 +853,16 @@ async def orientation_connection(server, reader, writer, original):
             asyncio.get_running_loop().call_later(.1, task.cancel)
     elif request == [b'GET', b'/health']:
         health = session_health(server)
-        body = json.dumps(health).encode()
-        status = b'200 OK' if health['healthy'] else b'503 Service Unavailable'
-        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+        write_json(writer, b'200 OK' if health['healthy'] else b'503 Service Unavailable', health)
     elif request == [b'GET', b'/clipboard/state']:
         try:
-            body = json.dumps({'revision': await asyncio.wait_for(clipboard_revision(server), 3)}).encode()
-            status = b'200 OK'
+            write_json(writer, b'200 OK', {'revision': await asyncio.wait_for(clipboard_revision(server), 3)})
         except Exception as error:
+            record_diagnostic_error('clipboard_unavailable')
             logging.getLogger(__name__).warning('Clipboard state unavailable: %s: %s', type(error).__name__, error)
-            body, status = b'{"error":"clipboard_unavailable"}', b'503 Service Unavailable'
-        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+            write_json(writer, b'503 Service Unavailable', b'{"error":"clipboard_unavailable"}')
     elif request == [b'GET', b'/display-mode']:
-        result = get_display_mode(server)
-        body = json.dumps(result).encode()
-        writer.write(b'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+        write_json(writer, b'200 OK', get_display_mode(server))
     elif request == [b'POST', b'/display-mode']:
         raw_body = await server._read_body(reader, headers)
         try:
@@ -387,36 +871,101 @@ async def orientation_connection(server, reader, writer, original):
         except Exception:
             mode = None
         result = await set_display_mode(server, mode)
-        body = json.dumps(result).encode()
         status = b'400 Bad Request' if mode not in ('dual', 'aod') else b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK'
-        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+        write_json(writer, status, result)
+    elif request == [b'GET', b'/media-state']:
+        write_json(writer, b'200 OK', get_media_state(server))
+    elif request == [b'GET', b'/camera-frame']:
+        try:
+            image_data, content_type = await camera_snapshot(server)
+            writer.write(
+                b'HTTP/1.1 200 OK\r\nContent-Type: ' + content_type.encode() +
+                b'\r\nCache-Control: no-store\r\nContent-Length: ' +
+                str(len(image_data)).encode() + b'\r\nConnection: close\r\n\r\n' + image_data
+            )
+        except Exception as error:
+            record_diagnostic_error('camera_frame_failed')
+            logging.getLogger(__name__).warning('No se pudo capturar el visor: %s', type(error).__name__)
+            write_json(writer, b'503 Service Unavailable', {'status': 'error', 'message': 'No se pudo capturar la pantalla del iPhone.'})
+    elif request == [b'POST', b'/camera-shutter']:
+        ok = await press_button_indigo(server, 'volume-down')
+        write_json(writer, b'200 OK' if ok else b'503 Service Unavailable', {'status': 'ok' if ok else 'error'})
+    elif request == [b'POST', b'/media-state']:
+        raw_body = await server._read_body(reader, headers)
+        try:
+            data = json.loads(raw_body.decode('utf-8'))
+            paused = data.get('paused') if isinstance(data, dict) else None
+            exit_app = bool(data.get('exit_app')) if isinstance(data, dict) else False
+        except Exception:
+            paused = None
+            exit_app = False
+        if not isinstance(paused, bool):
+            write_json(writer, b'400 Bad Request', {'status': 'error', 'message': 'Estado multimedia no válido.'})
+        else:
+            result = await set_media_state(server, paused, reason='manual', exit_app=exit_app)
+            status = (
+                b'409 Conflict' if result.get('code') == 'media_in_use'
+                else b'503 Service Unavailable' if result.get('status') == 'error'
+                else b'200 OK'
+            )
+            write_json(writer, status, result)
+    elif request == [b'GET', b'/style']:
+        try:
+            result = await asyncio.wait_for(get_ios_style(server), 5)
+            write_json(writer, b'200 OK', result)
+        except Exception:
+            record_diagnostic_error('style_failed')
+            write_json(writer, b'503 Service Unavailable', {'status': 'error', 'message': 'No se pudo consultar el aspecto de iOS.'})
+    elif request == [b'POST', b'/style']:
+        raw_body = await server._read_body(reader, headers)
+        try:
+            data = json.loads(raw_body.decode('utf-8'))
+            style = data.get('style') if isinstance(data, dict) else None
+        except Exception:
+            style = None
+        if style not in ('light', 'dark'):
+            write_json(writer, b'400 Bad Request', {'status': 'error', 'message': 'Aspecto de iOS no válido.'})
+        else:
+            result = await asyncio.wait_for(set_ios_style(server, style), 5)
+            write_json(writer, b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK', result)
     elif request == [b'POST', b'/wake']:
         result = await wake_device(server)
-        body = json.dumps(result).encode()
-        status = b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK'
-        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+        write_json(writer, b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK', result)
     elif request == [b'POST', b'/app-switcher']:
         result = await trigger_app_switcher(server)
-        body = json.dumps(result).encode()
-        status = b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK'
-        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+        write_json(writer, b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK', result)
     elif request == [b'GET', b'/apps']:
         try:
             apps = await asyncio.wait_for(list_device_apps(server), 10)
-            body = json.dumps(apps).encode()
-            status = b'200 OK'
+            write_json(writer, b'200 OK', apps)
         except Exception as error:
+            record_diagnostic_error('apps_unavailable')
             logging.getLogger(__name__).warning('No se pudo listar aplicaciones: %s', error)
-            body, status = json.dumps({'error': str(error)}).encode(), b'503 Service Unavailable'
-        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+            write_json(writer, b'503 Service Unavailable', b'{"error":"apps_unavailable"}')
+    elif request == [b'POST', b'/apps/launch']:
+        raw_body = await server._read_body(reader, headers)
+        try:
+            data = json.loads(raw_body.decode('utf-8'))
+            bundle_id = data.get('bundle_id') if isinstance(data, dict) else None
+        except Exception:
+            bundle_id = None
+        valid = isinstance(bundle_id, str) and 0 < len(bundle_id.strip()) <= 255 and not any(c.isspace() for c in bundle_id.strip())
+        if not valid:
+            write_json(writer, b'400 Bad Request', {'status': 'error', 'message': 'Identificador de aplicación no válido.'})
+        else:
+            result = await asyncio.wait_for(launch_device_app(server, bundle_id), 10)
+            write_json(writer, b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK', result)
+    elif request == [b'GET', b'/diagnostics']:
+        from mirros.diagnostics import collect_report
+        report = await asyncio.to_thread(collect_report, True)
+        write_json(writer, b'200 OK', report)
     else:
         try:
             orientation = await asyncio.wait_for(read_orientation(server), 3)
-            body = json.dumps({'orientation': orientation}).encode()
-            status = b'200 OK'
+            write_json(writer, b'200 OK', {'orientation': orientation})
         except Exception:
-            body, status = b'{"orientation":null}', b'503 Service Unavailable'
-        writer.write(b'HTTP/1.1 ' + status + b'\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+            record_diagnostic_error('orientation_unavailable')
+            write_json(writer, b'503 Service Unavailable', b'{"orientation":null}')
     await writer.drain()
     writer.close()
 
@@ -476,8 +1025,21 @@ def configure_viewer() -> None:
         if lease is not None and lease is not asyncio.current_task():
             lease.cancel()
         await release_input(server)
+        await close_orientation(server)
         await original_stop(server)
     screen_stream.ScreenStreamServer._stop_hid = safe_stop
+    original_fresh_stream = getattr(screen_stream.ScreenStreamServer, '_ensure_fresh_stream', None)
+    if callable(original_fresh_stream):
+        async def safe_fresh_stream(server, force=False):
+            return await guarded_fresh_stream(server, original_fresh_stream, force=force)
+        screen_stream.ScreenStreamServer._ensure_fresh_stream = safe_fresh_stream
+    original_audio_stream = getattr(screen_stream.ScreenStreamServer, '_ensure_audio_stream', None)
+    if callable(original_audio_stream):
+        async def safe_audio_stream(server):
+            if getattr(server, '_mirros_media_paused', False):
+                raise RuntimeError('Audio en pausa para liberar cámara y micrófono.')
+            return await original_audio_stream(server)
+        screen_stream.ScreenStreamServer._ensure_audio_stream = safe_audio_stream
     async def controlled_keep_awake(server):
         assertion_timeout = 300
         refresh_interval = 120
@@ -516,6 +1078,13 @@ def configure_viewer() -> None:
     async def cancellable_serve(server):
         server._mirros_started = asyncio.get_running_loop().time()
         server._mirros_serve_task = asyncio.current_task()
-        return await original_serve(server)
+        sensor_task = asyncio.create_task(sensor_activity_loop(server))
+        server._mirros_sensor_task = sensor_task
+        try:
+            return await original_serve(server)
+        finally:
+            sensor_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await sensor_task
     screen_stream.ScreenStreamServer.serve = cancellable_serve
     screen_stream._mirros_configured = True

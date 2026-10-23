@@ -158,3 +158,14 @@ Resultados completos: `dmg-inspect.json`, `display-arm64-rea.json`,
 `display-rea.json` conserva el rechazo inicial del FAT, para no ocultar esa
 limitación del proveedor. `/tmp` es temporal y debe preservarse aparte si se
 requiere retomar el análisis después de limpiar o reiniciar el equipo.
+
+## Integración de hallazgos complementarios (`xtool-org/xtool`, `morluto/rea` y `pymobiledevice3`)
+
+Durante la revisión de arquitectura y compatibilidad cruzada con [`xtool-org/xtool`](https://github.com/xtool-org/xtool) (desarrollo iOS multiplataforma en Linux/Windows sin Xcode) y [`morluto/rea`](https://github.com/morluto/rea) (metodología de ingeniería inversa basada en evidencia):
+
+1. **Revelado automático de Modo Desarrollador (`com.apple.amfi.lockdown`)**:
+   En iPhones con iOS 16+ que nunca se han conectado a Xcode en macOS, el interruptor de *Modo Desarrollador* permanece oculto en *Ajustes → Privacidad y seguridad*. Siguiendo el flujo de `xtool` y `AmfiService.reveal_developer_mode_option_in_ui()` (`action = 0` en `com.apple.amfi.lockdown`), `mirros.device.inspect_device()` comprueba `get_developer_mode_status()` durante el preflight USB y revela automáticamente la opción en la interfaz de iOS cuando está desactivada, informando al usuario antes de ejecutar `mounter auto-mount`.
+2. **Detección temprana de emparejamiento y selección automática de túnel (`--userspace` vs `--tunnel`)**:
+   El preflight distingue explícitamente un dispositivo no emparejado (`paired: false`, lanzando la solicitud no bloqueante de confianza) de un dispositivo listo, y selecciona `--userspace` en iOS $\ge 17.4$ o `--tunnel <udid>` en versiones anteriores tanto en escritorio como en CLI.
+3. **Verificación de contrato de backend (`check_backend_contract`)**:
+   Inspirado en la disciplina de verificación de artefactos de `rea`, `mirros.adapter` valida los puntos de enganche requeridos de `pymobiledevice3 == 11.32.0` antes de aplicar parches en memoria y reabre `SpringBoardServicesService` si el túnel RSD se revincula tras una reconexión.

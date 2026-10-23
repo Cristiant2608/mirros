@@ -124,6 +124,63 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(run_mirros(), 1)
             spawn.assert_not_called()
 
+    def test_inspect_device_reveals_developer_mode_and_checks_ios_version(self):
+        from mirros.device import inspect_device
+        lockdown = SimpleNamespace(
+            paired=True,
+            all_values={"DeviceName": "iPhone de Prueba"},
+            product_version="17.2",
+            has_developer_mode=True,
+            get_developer_mode_status=AsyncMock(return_value=False),
+        )
+        ctx = AsyncMock()
+        ctx.__aenter__.return_value = lockdown
+        amfi_instance = SimpleNamespace(reveal_developer_mode_option_in_ui=AsyncMock())
+        with patch("pymobiledevice3.lockdown.create_using_usbmux", new=AsyncMock(return_value=ctx)), \
+             patch("pymobiledevice3.services.amfi.AmfiService", return_value=amfi_instance) as amfi_cls:
+            info = asyncio.run(inspect_device("test-udid", reveal_developer_mode=True))
+        self.assertEqual(info["name"], "iPhone de Prueba")
+        self.assertEqual(info["version"], "17.2")
+        self.assertTrue(info["paired"])
+        self.assertFalse(info["developer_mode"])
+        self.assertTrue(info["developer_mode_revealed"])
+        self.assertFalse(info["userspace_supported"])
+        amfi_cls.assert_called_once_with(lockdown)
+        amfi_instance.reveal_developer_mode_option_in_ui.assert_awaited_once()
+
+    def test_inspect_device_reports_unpaired_when_trust_is_pending(self):
+        from mirros.device import inspect_device
+        lockdown = SimpleNamespace(
+            paired=False,
+            all_values={},
+            product_version="18.1",
+            pair=AsyncMock(side_effect=RuntimeError("dialog pending")),
+        )
+        ctx = AsyncMock()
+        ctx.__aenter__.return_value = lockdown
+        with patch("pymobiledevice3.lockdown.create_using_usbmux", new=AsyncMock(return_value=ctx)):
+            info = asyncio.run(inspect_device("unpaired-udid"))
+        self.assertFalse(info["paired"])
+        self.assertEqual(info["version"], "18.1")
+
+    def test_prepare_device_stops_early_when_developer_mode_is_disabled(self):
+        from pathlib import Path
+        import tempfile
+        from mirros.runner import prepare_device
+        info = {
+            "udid": "test-udid",
+            "paired": True,
+            "developer_mode": False,
+            "developer_mode_revealed": True,
+            "userspace_supported": True,
+        }
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch("mirros.device.inspect_device", new=AsyncMock(return_value=info)), \
+             patch("mirros.runner.start_process") as spawn, \
+             patch("builtins.print"):
+            self.assertFalse(prepare_device("test-udid", True, Path(tmp) / "prep.log"))
+            spawn.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

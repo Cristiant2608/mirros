@@ -24,6 +24,17 @@ class SessionHealthTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(session_health(self.server(age=21)),
                          {'healthy': False, 'reason': 'video_stalled'})
 
+    async def test_aod_mode_keeps_session_healthy_while_tunnel_is_open(self):
+        from mirros.adapter import session_health
+        active_aod = self.server(age=25)
+        active_aod._mirros_display_mode = 'aod'
+        self.assertEqual(session_health(active_aod),
+                         {'healthy': True, 'reason': 'aod_idle'})
+        closed_aod = self.server(closed=True, age=25)
+        closed_aod._mirros_display_mode = 'aod'
+        self.assertEqual(session_health(closed_aod),
+                         {'healthy': False, 'reason': 'transport_closed'})
+
     async def test_health_endpoint_rejects_a_dead_transport(self):
         import asyncio
         from unittest.mock import Mock
@@ -211,6 +222,39 @@ class OrientationEndpointTests(unittest.IsolatedAsyncioTestCase):
                 else: query.assert_awaited_once();self.assertIn(b'"orientation": "landscapeLeft"',data)
             writer.close.assert_called_once()
 
+    async def test_read_orientation_reuses_springboard_connection_and_caches_in_aod(self):
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, patch
+        from mirros.adapter import read_orientation, close_orientation
+        first = SimpleNamespace(connect=AsyncMock(), close=AsyncMock(),
+                                get_interface_orientation=AsyncMock(side_effect=[1, OSError('dropped')]))
+        second = SimpleNamespace(connect=AsyncMock(), close=AsyncMock(),
+                                 get_interface_orientation=AsyncMock(return_value=3))
+        server = SimpleNamespace(_rsd='rsd')
+        with patch('pymobiledevice3.services.springboard.SpringBoardServicesService', side_effect=[first, second]) as factory:
+            self.assertEqual(await read_orientation(server), 'portrait')
+            self.assertEqual(factory.call_count, 1)
+            first.connect.assert_awaited_once()
+            # Next call fails on first, reconnects on second
+            self.assertEqual(await read_orientation(server), 'landscapeLeft')
+            self.assertEqual(factory.call_count, 2)
+            first.close.assert_awaited_once()
+            # In AOD mode, cached orientation is returned without querying SpringBoard
+            server._mirros_display_mode = 'aod'
+            self.assertEqual(await read_orientation(server), 'landscapeLeft')
+            self.assertEqual(second.get_interface_orientation.await_count, 1)
+            # If _rsd is rebound in dual mode, old SpringBoard connection is replaced
+            server._mirros_display_mode = 'dual'
+            server._rsd = 'new_rsd'
+            third = SimpleNamespace(connect=AsyncMock(), close=AsyncMock(),
+                                    get_interface_orientation=AsyncMock(return_value=4))
+            factory.side_effect = [third]
+            self.assertEqual(await read_orientation(server), 'landscapeRight')
+            second.close.assert_awaited_once()
+            third.connect.assert_awaited_once()
+            await close_orientation(server)
+            third.close.assert_awaited_once()
+
 
 class TapReadinessTests(unittest.IsolatedAsyncioTestCase):
     async def test_delayed_hid_open_cannot_collapse_the_first_tap(self):
@@ -346,3 +390,333 @@ class DisplayModeTests(unittest.IsolatedAsyncioTestCase):
             body = writer.write.call_args.args[0]
             self.assertIn(b'200 OK', body)
             self.assertIn(b'com.test.app', body)
+
+    async def test_launch_app_endpoint_validates_and_launches(self):
+        from unittest.mock import Mock, patch
+        from mirros.adapter import orientation_connection
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None),
+                                 _read_body=AsyncMock(return_value=b'{"bundle_id":"com.test.app"}'),
+                                 _rsd='dummy_rsd')
+        with patch('mirros.adapter.launch_device_app', new=AsyncMock(return_value={'status': 'ok', 'bundle_id': 'com.test.app'})) as launch:
+            reader = asyncio.StreamReader()
+            reader.feed_data(b'POST /apps/launch HTTP/1.1\r\nHost: localhost\r\nContent-Length: 28\r\n\r\n{"bundle_id":"com.test.app"}')
+            reader.feed_eof()
+            writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader, writer, AsyncMock())
+            launch.assert_awaited_once_with(server, 'com.test.app')
+            self.assertIn(b'200 OK', writer.write.call_args.args[0])
+
+        server._read_body = AsyncMock(return_value=b'{"bundle_id":"bad id"}')
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'POST /apps/launch HTTP/1.1\r\nHost: localhost\r\nContent-Length: 22\r\n\r\n{"bundle_id":"bad id"}')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        self.assertIn(b'400 Bad Request', writer.write.call_args.args[0])
+
+    async def test_diagnostics_endpoint_returns_allowlisted_report(self):
+        from unittest.mock import Mock, patch
+        from mirros.adapter import orientation_connection
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None))
+        with patch('mirros.diagnostics.collect_report', return_value={'schema_version': 1, 'usb': {'status': 'ok', 'device_count': 1}}):
+            reader = asyncio.StreamReader()
+            reader.feed_data(b'GET /diagnostics HTTP/1.1\r\nHost: localhost\r\n\r\n')
+            reader.feed_eof()
+            writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader, writer, AsyncMock())
+            body = writer.write.call_args.args[0]
+            self.assertIn(b'200 OK', body)
+            self.assertIn(b'"schema_version": 1', body)
+
+    async def test_guarded_fresh_stream_prevents_aod_restart_storm_and_media_pause_restart(self):
+        from mirros.adapter import guarded_fresh_stream
+        original = AsyncMock()
+        server = SimpleNamespace(_mirros_display_mode='aod', _mirros_media_paused=False, _last_good_au_t=0.0)
+        await guarded_fresh_stream(server, original, force=True)
+        original.assert_not_awaited()
+        self.assertGreater(server._last_good_au_t, 0.0)
+
+        await guarded_fresh_stream(server, original, force=False)
+        original.assert_awaited_once_with(server, force=False)
+
+        server._mirros_media_paused = True
+        with self.assertRaises(RuntimeError):
+            await guarded_fresh_stream(server, original, force=False)
+
+    async def test_wake_device_from_aod_restores_dual_mode_and_requests_idr(self):
+        from unittest.mock import Mock, patch
+        from mirros.adapter import wake_device
+        uhs = SimpleNamespace(send_touchscreen=AsyncMock())
+        indigo = SimpleNamespace(send_button=AsyncMock())
+        server = SimpleNamespace(
+            _hid_lock=asyncio.Lock(),
+            _ensure_hid=AsyncMock(),
+            _uhs=uhs,
+            _indigo=indigo,
+            _mirros_display_mode='aod',
+            _mirros_keep_awake=False,
+            _consecutive_restarts=4,
+            _last_good_au_t=0.0,
+            _active_service=object(),
+            _request_recovery_idr=Mock(),
+            _ensure_fresh_stream=AsyncMock(),
+        )
+        with patch('asyncio.sleep', new=AsyncMock()):
+            await wake_device(server)
+        self.assertEqual(server._mirros_display_mode, 'dual')
+        self.assertTrue(server._mirros_keep_awake)
+        self.assertEqual(server._consecutive_restarts, 0)
+        self.assertEqual(indigo.send_button.await_count, 2)
+        server._request_recovery_idr.assert_called_once_with(reason='wake')
+
+    async def test_media_state_endpoint_releases_and_resumes_or_reports_9022(self):
+        from unittest.mock import Mock, patch
+        from pymobiledevice3.exceptions import CoreDeviceError
+        from mirros.adapter import orientation_connection, session_health
+        rsd = SimpleNamespace(service=SimpleNamespace(
+            reader=SimpleNamespace(at_eof=Mock(return_value=False)),
+            writer=SimpleNamespace(is_closing=Mock(return_value=False)),
+        ))
+        server = SimpleNamespace(
+            _refuse_request=Mock(return_value=None),
+            _read_body=AsyncMock(return_value=b'{"paused":true}'),
+            _rsd=rsd,
+            _stream_lock=asyncio.Lock(),
+            _audio_lock=asyncio.Lock(),
+            _stop_active_stream=AsyncMock(),
+            _stop_audio_stream=AsyncMock(),
+            _ensure_fresh_stream=AsyncMock(),
+            _consecutive_restarts=3,
+            _last_good_au_t=0.0,
+        )
+        with patch('pymobiledevice3.remote.core_device.display_service.DisplayService.stop_all_streams', new=AsyncMock()) as stop_all:
+            reader = asyncio.StreamReader()
+            reader.feed_data(b'POST /media-state HTTP/1.1\r\nHost: localhost\r\nContent-Length: 15\r\n\r\n{"paused":true}')
+            reader.feed_eof()
+            writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader, writer, AsyncMock())
+            stop_all.assert_awaited_once_with(rsd)
+            self.assertTrue(server._mirros_media_paused)
+            self.assertEqual(session_health(server), {'healthy': True, 'reason': 'media_paused'})
+            self.assertIn(b'"paused": true', writer.write.call_args.args[0])
+
+        server._read_body = AsyncMock(return_value=b'{"paused":false}')
+        server._ensure_fresh_stream = AsyncMock(side_effect=CoreDeviceError('Camera or microphone is in use', code=9022))
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'POST /media-state HTTP/1.1\r\nHost: localhost\r\nContent-Length: 16\r\n\r\n{"paused":false}')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        body = writer.write.call_args.args[0]
+        self.assertIn(b'409 Conflict', body)
+        self.assertIn(b'"code": "media_in_use"', body)
+        self.assertTrue(server._mirros_media_paused)
+
+    async def test_style_endpoint_gets_and_sets_appearance(self):
+        from unittest.mock import Mock, patch
+        from mirros.adapter import orientation_connection
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None), _rsd='dummy_rsd')
+        with patch('mirros.adapter.get_ios_style', new=AsyncMock(return_value={'style': 'dark'})):
+            reader = asyncio.StreamReader()
+            reader.feed_data(b'GET /style HTTP/1.1\r\nHost: localhost\r\n\r\n')
+            reader.feed_eof()
+            writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader, writer, AsyncMock())
+            self.assertIn(b'"style": "dark"', writer.write.call_args.args[0])
+
+        server._read_body = AsyncMock(return_value=b'{"style":"invalid"}')
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'POST /style HTTP/1.1\r\nHost: localhost\r\nContent-Length: 19\r\n\r\n{"style":"invalid"}')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        self.assertIn(b'400 Bad Request', writer.write.call_args.args[0])
+
+
+class SensorAutoPauseTests(unittest.IsolatedAsyncioTestCase):
+    def test_classify_sensor_log_detects_camera_open_and_close(self):
+        from mirros.adapter import classify_sensor_log
+        self.assertEqual(classify_sensor_log('cameracaptured', 'MediaSafetyNet state: Cam(Hot: com.apple.camera) Mic(Cold:)'), 'hot')
+        # os_trace entrega la ruta completa del ejecutable.
+        self.assertEqual(classify_sensor_log('/usr/libexec/cameracaptured', 'MediaSafetyNet state: Cam(Cold:)'), 'cold')
+        self.assertEqual(classify_sensor_log('/usr/sbin/audiomxd', 'Client com.apple.camera is now Foreground'), 'hot')
+        self.assertEqual(classify_sensor_log('cameracaptured', 'MediaSafetyNet state: Cam(Cold:) Mic(Hot: com.apple.VoiceMemos)'), 'hot')
+        self.assertEqual(classify_sensor_log('audiomxd', 'Client com.apple.camera (pid 12) is now Background'), 'cold')
+        self.assertIsNone(classify_sensor_log('cameracaptured', 'Looking for com.apple.camera in the Main Display layout'))
+        self.assertEqual(classify_sensor_log('audiomxd', 'Client com.apple.VoiceMemos (pid 9) is now Foreground'), 'hot')
+        self.assertIsNone(classify_sensor_log('audiomxd', 'Client com.apple.Music is now Background'))
+        self.assertIsNone(classify_sensor_log('SpringBoard', 'Cam(Hot: x)'))
+        self.assertIsNone(classify_sensor_log('', ''))
+
+    def media_server(self):
+        from unittest.mock import Mock
+        rsd = SimpleNamespace(service=SimpleNamespace(
+            reader=SimpleNamespace(at_eof=Mock(return_value=False)),
+            writer=SimpleNamespace(is_closing=Mock(return_value=False)),
+        ))
+        return SimpleNamespace(
+            _refuse_request=Mock(return_value=None),
+            _rsd=rsd,
+            _stream_lock=asyncio.Lock(),
+            _audio_lock=asyncio.Lock(),
+            _stop_active_stream=AsyncMock(),
+            _stop_audio_stream=AsyncMock(),
+            _ensure_fresh_stream=AsyncMock(),
+            _consecutive_restarts=0,
+            _last_good_au_t=0.0,
+        )
+
+    async def test_guarded_fresh_stream_auto_pauses_on_9022(self):
+        from unittest.mock import patch
+        from pymobiledevice3.exceptions import CoreDeviceError
+        from mirros.adapter import guarded_fresh_stream, get_media_state
+        server = self.media_server()
+        original = AsyncMock(side_effect=CoreDeviceError('Camera or microphone is in use', code=9022))
+        with patch('pymobiledevice3.remote.core_device.display_service.DisplayService.stop_all_streams', new=AsyncMock()) as stop_all:
+            with self.assertRaises(CoreDeviceError):
+                await guarded_fresh_stream(server, original, force=True)
+            # La pausa se marca al instante para frenar el watchdog.
+            self.assertEqual(get_media_state(server), {'paused': True, 'reason': 'auto_sensor'})
+            await server._mirros_auto_pause_task
+            stop_all.assert_awaited_once_with(server._rsd)
+        # Reintentos posteriores del watchdog no vuelven a tocar el dispositivo.
+        with self.assertRaises(RuntimeError):
+            await guarded_fresh_stream(server, original, force=True)
+        self.assertEqual(original.await_count, 1)
+
+    async def test_launch_camera_app_pauses_capture_before_launch(self):
+        from unittest.mock import patch
+        from mirros.adapter import launch_device_app
+        server = self.media_server()
+        order = []
+        service = SimpleNamespace(launch_application=AsyncMock(side_effect=lambda *a, **k: order.append('launch')))
+        context = AsyncMock()
+        context.__aenter__.return_value = service
+        async def stop_all(_rsd):
+            order.append('stop')
+        with patch('pymobiledevice3.remote.core_device.display_service.DisplayService.stop_all_streams', new=stop_all), \
+             patch('pymobiledevice3.remote.core_device.app_service.AppServiceService', return_value=context):
+            result = await launch_device_app(server, 'com.apple.camera')
+        self.assertEqual(result['status'], 'ok')
+        self.assertTrue(result['media_paused'])
+        self.assertEqual(order, ['stop', 'launch'])
+        self.assertEqual(server._mirros_media_pause_reason, 'auto_sensor')
+
+    async def test_launch_regular_app_keeps_capture_running(self):
+        from unittest.mock import patch
+        from mirros.adapter import launch_device_app
+        server = self.media_server()
+        context = AsyncMock()
+        context.__aenter__.return_value = SimpleNamespace(launch_application=AsyncMock())
+        with patch('pymobiledevice3.remote.core_device.app_service.AppServiceService', return_value=context):
+            result = await launch_device_app(server, 'com.test.app')
+        self.assertFalse(result['media_paused'])
+        self.assertFalse(getattr(server, '_mirros_media_paused', False))
+
+    async def test_media_state_exit_app_presses_home_then_resumes(self):
+        from unittest.mock import Mock, patch
+        from mirros.adapter import orientation_connection
+        server = self.media_server()
+        server._mirros_media_paused = True
+        server._mirros_media_pause_reason = 'auto_sensor'
+        order = []
+        server._indigo = SimpleNamespace(send_button=AsyncMock(side_effect=lambda *a: order.append('button')))
+        server._ensure_fresh_stream = AsyncMock(side_effect=lambda **k: order.append('resume'))
+        server._read_body = AsyncMock(return_value=b'{"paused":false,"exit_app":true}')
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'POST /media-state HTTP/1.1\r\nHost: localhost\r\nContent-Length: 32\r\n\r\n{"paused":false,"exit_app":true}')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        with patch('mirros.adapter.asyncio.sleep', new=AsyncMock()):
+            await orientation_connection(server, reader, writer, AsyncMock())
+        body = writer.write.call_args.args[0]
+        self.assertIn(b'200 OK', body)
+        self.assertEqual(order, ['button', 'button', 'resume'])
+        self.assertFalse(server._mirros_media_paused)
+        self.assertIsNone(server._mirros_media_pause_reason)
+
+    async def test_sensor_loop_pauses_on_hot_and_resumes_on_cold(self):
+        from unittest.mock import patch
+        from mirros import adapter
+        server = self.media_server()
+        entries = [
+            SimpleNamespace(filename='cameracaptured', message='MediaSafetyNet state: Cam(Hot: com.apple.camera)'),
+            SimpleNamespace(filename='cameracaptured', message='MediaSafetyNet state: Cam(Cold:)'),
+        ]
+        done = asyncio.Event()
+
+        class FakeTrace:
+            def __init__(self, _rsd):
+                pass
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, *exc):
+                return False
+            async def syslog(self, **_kwargs):
+                for entry in entries:
+                    yield entry
+                    if 'Hot' in entry.message:
+                        # Simula el paso del tiempo entre abrir y cerrar Cámara.
+                        server._mirros_media_paused_at -= 5
+                done.set()
+                await asyncio.Event().wait()
+
+        real_sleep = asyncio.sleep
+        with patch('pymobiledevice3.services.os_trace.OsTraceService', FakeTrace), \
+             patch('pymobiledevice3.remote.core_device.display_service.DisplayService.stop_all_streams', new=AsyncMock()), \
+             patch('mirros.adapter.asyncio.sleep', new=lambda *_a, **_k: real_sleep(0)):
+            task = asyncio.create_task(adapter.sensor_activity_loop(server))
+            await asyncio.wait_for(done.wait(), 1)
+            for _ in range(20):
+                if not getattr(server, '_mirros_media_paused', True):
+                    break
+                await real_sleep(0)
+            task.cancel()
+            await task
+        server._stop_active_stream.assert_awaited()
+        server._ensure_fresh_stream.assert_awaited_with(force=True)
+        self.assertFalse(server._mirros_media_paused)
+
+    async def test_camera_frame_and_shutter_endpoints(self):
+        from unittest.mock import Mock, patch
+        from mirros.adapter import orientation_connection
+        server = self.media_server()
+        server._mirros_media_paused = True
+
+        # Test GET /camera-frame
+        with patch('mirros.adapter.camera_snapshot', new=AsyncMock(return_value=(b'fake_jpeg_bytes', 'image/jpeg'))):
+            reader = asyncio.StreamReader()
+            reader.feed_data(b'GET /camera-frame HTTP/1.1\r\nHost: localhost\r\n\r\n')
+            reader.feed_eof()
+            writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader, writer, AsyncMock())
+            body = writer.write.call_args.args[0]
+            self.assertIn(b'200 OK', body)
+            self.assertIn(b'Content-Type: image/jpeg', body)
+            self.assertIn(b'fake_jpeg_bytes', body)
+
+        # Test POST /camera-shutter
+        with patch('mirros.adapter.press_button_indigo', new=AsyncMock(return_value=True)) as press_btn:
+            reader = asyncio.StreamReader()
+            reader.feed_data(b'POST /camera-shutter HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n')
+            reader.feed_eof()
+            writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader, writer, AsyncMock())
+            press_btn.assert_awaited_once_with(server, 'volume-down')
+            body = writer.write.call_args.args[0]
+            self.assertIn(b'200 OK', body)
+            self.assertIn(b'"status": "ok"', body)
+
+        # Test POST /button while media is paused redirects to press_button_indigo
+        with patch('mirros.adapter.press_button_indigo', new=AsyncMock(return_value=True)) as press_btn:
+            btn_body = b'{"name": "volume-down", "state": "press"}'
+            server._read_body = AsyncMock(return_value=btn_body)
+            reader = asyncio.StreamReader()
+            reader.feed_data(b'POST /button HTTP/1.1\r\nHost: localhost\r\nContent-Length: ' + str(len(btn_body)).encode() + b'\r\n\r\n' + btn_body)
+            reader.feed_eof()
+            writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader, writer, AsyncMock())
+            await asyncio.sleep(0.01)
+            press_btn.assert_awaited_once_with(server, 'volume-down')
+            body = writer.write.call_args.args[0]
+            self.assertIn(b'200 OK', body)

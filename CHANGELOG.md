@@ -1,3 +1,12 @@
+# 1.2.0 — 2026-10-23
+
+- **Motor Híbrido de Cámara en Directo:** Supera la restricción de pantalla negra de Apple (`AVCaptureVideoPreviewLayer`) mediante el bypass de diagnóstico DVT Instruments (`GET /camera-frame`), proyectando el visor del lente en vivo en el canvas de MirrOS en tiempo real.
+- **Control Táctil Completo en Cámara:** Permite interactuar con los controles nativos de la cámara desde el PC (obturador en pantalla, niveles de zoom `0.5x`/`1x`/`2x`, alternancia frontal/trasera, enfoque táctil y dial de modos) con despacho directo al digitalizador HID.
+- **Aislamiento de Micrófono sin Error 9022:** Gestiona automáticamente la observación remota cuando apps como Cámara, Notas de Voz, WhatsApp, FaceTime o Instagram activan el micrófono o la cámara, otorgando prioridad exclusiva al hardware de iOS sin desconectar la sesión ni arrojar CoreDevice 9022.
+- **Sincronización Reactiva a 400 ms:** Transición ultrafluida entre la decodificación HEVC a 60 FPS y el visor de cámara en vivo, con reanudación automática en cuanto se cierra la app del sensor.
+- **Disparador de Hardware Remoto:** Endpoint `POST /camera-shutter` y atajo de teclado para accionar el obturador simulando la tecla de volumen por `IndigoHIDService`.
+- **Preflight USB y Revelado AMFI:** Revela automáticamente la opción de Modo Desarrollador en la interfaz de iOS cuando está oculta y selecciona el modo de túnel adecuado (`--userspace` vs `--tunnel`).
+
 # 1.1.7 — 2026-10-20
 
 - Añade el selector de aplicaciones en segundo plano (App Switcher / Multitarea) con atajos `Ctrl+M` / `Ctrl+Tab`, botón en pantalla y comando `mirros --app-switcher`.

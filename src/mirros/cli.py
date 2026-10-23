@@ -43,6 +43,13 @@ def main() -> None:
         action="store_true",
         help="Envía la señal/gesto para abrir el selector de aplicaciones (multitarea) en MirrOS.",
     )
+    device_group.add_argument(
+        "--launch-app",
+        type=str,
+        default=None,
+        metavar="BUNDLE_ID",
+        help="Abre una aplicación de usuario por su identificador (ej. com.apple.Preferences) en la sesión activa.",
+    )
 
     # Transmisión y video
     video_group = parser.add_argument_group("Transmisión y video")
@@ -116,6 +123,11 @@ def main() -> None:
     if args.app_switcher:
         from mirros.apps import app_switcher_cli
         sys.exit(app_switcher_cli(port=args.port))
+        return
+
+    if args.launch_app:
+        from mirros.apps import launch_app_cli
+        sys.exit(launch_app_cli(bundle_id=args.launch_app, port=args.port))
         return
 
     if args.port is not None and not 1 <= args.port <= 65535:

@@ -4,7 +4,7 @@
   <strong>🇪🇸 Español</strong> ·
   <strong><a href="README.en.md">🇬🇧 Read in English</a></strong> ·
   <strong><a href="https://cristiant2608.github.io/mirros/">🌐 Sitio Web Oficial</a></strong> ·
-  <strong><a href="https://github.com/Cristiant2608/mirros/releases/latest">⬇️ Descargar última versión (v1.1.7)</a></strong>
+  <strong><a href="https://github.com/Cristiant2608/mirros/releases/latest">⬇️ Descargar última versión (v1.2.0)</a></strong>
 </p>
 
 [![Última versión](https://img.shields.io/github/v/release/Cristiant2608/mirros?label=versi%C3%B3n&color=5269c4)](https://github.com/Cristiant2608/mirros/releases/latest)
@@ -38,9 +38,9 @@ Descarga los archivos desde [GitHub Releases](https://github.com/Cristiant2608/m
 
 | Archivo | Uso |
 | --- | --- |
-| `Mirros-1.1.7-Windows.exe` | Portátil Windows x64: descargar y abrir. |
-| `Mirros-1.1.7-Linux-x64.AppImage` | Portátil Linux x64: dar permiso de ejecución y abrir. |
-| `Mirros-1.1.7-Source.zip` | Código fuente de la misma versión. |
+| `Mirros-1.2.0-Windows.exe` | Portátil Windows x64: descargar y abrir. |
+| `Mirros-1.2.0-Linux-x64.AppImage` | Portátil Linux x64: dar permiso de ejecución y abrir. |
+| `Mirros-1.2.0-Source.zip` | Código fuente de la misma versión. |
 | `SHA256SUMS.txt` | Sumas SHA-256 de los tres archivos. |
 
 Los portátiles incluyen Electron y Python. El equipo de destino necesita el servicio
@@ -50,12 +50,12 @@ estar en Modo Desarrollador. La primera preparación puede necesitar Internet.
 En Linux:
 
 ```bash
-chmod +x Mirros-1.1.7-Linux-x64.AppImage
-./Mirros-1.1.7-Linux-x64.AppImage
+chmod +x Mirros-1.2.0-Linux-x64.AppImage
+./Mirros-1.2.0-Linux-x64.AppImage
 ```
 
-La cámara y el micrófono del iPhone requieren detener la duplicación mediante
-«Desconectar de forma segura» antes de usarlos.
+Durante el uso de la cámara o el micrófono, MirrOS activa automáticamente el visor
+en vivo para que los controles táctiles y la grabación funcionen sin interrupciones.
 
 ## Requisitos
 

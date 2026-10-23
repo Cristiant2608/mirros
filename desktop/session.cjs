@@ -42,11 +42,21 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
     return new Promise((resolve, reject) => { const server = net.createServer(); server.on('error', reject); server.listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolve(port)); }); });
   }
   async function connectDevice(device) {
+    if (device?.paired === false) {
+      publish({phase: 'buscando', device, message: 'Desbloquea tu iPhone y pulsa «Confiar» para autorizar este equipo.'});
+      return;
+    }
+    if (device?.developer_mode === false) {
+      const suffix = device.developer_mode_revealed ? ' (opción ya visible en tu iPhone).' : '.';
+      publish({phase: 'buscando', device, message: 'Activa Modo Desarrollador en Ajustes > Privacidad y seguridad' + suffix});
+      return;
+    }
+    const tunnelArgs = device?.userspace_supported === false ? ['--tunnel', device.udid] : ['--userspace'];
     connecting = true;
     const token = ++generation;
     publish({phase: 'preparando', message: 'Preparando tu iPhone. La primera conexión puede tardar unos minutos.', device});
     try {
-      preparing = spawnWorker(['prepare', '--userspace'], device.udid);
+      preparing = spawnWorker(['prepare', ...tunnelArgs], device.udid);
       preparing.stdout.on('data', data => writeLog(data));
       const child = preparing;
       const code = await new Promise((resolve, reject) => {
@@ -60,15 +70,22 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
       const port = await freePort();
       if (quitting || token !== generation) return;
       backendPort = port;
-      backend = spawnWorker(['serve', '--bind', '127.0.0.1', '--http-port', String(backendPort), '--userspace', '--no-audio'], device.udid);
+      backend = spawnWorker(['serve', '--bind', '127.0.0.1', '--http-port', String(backendPort), ...tunnelArgs, '--no-audio'], device.udid);
       const server = backend;
-      server.stdout.on('data', data => writeLog(data));
+      let serverOutput = '';
+      server.stdout.on('data', data => { serverOutput += data; writeLog(data); });
+      server.stderr.on('data', data => { serverOutput += data; });
       server.once('exit', () => {
         if (backend === server) { backend = null; backendPort = null; if (!quitting) publish({phase: 'buscando', message: 'La conexión se interrumpió. Esperando tu iPhone…'}); }
       });
       const deadline = Date.now() + 90000;
       while (Date.now() < deadline && token === generation && !quitting) {
-        if (server.exitCode !== null) throw new Error('No se pudo iniciar la pantalla del iPhone.');
+        if (server.exitCode !== null) {
+          if (/camera or microphone is in use|9022/i.test(serverOutput)) {
+            throw new Error('La cámara o el micrófono del iPhone están en uso. Cierra Cámara o Notas de Voz en el iPhone y pulsa Reintentar.');
+          }
+          throw new Error('No se pudo iniciar la pantalla del iPhone.');
+        }
         try {
           const response = await fetchRequest(`http://127.0.0.1:${backendPort}/codec`, {signal: AbortSignal.timeout(8000)});
           if (response.ok) {
@@ -158,6 +175,9 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
     quitting = true; ++generation;
     await Promise.allSettled([stopWorker(preparing), stopBackend(), ...[...workers].map(child => stopWorker(child))]);
   }
-  return {scan, disconnect, retry, select, close, get port() {return backendPort;}};
+  async function diagnostics() {
+    return await workerResult(['diagnostics'], 15000);
+  }
+  return {scan, disconnect, retry, select, close, diagnostics, get port() {return backendPort;}};
 }
 module.exports = {createSession};

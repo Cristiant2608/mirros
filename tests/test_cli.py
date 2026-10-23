@@ -72,6 +72,23 @@ class CliTests(unittest.TestCase):
             mock_switcher.assert_called_once_with(port=9090)
             mock_exit.assert_called_once_with(0)
 
+    def test_cli_launch_app_dispatch(self):
+        with patch.object(sys, "argv", ["mirros", "--launch-app", "com.apple.Preferences", "-p", "9090"]), \
+             patch("mirros.apps.launch_app_cli", return_value=0) as mock_launch, \
+             patch("sys.exit") as mock_exit:
+            main()
+            mock_launch.assert_called_once_with(bundle_id="com.apple.Preferences", port=9090)
+            mock_exit.assert_called_once_with(0)
+
+    def test_list_apps_cli_requires_udid_when_multiple_devices_are_present(self):
+        from mirros.apps import list_apps_cli
+        with patch("mirros.device.check_usbmuxd_socket", return_value=True), \
+             patch("mirros.device.list_connected_devices", return_value=["dev-1", "dev-2"]), \
+             patch("builtins.print") as mock_print:
+            self.assertEqual(list_apps_cli(udid=None), 1)
+            printed = " ".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+            self.assertIn("--udid", printed)
+
 
 class RunnerUrlTests(unittest.TestCase):
     def test_url_with_software_and_quality(self):

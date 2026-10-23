@@ -9,11 +9,13 @@ import av
 from av.video.reformatter import VideoReformatter
 
 VIDEO_PROFILES = {'economy': (960, 20), 'balanced': (1568, 30), 'detail': (2160, 30)}
+VIDEO_QSCALE = {'economy': 10, 'balanced': 6, 'detail': 3}
 
 
 class SoftwareDecoder:
     def __init__(self, description, quality='balanced'):
         self.max_dimension, self.fps = VIDEO_PROFILES[quality]
+        self.qscale = VIDEO_QSCALE.get(quality, 6)
         self.decoder = av.CodecContext.create('hevc', 'r')
         self.decoder.extradata = description
         self.decoder.thread_count = 2
@@ -37,6 +39,7 @@ class SoftwareDecoder:
             self.encoder.width, self.encoder.height = width, height
             self.encoder.pix_fmt = 'yuvj420p'
             self.encoder.thread_count = 2
+            self.encoder.qmin = self.encoder.qmax = self.qscale
             self.encoder.time_base = Fraction(1, self.fps)
             self.encoder.open()
         image = self.reformatter.reformat(frame, width=width, height=height, format='yuvj420p')

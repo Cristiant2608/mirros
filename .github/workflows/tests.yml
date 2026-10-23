@@ -30,7 +30,7 @@ jobs:
       - name: Linux launcher and shell syntax
         if: runner.os == 'Linux'
         run: |
-          bash -n setup.sh build-linux.sh bin/mirros bin/ios-scrcpy
+          bash -n setup.sh build-linux.sh bin/mirros bin/mirros-desktop bin/ios-scrcpy
           python -m venv --system-site-packages .venv
           ./bin/mirros --help
           ./bin/ios-scrcpy --help
