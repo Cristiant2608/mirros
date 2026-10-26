@@ -17,6 +17,6 @@ export function usePhoneVideo(canvas, connected, floating, quality = 'balanced',
     const unfollow = followOrientation(value => stop.setOrientation(value));
     const interval = setInterval(() => { if (lastFrameAt.current && performance.now() - lastFrameAt.current > 4000) { setVideoStatus('Pantalla en reposo · Control activo'); } }, 1000);
     return () => { unfollow(); stop(); video.current = null; clearInterval(interval); };
-  }, [connected, floating, quality, forceSoftware]);
+  }, [connected, quality, forceSoftware]);
   return {dimensions, frames, live, videoStatus, rotation, video, videoMode};
 }
