@@ -164,3 +164,67 @@ test('native video decodes transient queue backlog without dropping, and throttl
     Object.assign(globalThis, original);
   }
 });
+test('retries PLI while waiting for keyframe when deltas arrive after cooldown', async () => {
+  const original = {fetch: globalThis.fetch, VideoDecoder: globalThis.VideoDecoder, performance: globalThis.performance};
+  const pliCalls = [];
+  let currentTime = 1000;
+  const mockPerf = Object.create(performance);
+  mockPerf.now = () => currentTime;
+  globalThis.performance = mockPerf;
+
+  class MockDecoder {
+    static async isConfigSupported() { return {supported: true}; }
+    constructor() { this.state = 'unconfigured'; }
+    configure() { this.state = 'configured'; }
+    decode() {}
+    close() { this.state = 'closed'; }
+  }
+  globalThis.VideoDecoder = MockDecoder;
+
+  const deltaPacket = Uint8Array.from([0, 0, 0, 2, 1, 0xBB]);
+  let packetsSent = 0;
+  globalThis.fetch = async (url, opts) => {
+    if (url === '/codec') return {ok: true, json: async () => ({codec: 'hev1.1.6.L150.B0', description: 'AA=='})};
+    if (url === '/stream.bin') return {
+      ok: true,
+      body: {
+        getReader: () => ({
+          read: async () => {
+            if (packetsSent < 1) {
+              packetsSent++;
+              return {done: false, value: deltaPacket};
+            }
+            if (packetsSent === 1 && currentTime > 3000 && packetsSent < 2) {
+              packetsSent++;
+              return {done: false, value: deltaPacket};
+            }
+            if (packetsSent >= 2) return {done: true};
+            await new Promise(r => setTimeout(r, 10));
+            return {done: false, value: deltaPacket};
+          },
+          cancel: async () => {},
+          releaseLock: () => {}
+        })
+      }
+    };
+    if (url === '/pli') {
+      pliCalls.push(opts);
+      return {ok: true};
+    }
+    return {ok: false};
+  };
+
+  const canvas = {getContext: () => ({setTransform: () => {}, translate: () => {}, rotate: () => {}, drawImage: () => {}}), width: 0, height: 0};
+  let stop;
+  try {
+    stop = startVideo(canvas, {onFrame: () => {}, onStatus: () => {}, onDimensions: () => {}});
+    for (let i = 0; i < 20 && pliCalls.length < 1; i++) await tick();
+    assert.equal(pliCalls.length, 1);
+    currentTime = 4000;
+    for (let i = 0; i < 30 && pliCalls.length < 2; i++) await tick();
+    assert.equal(pliCalls.length, 2);
+  } finally {
+    stop?.();
+    Object.assign(globalThis, original);
+  }
+});

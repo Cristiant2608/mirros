@@ -97,8 +97,16 @@ export function startVideo(canvas, {onFrame, onStatus, onDimensions, onRotation 
               }
             }
             if (errors >= 2) { software = true; throw new Error('Cambiando a video compatible…'); }
-            if (!key || decoder.state !== 'configured') continue;
-            if (decoder.decodeQueueSize > 32) {
+            if (!key) {
+              const now = performance.now();
+              if (now - lastPliAt > 2000) {
+                lastPliAt = now;
+                fetch('/pli', {method: 'POST'}).catch(() => {});
+              }
+              continue;
+            }
+            if (decoder.state !== 'configured') continue;
+            if (decoder.decodeQueueSize > 32 && type === 1) {
               const now = performance.now();
               if (now - lastPliAt > 2000) {
                 lastPliAt = now;
