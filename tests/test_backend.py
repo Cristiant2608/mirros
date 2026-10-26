@@ -429,12 +429,15 @@ class DisplayModeTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn(b'"schema_version": 1', body)
 
     async def test_guarded_fresh_stream_prevents_aod_restart_storm_and_media_pause_restart(self):
+        from unittest.mock import Mock
         from mirros.adapter import guarded_fresh_stream
         original = AsyncMock()
-        server = SimpleNamespace(_mirros_display_mode='aod', _mirros_media_paused=False, _last_good_au_t=0.0)
+        req_idr = Mock()
+        server = SimpleNamespace(_mirros_display_mode='aod', _mirros_media_paused=False, _last_good_au_t=0.0, _request_recovery_idr=req_idr)
         await guarded_fresh_stream(server, original, force=True)
         original.assert_not_awaited()
         self.assertGreater(server._last_good_au_t, 0.0)
+        req_idr.assert_called_once_with(reason='aod_watchdog_idr')
 
         await guarded_fresh_stream(server, original, force=False)
         original.assert_awaited_once_with(server, force=False)
@@ -468,6 +471,37 @@ class DisplayModeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(server._consecutive_restarts, 0)
         self.assertEqual(indigo.send_button.await_count, 2)
         server._request_recovery_idr.assert_called_once_with(reason='wake')
+
+    async def test_aod_interaction_triggers_idr_and_updates_health_time(self):
+        from unittest.mock import Mock
+        from mirros.adapter import touch_request
+        server = SimpleNamespace(
+            _mirros_display_mode='aod',
+            _last_good_au_t=0.0,
+            _request_recovery_idr=Mock(),
+        )
+        original = AsyncMock(return_value=(200, b'ok'))
+        body = b'{"type":"contact","x":100,"y":200}'
+        result = await touch_request(server, body, original)
+        self.assertEqual(result, (200, b'ok'))
+        self.assertGreater(server._last_good_au_t, 0.0)
+        server._request_recovery_idr.assert_called_once_with(reason='aod_interaction')
+
+    async def test_aod_key_press_triggers_idr(self):
+        from unittest.mock import Mock
+        from mirros.adapter import keyboard_request
+        server = SimpleNamespace(
+            _mirros_display_mode='aod',
+            _kb_service_id=1,
+            _last_good_au_t=0.0,
+            _request_recovery_idr=Mock(),
+        )
+        original = AsyncMock(return_value=(200, b'ok'))
+        body = b'{"usages":[30]}'
+        result = await keyboard_request(server, body, original)
+        self.assertEqual(result, (200, b'ok'))
+        self.assertGreater(server._last_good_au_t, 0.0)
+        server._request_recovery_idr.assert_called_once_with(reason='aod_key')
 
     async def test_media_state_endpoint_releases_and_resumes_or_reports_9022(self):
         from unittest.mock import Mock, patch

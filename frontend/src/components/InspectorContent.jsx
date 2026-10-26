@@ -50,7 +50,7 @@ export function InspectorContent({
               <span>Modo</span>
               <div className="segmented" role="group" aria-label="Modo de pantalla física">
                 <button className={state.displayMode !== 'aod' ? 'selected' : ''} aria-pressed={state.displayMode !== 'aod'} onClick={() => setDisplayMode('dual')}>Pantalla Dual</button>
-                <button className={state.displayMode === 'aod' ? 'selected' : ''} aria-pressed={state.displayMode === 'aod'} onClick={() => setDisplayMode('aod')}>Reposo experimental</button>
+                <button className={state.displayMode === 'aod' ? 'selected' : ''} aria-pressed={state.displayMode === 'aod'} onClick={() => setDisplayMode('aod')}>Modo AOD / Reposo</button>
               </div>
             </div>
             <div className="stacked-row">
@@ -69,7 +69,7 @@ export function InspectorContent({
           </div>
           <p className="group-description">
             {state.displayMode === 'aod'
-              ? 'Bloquea el iPhone y detiene las renovaciones automáticas para evitar congelamientos. Pulsa «Despertar pantalla del iPhone» (o Ctrl + U) para volver a Pantalla Dual.'
+              ? 'Permite que la pantalla física descanse en AOD mientras sigues viendo e interactuando normalmente desde tu PC. Pulsa «Despertar pantalla del iPhone» (o Ctrl + U) para volver a Pantalla Dual.'
               : 'Pantalla Dual: mantiene la pantalla del iPhone encendida simultáneamente con la ventana en tu PC.'}
           </p>
         </section>
