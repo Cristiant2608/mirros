@@ -59,6 +59,6 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
     node.addEventListener('wheel', wheel, {passive: false}); node.addEventListener('contextmenu', context); node.addEventListener('focus', focus); node.addEventListener('blur', blur);
     window.addEventListener('pointerup', up); window.addEventListener('blur', blur); window.addEventListener('keydown', keys); window.addEventListener('keyup', keys);
     return () => { clearInterval(heartbeat); blur(); controls.dispose(); input.current = null; node.removeEventListener('pointerdown', down); node.removeEventListener('pointermove', move); node.removeEventListener('pointerup', up); node.removeEventListener('pointercancel', release); node.removeEventListener('lostpointercapture', release); node.removeEventListener('wheel', wheel); node.removeEventListener('contextmenu', context); node.removeEventListener('focus', focus); node.removeEventListener('blur', blur); window.removeEventListener('pointerup', up); window.removeEventListener('blur', blur); window.removeEventListener('keydown', keys); window.removeEventListener('keyup', keys); };
-  }, [connected, sensitivity, rotation, floating]);
+  }, [connected, sensitivity, rotation]);
   return input;
 }
