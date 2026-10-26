@@ -89,6 +89,11 @@ async def touch_request(server, body, original):
             if getattr(server, '_mirros_contact', None) is None:
                 server._mirros_contact_at = time.perf_counter()
             server._mirros_contact = (data.get('x', 0), data.get('y', 0))
+            if getattr(server, '_mirros_display_mode', 'dual') == 'aod':
+                with contextlib.suppress(Exception):
+                    server._last_good_au_t = asyncio.get_running_loop().time()
+                    if callable(getattr(server, '_request_recovery_idr', None)):
+                        server._request_recovery_idr(reason='aod_interaction')
         else:
             server._mirros_contact = None
             server._mirros_contact_at = None
@@ -113,6 +118,11 @@ async def keyboard_request(server, body, original):
     if not usages and server._kb_service_id is None:
         return 200, b'ok'
     result = await original(server, body)
+    if usages and getattr(server, '_mirros_display_mode', 'dual') == 'aod':
+        with contextlib.suppress(Exception):
+            server._last_good_au_t = asyncio.get_running_loop().time()
+            if callable(getattr(server, '_request_recovery_idr', None)):
+                server._request_recovery_idr(reason='aod_key')
     # A lost USB connection/window cannot leave a held key indefinitely.
     async def expire():
         await asyncio.sleep(5)
@@ -268,7 +278,7 @@ async def wake_device(server):
                 )
                 start_x, start_y = 32768, 62000
                 end_y = 15000
-                steps = 8
+                steps = 12
                 cur_y = start_y
                 try:
                     await uhs.send_touchscreen(TOUCHSCREEN_STATE_CONTACT, start_x, start_y)
@@ -276,7 +286,7 @@ async def wake_device(server):
                     for i in range(1, steps + 1):
                         cur_y = int(start_y + (end_y - start_y) * (i / steps))
                         await uhs.send_touchscreen(TOUCHSCREEN_STATE_CONTACT, start_x, cur_y)
-                        await asyncio.sleep(0.015)
+                        await asyncio.sleep(0.016)
                 finally:
                     await uhs.send_touchscreen(TOUCHSCREEN_STATE_RELEASE, start_x, cur_y)
             else:
@@ -513,6 +523,8 @@ async def guarded_fresh_stream(server, original, force=False):
         server._consecutive_restarts = 0
         with contextlib.suppress(Exception):
             server._last_good_au_t = asyncio.get_running_loop().time()
+            if callable(getattr(server, '_request_recovery_idr', None)):
+                server._request_recovery_idr(reason='aod_watchdog_idr')
         return None
     try:
         return await original(server, force=force)
@@ -1078,6 +1090,9 @@ def configure_viewer() -> None:
     async def cancellable_serve(server):
         server._mirros_started = asyncio.get_running_loop().time()
         server._mirros_serve_task = asyncio.current_task()
+        with contextlib.suppress(Exception):
+            if hasattr(server, '_rsd') and hasattr(server._rsd, 'set_value'):
+                await server._rsd.set_value(True, domain='com.apple.coredevice.dtremotedisplayd', key='disableDisplayWakeOnStart')
         sensor_task = asyncio.create_task(sensor_activity_loop(server))
         server._mirros_sensor_task = sensor_task
         try:

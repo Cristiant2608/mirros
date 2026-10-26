@@ -337,7 +337,7 @@ export default function App() {
         await post('/display-mode', {mode});
         setState(v => ({...v, displayMode: mode}));
       }
-      setNotice(connected ? (mode === 'aod' ? 'Reposo solicitado. La captura puede detenerse al bloquear el iPhone.' : 'Modo Pantalla Dual solicitado.') : 'Preferencia guardada para la próxima conexión.');
+      setNotice(connected ? (mode === 'aod' ? 'Modo AOD / Reposo activo. La pantalla física descansa mientras el control sigue activo.' : 'Modo Pantalla Dual activo.') : 'Preferencia guardada para la próxima conexión.');
     } catch (err) {
       setNotice(err.message);
     }
@@ -413,6 +413,15 @@ export default function App() {
           </button>
         </div>
       </>}
+      {connected && state.displayMode === 'aod' && isDisplaying && (
+        <div className="aod-live-badge" title="Modo AOD / Reposo: la pantalla física descansa. Control e interacción activos en el PC.">
+          <Moon size={12} />
+          <span>AOD Activo</span>
+          <button type="button" className="aod-badge-btn" onClick={wakePhone} title="Despertar pantalla física (Ctrl+U)">
+            Despertar
+          </button>
+        </div>
+      )}
       {!isDisplaying && <div className="phone-placeholder"><div className="placeholder-symbol">{connected && mediaPaused ? <CameraOff size={26}/> : connected && state.displayMode === 'aod' ? <Moon size={26}/> : connected || state.phase === 'preparando' ? <LoaderCircle size={26} className="spin"/> : <Cable size={28}/>}</div><strong>{state.phase === 'pausado' ? 'Sesión terminada' : state.phase === 'error' ? 'Conexión interrumpida' : state.phase === 'preparando' ? 'Preparando iPhone' : connected && mediaPaused ? 'Cargando visor en vivo…' : connected && state.displayMode === 'aod' ? 'iPhone en reposo' : connected ? 'Cargando pantalla' : 'iPhone desconectado'}</strong><span>{state.phase === 'pausado' ? 'Puedes retirar el cable o volver a conectar.' : connected && mediaPaused ? 'Conectando con el visor en vivo para que uses cámara y micrófono desde el computador.' : connected && state.displayMode === 'aod' ? 'Captura en espera durante el reposo. Despierta el iPhone para continuar.' : connected ? videoStatus : state.phase === 'preparando' ? 'Mantén el cable conectado.' : 'Conecta el cable USB y desbloquea el teléfono.'}</span>{['error','pausado'].includes(state.phase) && <button className="small-button" onClick={() => native('retry')}>Reintentar</button>}{connected && mediaPaused && <div className="placeholder-actions"><button className="small-button" disabled={mediaBusy} onClick={() => toggleMediaPause(false, {exitApp: true})}>Salir de Cámara y reanudar</button><button className="small-button" disabled={mediaBusy} onClick={() => toggleMediaPause(false)}>Reanudar pantalla</button></div>}{connected && !mediaPaused && state.displayMode === 'aod' && <button className="small-button" onClick={wakePhone}>Despertar iPhone</button>}<span className="placeholder-line"/></div>}
     </div>
     <div className={`controls-panel ${controlsVisible ? 'expanded' : 'collapsed'}`} style={{height: phoneSize.height + 12}}>
@@ -435,7 +444,7 @@ export default function App() {
           <IconButton icon={Camera} label="Guardar captura · Ctrl+P" disabled={!isDisplaying} onClick={capture}/>
           <IconButton icon={mediaPaused ? Play : CameraOff} label={mediaPaused ? 'Reanudar pantalla del iPhone' : 'Liberar cámara y micrófono del iPhone'} active={mediaPaused} disabled={!connected || mediaBusy} onClick={() => toggleMediaPause(!mediaPaused)}/>
           <span className="control-separator"/>
-          <IconButton icon={state.displayMode === 'aod' ? Sun : Moon} label={state.displayMode === 'aod' ? 'Modo actual: reposo experimental (clic para Pantalla Dual)' : 'Solicitar reposo experimental'} active={state.displayMode === 'aod'} disabled={!connected} onClick={() => setDisplayMode(state.displayMode === 'aod' ? 'dual' : 'aod')}/>
+          <IconButton icon={state.displayMode === 'aod' ? Sun : Moon} label={state.displayMode === 'aod' ? 'Modo actual: reposo / AOD (clic para Pantalla Dual)' : 'Modo AOD / Reposo (pantalla física descansa)'} active={state.displayMode === 'aod'} disabled={!connected} onClick={() => setDisplayMode(state.displayMode === 'aod' ? 'dual' : 'aod')}/>
           <IconButton icon={Sun} label="Solicitar despertar iPhone · Ctrl+U" disabled={!connected} onClick={wakePhone}/>
           <IconButton icon={LockKeyhole} label="Bloquear iPhone · Ctrl+L" disabled={!connected} onClick={() => button('lock')}/>
           <IconButton icon={LogOut} label="Desconectar de forma segura" disabled={!connected} onClick={() => native('disconnect')}/>
