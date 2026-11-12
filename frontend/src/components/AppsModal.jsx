@@ -1,10 +1,12 @@
 import React, {useEffect, useState} from 'react';
 import {Check, Copy, ExternalLink, LoaderCircle, RefreshCw, X} from 'lucide-react';
 import {IconButton} from './Controls.jsx';
+import {STRINGS} from '../i18n.js';
 
-export function AppsModal({apps, loadingApps, launchingApp, onLaunch, onRefresh, onClose}) {
+export function AppsModal({apps, loadingApps, launchingApp, onLaunch, onRefresh, onClose, t = STRINGS.en}) {
   const [filter, setFilter] = useState('');
   const [copiedId, setCopiedId] = useState(null);
+  const s = t.appsModal;
   useEffect(() => {
     const onKey = event => { if (event.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -25,26 +27,26 @@ export function AppsModal({apps, loadingApps, launchingApp, onLaunch, onRefresh,
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <section className="device-picker apps-modal" role="dialog" aria-modal="true" aria-label="Aplicaciones instaladas" onClick={event => event.stopPropagation()}>
+      <section className="device-picker apps-modal" role="dialog" aria-modal="true" aria-label={s.aria} onClick={event => event.stopPropagation()}>
         <div className="apps-header">
-          <h2>Aplicaciones ({apps.length})</h2>
+          <h2>{s.title(apps.length)}</h2>
           <div className="apps-header-actions">
-            {onRefresh && <IconButton icon={RefreshCw} label="Recargar aplicaciones" disabled={loadingApps} onClick={onRefresh}/>}
-            <IconButton icon={X} label="Cerrar" onClick={onClose}/>
+            {onRefresh && <IconButton icon={RefreshCw} label={s.refresh} disabled={loadingApps} onClick={onRefresh}/>}
+            <IconButton icon={X} label={s.close} onClick={onClose}/>
           </div>
         </div>
         <input
           type="search"
           className="apps-search"
-          placeholder="Buscar por nombre o identificador…"
-          aria-label="Buscar aplicación"
+          placeholder={s.searchPlaceholder}
+          aria-label={s.searchAria}
           value={filter}
           onChange={event => setFilter(event.target.value)}
           autoFocus
         />
         <div className="apps-list">
           {filtered.length === 0 ? (
-            <div className="apps-empty">No se encontraron aplicaciones</div>
+            <div className="apps-empty">{s.empty}</div>
           ) : (
             filtered.map(app => {
               const busy = launchingApp === app.bundle_id;
@@ -56,7 +58,7 @@ export function AppsModal({apps, loadingApps, launchingApp, onLaunch, onRefresh,
                     className="app-item"
                     disabled={Boolean(launchingApp)}
                     onClick={() => onLaunch(app)}
-                    title={`Abrir ${app.name} en el iPhone`}
+                    title={s.openOnIphone(app.name)}
                   >
                     <div className="app-meta">
                       <strong>{app.name}</strong>
@@ -68,8 +70,8 @@ export function AppsModal({apps, loadingApps, launchingApp, onLaunch, onRefresh,
                   <button
                     type="button"
                     className="app-copy"
-                    title={copied ? 'Identificador copiado' : `Copiar ${app.bundle_id}`}
-                    aria-label={`Copiar identificador de ${app.name}`}
+                    title={copied ? s.copied : s.copyId(app.bundle_id)}
+                    aria-label={s.copyAria(app.name)}
                     onClick={event => copyBundleId(event, app.bundle_id)}
                   >
                     {copied ? <Check size={13}/> : <Copy size={13}/>}

@@ -1,12 +1,12 @@
-## Cambio
+## Summary
 
-Describe el problema, el comportamiento resultante y sus límites.
+Describe the problem solved, the resulting behavior, and any relevant scope limits.
 
-## Validación
+## Validation
 
-- [ ] Pruebas relevantes aprobadas y compilación de interfaz correcta.
-- [ ] Checks de Windows/Linux y ambos paquetes aprobados.
-- [ ] Si cambia el transporte o la entrada, resultado de prueba con iPhone físico documentado (o pendiente explícito).
-- [ ] Documentación y versión actualizadas cuando corresponda.
+- [ ] Relevant unit tests pass and the frontend UI builds cleanly (`pnpm build && pnpm test`).
+- [ ] Windows/Linux CI checks and package builds succeed.
+- [ ] If USB transport or input changed, physical iPhone test results are documented (or explicitly marked pending).
+- [ ] Documentation and version synced when applicable.
 
-No incluir contenido del portapapeles, UDID ni información personal del teléfono.
+*Privacy Note: Never include UDIDs, personal device names, or private clipboard contents.*

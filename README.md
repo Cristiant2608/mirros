@@ -1,77 +1,79 @@
-# MirrOS — Duplicación y control de iPhone por USB en Windows y Linux
+# MirrOS — iPhone Screen Mirroring & USB Control for Windows and Linux (`scrcpy` for iOS)
 
 <p align="center">
-  <strong>🇪🇸 Español</strong> ·
-  <strong><a href="README.en.md">🇬🇧 Read in English</a></strong> ·
-  <strong><a href="https://cristiant2608.github.io/mirros/">🌐 Sitio Web Oficial</a></strong> ·
-  <strong><a href="https://github.com/Cristiant2608/mirros/releases/latest">⬇️ Descargar última versión (v1.2.0)</a></strong>
+  <strong>🇺🇸 English</strong> ·
+  <strong><a href="README.es.md">🇪🇸 Leer en Español</a></strong> ·
+  <strong><a href="https://cristiant2608.github.io/mirros/">🌐 Official Website</a></strong> ·
+  <strong><a href="https://github.com/Cristiant2608/mirros/releases/latest">⬇️ Download Latest Release (v1.2.0)</a></strong>
 </p>
 
-[![Última versión](https://img.shields.io/github/v/release/Cristiant2608/mirros?label=versi%C3%B3n&color=5269c4)](https://github.com/Cristiant2608/mirros/releases/latest)
-[![Descargas](https://img.shields.io/github/downloads/Cristiant2608/mirros/total?label=descargas&color=247454)](https://github.com/Cristiant2608/mirros/releases)
+[![Latest Release](https://img.shields.io/github/v/release/Cristiant2608/mirros?label=release&color=5269c4)](https://github.com/Cristiant2608/mirros/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Cristiant2608/mirros/total?label=downloads&color=247454)](https://github.com/Cristiant2608/mirros/releases)
 [![Desktop Packages CI](https://github.com/Cristiant2608/mirros/actions/workflows/packages.yml/badge.svg)](https://github.com/Cristiant2608/mirros/actions/workflows/packages.yml)
-[![Plataformas](https://img.shields.io/badge/plataformas-Windows%20x64%20%7C%20Linux%20x64-blue)](https://github.com/Cristiant2608/mirros/releases/latest)
-[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-lightgrey)](LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20x64%20%7C%20Linux%20x64-blue)](https://github.com/Cristiant2608/mirros/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-**MirrOS** permite ver la pantalla, escuchar el audio y controlar tu **iPhone por USB desde Windows y Linux** con baja latencia (alternativa de código abierto estilo `scrcpy` para iOS / *iPhone Mirroring* en PC). Incluye una aplicación de escritorio lista para usar (**React + Electron**) y una herramienta de línea de comandos (`mirros` / `ios-scrcpy`) impulsada por `pymobiledevice3` y Apple CoreDevice.
+**MirrOS** is an open-source **iPhone screen mirroring, real-time audio streaming, screen recording, and USB HID control** application for **Windows and Linux** — bringing a native **`scrcpy`-like experience to iOS 17.4 and iOS 18** over a standard USB cable without jailbreak or a Mac.
 
-> **🇬🇧 English Summary — iPhone Screen Mirroring & USB Control for Windows and Linux (`scrcpy` for iOS):**
-> **MirrOS** brings native-like **iPhone Mirroring to Windows and Linux PCs over USB** (iOS 17.4+). It streams low-latency **HEVC hardware video** (with automatic **PyAV software fallback**), **AAC-ELD audio**, **HID touch/swipe gestures**, **App Switcher (multitasking)**, **PC keyboard & bidirectional clipboard (`Ctrl+C` / `Ctrl+V`)**, and **Always-On Display (AOD) standby mode**—packaged as standalone portable `.exe` (Windows x64) and `.AppImage` (Linux x64) binaries with Python bundled.
+Powered by `pymobiledevice3` and Apple CoreDevice services, MirrOS provides a unified **React + Electron desktop application** and command-line interface (`mirros` / `ios-scrcpy`) with built-in **English (`EN`) and Spanish (`ES`)** language switching.
 
-![Interfaz con contenido simulado](docs/screenshots/pantalla.png)
+![MirrOS Desktop Studio with simulated screen](docs/screenshots/pantalla.png)
 
-Las capturas del repositorio son simuladas. Las pruebas automáticas y las pruebas
-con un teléfono se registran por separado en [Compatibilidad](docs/COMPATIBILIDAD.md).
+> *All repository screenshots use a generated simulated iPhone display and contain no personal device data. Automated CI checks and physical device validations are tracked in [Compatibility](docs/COMPATIBILIDAD.md).*
 
-## Características principales / Key Features
+---
 
-- **Vídeo fluido por USB a 60 FPS (sin caídas de resolución RVRA):** Decodificación HEVC nativa vía WebCodecs con compensación automática de escalones RVRA en Linux/VAAPI y alternativa automática por software (PyAV/MJPEG con perfiles `economy`, `balanced` y `detail`).
-- **Control total (ratón, gestos rápidos y teclado):** Toques, arrastres, rueda proporcional, gestos directos para **Centro de Control**, **Centro de Notificaciones** y **Selector de apps (Multitarea)** (`Ctrl+M` / `Ctrl+Tab`), clic derecho para volver a Inicio, puntero personalizable y escritura directa con el teclado del PC (incluyendo `Ctrl+A`, `Ctrl+C`, `Ctrl+X`, `Ctrl+V` y `Ctrl+Z`).
-- **Visor de Cámara en vivo y aislamiento de micrófono:** Al abrir la app Cámara de iOS, MirrOS conmuta automáticamente al visor en directo vía DVT Instruments sin bloqueos por el error CoreDevice 9022.
-- **Ajustes de Rendimiento / Accesibilidad de iOS en vivo:** Conmuta *Reducir movimiento*, *Reducir transparencia* y *Aumentar contraste* directamente desde MirrOS para maximizar la nitidez HEVC.
-- **Audio en tiempo real y telemetría de batería:** Reproducción PCM mediante `AudioWorklet` con reserva adaptable, controles de volumen independientes e indicador de batería y modelo del iPhone en vivo.
-- **Modo AOD / Reposo y vista de Solo Teléfono flotante:** Permite dejar descansar la pantalla física del iPhone mientras sigues interactuando desde el PC, con vista compacta de solo celular tanto en escritorio como al ejecutar `mirros` por consola.
-- **Portátil y autónomo:** Ejecutables portátiles para Windows (`.exe`) y Linux (`.AppImage`) con actualizaciones verificadas por SHA-256.
+## Key Capabilities
 
-## Descargar los portátiles
-
-Descarga los archivos desde [GitHub Releases](https://github.com/Cristiant2608/mirros/releases/latest):
-
-| Archivo | Uso |
+| Feature | Description |
 | --- | --- |
-| `Mirros-1.2.0-Windows.exe` | Portátil Windows x64: descargar y abrir. |
-| `Mirros-1.2.0-Linux-x64.AppImage` | Portátil Linux x64: dar permiso de ejecución y abrir. |
-| `Mirros-1.2.0-Source.zip` | Código fuente de la misma versión. |
-| `SHA256SUMS.txt` | Sumas SHA-256 de los tres archivos. |
+| **Low-Latency 60 FPS USB Video** | Native **HEVC** hardware decoding via Chromium WebCodecs with automatic Linux/VAAPI RVRA resolution-tier padding detection, plus **PyAV/FFmpeg software fallback** (`economy`, `balanced`, and `detail` profiles). |
+| **HID Touch, Edge Gestures & Custom Pointer** | Normalized USB HID touch, long-press hold preservation, proportional mouse-wheel scrolling, 1-click **Control Center**, **Notification Center**, and **App Switcher** gestures, plus a customizable in-phone cursor (Arrow, Circle, Dot). |
+| **PC Keyboard, iOS Editing & Bidirectional Clipboard** | Type directly on your iPhone from your PC keyboard with native iOS text shortcuts (`Ctrl+A` Select All, `Ctrl+C` Copy, `Ctrl+X` Cut, `Ctrl+V` Paste, `Ctrl+Z` Undo) and bidirectional Unicode text / PNG image clipboard sync. |
+| **Live Camera Viewfinder & Mic Isolation** | Direct live camera feed on canvas via DVT Instruments (`GET /camera-frame`) with touch controls and automatic microphone isolation (avoiding Apple CoreDevice error 9022). |
+| **Screen & Audio Recording** | Built-in 60 FPS WebM/MP4 screen + audio recorder (`Ctrl+Shift+R` or toolbar button) alongside instant PNG screenshots (`Ctrl+P`). |
+| **Real-Time AAC-ELD Audio** | Streams iPhone audio to your PC using an adaptive `AudioWorklet` jitter buffer (120–240 ms) with independent PC and iPhone volume controls. |
+| **Unified Floating Phone & AOD Standby Mode** | Opens by default in a compact, borderless **Floating Phone** window (`mirros` CLI and Desktop) with 1-click switch to the full **Studio** workspace, plus **AOD / Standby Mode** (`Ctrl+L` / `Ctrl+U`) so the physical iPhone screen rests while PC control stays active. |
+| **Live iOS Performance & Accessibility Toggles** | Toggle *Reduce Motion*, *Reduce Transparency*, and *Increase Contrast* live on the iPhone via CoreDevice to prevent hardware encoder resolution drops during animations. |
+| **Bilingual Interface (`EN` / `ES`)** | English by default with instant 1-click translation to Spanish in both the Floating Phone bar and Studio toolbar. |
 
-Los portátiles incluyen Electron y Python. El equipo de destino necesita el servicio
-USB de Apple en Windows o `usbmuxd` en Linux, y el iPhone debe conceder confianza y
-estar en Modo Desarrollador. La primera preparación puede necesitar Internet.
+---
 
-En Linux:
+## Download Portable Packages (No Python or Node.js Required)
+
+Download the latest self-contained binaries from [GitHub Releases](https://github.com/Cristiant2608/mirros/releases/latest):
+
+| File | Platform & Usage |
+| --- | --- |
+| `Mirros-1.2.0-Windows.exe` | **Windows 10 / 11 (x64) Portable:** download and run the `.exe`. |
+| `Mirros-1.2.0-Linux-x64.AppImage` | **Linux (x64) Portable:** make executable (`chmod +x`) and run. |
+| `Mirros-1.2.0-Source.zip` | Source code archive from the verified release tag. |
+| `SHA256SUMS.txt` | SHA-256 checksums for all release artifacts. |
+
+On Linux:
 
 ```bash
 chmod +x Mirros-1.2.0-Linux-x64.AppImage
 ./Mirros-1.2.0-Linux-x64.AppImage
 ```
 
-Durante el uso de la cámara o el micrófono, MirrOS activa automáticamente el visor
-en vivo para que los controles táctiles y la grabación funcionen sin interrupciones.
+---
 
-## Requisitos
+## System Requirements
 
-- iPhone desbloqueado, cable USB de datos y confianza concedida al ordenador.
-- Modo Desarrollador activado en Ajustes → Privacidad y seguridad.
-- iOS 17.4+ para el túnel USB en espacio de usuario; las versiones anteriores
-  requieren un túnel externo y validación específica.
-- Linux: servicio `usbmuxd`. Windows: Apple Mobile Device Service, instalado
-  mediante Dispositivos Apple o iTunes. No se incluyen controladores de Apple.
-- Desarrollo: Python 3.10+ y Node.js 22.12+. El visor de terminal necesita
-  un navegador Chromium con HEVC; el escritorio incorpora alternativa por software.
+1. **Unlocked iPhone**, a **USB data cable**, and **"Trust This Computer"** accepted on the device.
+2. **Developer Mode** enabled on the iPhone (*Settings → Privacy & Security → Developer Mode*).
+3. **iOS 17.4 or newer** (including iOS 18) for unprivileged userspace USB tunneling (older iOS versions require an external `tunneld` instance).
+4. **USB Driver / Service**:
+   - **Windows:** *Apple Mobile Device Service* (installed via Apple Devices or iTunes).
+   - **Linux:** `usbmuxd` service running (`sudo systemctl start usbmuxd`). On Wayland, install `wl-clipboard` for cross-app clipboard sharing.
+5. **Internet connection** may be needed on the very first run so `pymobiledevice3` can fetch the matching Apple Developer Disk Image (DDI).
 
-## Instalar desde el código
+---
 
-Linux:
+## Install from Source (CLI & Development)
+
+### Linux
 
 ```bash
 git clone https://github.com/Cristiant2608/mirros.git
@@ -81,13 +83,12 @@ mirros --diagnose
 mirros
 ```
 
-En Arch/CachyOS: `sudo pacman -S --needed usbmuxd chromium`.
-En Debian/Ubuntu: `sudo apt install usbmuxd chromium`.
-En Fedora: `sudo dnf install usbmuxd chromium`.
-Activa el servicio USB según tu distribución; en sistemas con la unidad disponible:
-`sudo systemctl start usbmuxd`.
+Install system packages according to your distribution:
+- **Arch / CachyOS:** `sudo pacman -S --needed usbmuxd chromium wl-clipboard`
+- **Debian / Ubuntu:** `sudo apt install usbmuxd chromium wl-clipboard`
+- **Fedora:** `sudo dnf install usbmuxd chromium wl-clipboard`
 
-Windows, desde PowerShell en la carpeta del proyecto:
+### Windows (PowerShell)
 
 ```powershell
 .\setup.ps1
@@ -95,14 +96,9 @@ Windows, desde PowerShell en la carpeta del proyecto:
 .\mirros.cmd
 ```
 
-Los instaladores crean o reutilizan `.venv`, instalan las dependencias declaradas y
-comprueban su consistencia en cada ejecución. En Linux se crean los enlaces en
-`~/.local/bin`; esa carpeta debe estar en `PATH`. `ios-scrcpy` se conserva como
-alias del comando `mirros`, también en Windows mediante `ios-scrcpy.cmd`.
+Both setup scripts use [`uv`](https://docs.astral.sh/uv/) automatically when available (with `pip` fallback) to create `.venv` and validate package dependencies. The `ios-scrcpy` alias is installed alongside `mirros`.
 
-## Abrir el escritorio
-
-Después de configurar Python:
+### Running the Desktop Studio from Source
 
 ```bash
 pnpm install
@@ -111,62 +107,79 @@ pnpm run build
 pnpm start
 ```
 
-El escritorio incluye video, gestos, teclado, audio, capturas, copiar/pegar con Ctrl+C y Ctrl+V,
-ventana flotante y actualizaciones explícitas. Consulta la [guía de uso](docs/USO.md).
-La transparencia y «Siempre encima» dependen del compositor Linux. En Wayland,
-instala `wl-clipboard` para el portapapeles entre aplicaciones.
-Consulta las [prioridades de mejora](docs/MEJORAS.md) y sus criterios de validación.
-
-Para distribuir sin Python ni Node instalados en el equipo de destino:
-`./build-linux.sh` genera un AppImage en `dist/linux`; `./build-windows.ps1`
-genera el EXE portátil en `dist/windows`. Los paquetes publicados se descargan desde [Releases](https://github.com/Cristiant2608/mirros/releases).
-
-## Comando de terminal
-
-| Opción | Comportamiento |
-| --- | --- |
-| `--diagnose` | Comprueba entorno, navegador y detección USB sin transmitir. |
-| `--version` | Muestra la versión instalada. |
-| `--port PUERTO` | Usa un puerto de 1 a 65535; falla si está ocupado. |
-| `--udid UDID` | Selecciona el teléfono; obligatorio cuando hay varios. |
-| `--browser RUTA` | Selecciona un navegador Chromium. |
-| `--audio` / `--no-audio` | Activa o desactiva el audio inicial del visor; desactivado por defecto. |
-| `--force-software` | Fuerza la decodificación de video por software (MJPEG con PyAV) en lugar de WebCodecs HEVC. |
-| `--video-quality {economy,balanced,detail}` | Selecciona el perfil de calidad/rendimiento para el video por software (`balanced` por defecto). |
-| `--app-switcher` | Abre el selector de aplicaciones en segundo plano (multitarea) en una sesión activa. |
-| `--list-apps` | Lista en la terminal las aplicaciones de usuario instaladas en el iPhone conectado por USB. |
-| `--floating` / `--studio` | Abre la vista compacta de solo teléfono flotante (por defecto) o el panel completo Studio (`--studio`). |
-| `--no-userspace` | Usa un túnel externo para el dispositivo. |
-
-Sin `--port`, busca un puerto libre desde 8080. El servidor escucha en
-`127.0.0.1`. Cada ejecución tiene su carpeta temporal privada y muestra la ruta
-del registro. Los errores devuelven un código distinto de cero; SIGTERM solicita
-el cierre de la sesión y devuelve 143 en Linux. Ctrl+C termina normalmente.
-
-Cierra la ventana o usa «Desconectar de forma segura» antes de retirar el cable.
-Si el cable ya se retiró, el programa puede cerrar sus procesos pero no garantiza
-que el iPhone haya recibido la liberación de entrada.
-
-## Desarrollo y estado del proyecto
-
-- [Cómo contribuir y ejecutar las pruebas](CONTRIBUTING.md)
-- [Arquitectura y responsabilidades](docs/ARQUITECTURA.md)
-- [Compatibilidad y lista de validación física](docs/COMPATIBILIDAD.md)
-- [Versiones y publicación mediante etiquetas](docs/ACTUALIZACIONES.md)
-- [Revisión del PR #1 y cambios de integración](docs/REVISION-PR-1.md)
-- [Historial](CHANGELOG.md)
-
-`pyproject.toml` es la fuente de versión. Los cambios en `main` y los PR generan
-paquetes de prueba; una publicación requiere una etiqueta `vX.Y.Z` del mismo
-commit validado. No se publica al integrar un PR.
-
-El código de MirrOS usa la licencia [MIT](LICENSE). El backend y las dependencias
-conservan sus propias licencias; véase [NOTICE](desktop/NOTICE.txt).
+To build standalone distributables locally:
+- **Linux AppImage:** `./build-linux.sh` → outputs to `dist/linux/`
+- **Windows Portable EXE:** `./build-windows.ps1` → outputs to `dist/windows/`
 
 ---
 
-## ⭐ Apoya el alcance del proyecto
+## Command-Line Interface (`mirros` / `ios-scrcpy`)
 
-Si **MirrOS** te resulta útil para usar tu iPhone en Linux o Windows:
-1. Dale una **⭐ Star** arriba a la derecha en [GitHub](https://github.com/Cristiant2608/mirros) (ayuda enormemente a que otros usuarios de Linux y Windows lo encuentren en GitHub Explore).
-2. Compártelo en comunidades como `r/linux`, `r/opensource`, `r/Windows11` o Hacker News.
+| Option | Behavior |
+| --- | --- |
+| `--diagnose` | Checks Python environment, PyAV decoder, browser, and USB detection without starting a stream (redacts UDIDs and private paths). |
+| `--version` | Prints the installed MirrOS version. |
+| `--udid UDID` | Selects a specific iPhone by UDID (required when multiple devices are connected). |
+| `--port PORT` | Binds the local server (`127.0.0.1`) to a specific port (`1–65535`); defaults to the first free port from `8080`. |
+| `--browser PATH` | Launches a specific Chromium-based browser binary. |
+| `--audio` / `--no-audio` | Enables or disables initial audio streaming in the browser viewer (disabled by default in CLI). |
+| `--force-software` | Forces software video decoding (MJPEG via PyAV) instead of WebCodecs HEVC. |
+| `--video-quality {economy,balanced,detail}` | Sets the software video profile (`economy`: 20 FPS / 960px, `balanced`: 28 FPS / 1280px, `detail`: 30 FPS / 1568px). |
+| `--app-switcher` | Triggers the iOS App Switcher (background multitasking) on an active session. |
+| `--list-apps` | Lists user-installed applications on the USB-connected iPhone in the terminal. |
+| `--floating` / `--studio` | Opens the compact floating phone view (default) or the full Studio panel (`--studio`). |
+| `--no-userspace` | Uses an external tunnel instead of the built-in userspace tunnel. |
+
+---
+
+## Keyboard Shortcuts (Viewer Focused)
+
+| Action | Shortcut |
+| --- | --- |
+| Home Screen | `Ctrl + H` or Right-Click |
+| App Switcher (Multitasking) | `Ctrl + M` or `Ctrl + Tab` |
+| Copy from iPhone to PC | `Ctrl + C` |
+| Cut / Select All / Undo in iOS | `Ctrl + X` / `Ctrl + A` / `Ctrl + Z` |
+| Paste from PC to iPhone | `Ctrl + V` |
+| Start / Stop Screen Recording | `Ctrl + Shift + R` |
+| Save PNG Screenshot | `Ctrl + P` |
+| Toggle Fullscreen | `F11` |
+| Lock iPhone / AOD Standby | `Ctrl + L` |
+| Wake & Unlock Gesture | `Ctrl + U` |
+| iPhone Volume Down / Up | `Ctrl + [` / `Ctrl + ]` |
+| Invoke Siri | `Ctrl + S` |
+
+---
+
+## Frequently Asked Questions (FAQ)
+
+### Can I mirror and control my iPhone on Linux or Windows without a Mac?
+Yes. MirrOS uses iOS 17.4+ CoreDevice services over a standard USB data cable via `pymobiledevice3`, providing full screen mirroring, audio playback, and USB HID mouse/keyboard control on Linux and Windows.
+
+### Does MirrOS require Jailbreak or a paid Apple Developer account?
+No. You only need to enable **Developer Mode** in *Settings → Privacy & Security → Developer Mode* on your iPhone and tap **"Trust This Computer"** when connecting over USB.
+
+### How do I switch the interface language between English and Spanish?
+MirrOS starts in **English (`EN`)** by default. Click the **`🇺🇸 EN` / `🇪🇸 ES`** button in the Studio top toolbar, the **Languages** icon in the Floating Phone sidebar, or select your language under **Appearance → Language / Idioma**.
+
+---
+
+## Documentation & Project Links
+
+- [🇪🇸 Documentación principal en Español (README.es.md)](README.es.md)
+- [Usage Guide](docs/USO.md)
+- [Architecture & Process Model](docs/ARQUITECTURA.md)
+- [Compatibility Matrix & Physical Validation Checklist](docs/COMPATIBILIDAD.md)
+- [Performance & Optimization Notes](docs/OPTIMIZACION.md)
+- [Release & Update Verification Workflow](docs/ACTUALIZACIONES.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Security Policy](SECURITY.md)
+- [Changelog](CHANGELOG.md)
+
+MirrOS is released under the [MIT License](LICENSE). Third-party dependencies retain their own licenses; see [NOTICE](desktop/NOTICE.txt).
+
+---
+
+## ⭐ Support & Star History
+
+If **MirrOS** helps you mirror and control your iPhone on Linux or Windows, please consider giving the repository a **⭐ Star** on [GitHub](https://github.com/Cristiant2608/mirros) — it helps other Linux and Windows users discover the project!

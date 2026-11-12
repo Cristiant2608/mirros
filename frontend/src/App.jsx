@@ -2,24 +2,27 @@ import {post} from './transport.js';
 import {usePhoneInput} from './hooks/usePhoneInput.js';
 import {bridge, native} from './bridge.js';
 import {IconButton, Toggle, Logo, ResizeHandles, RecordButton, RecordingBadge} from './components/Controls.jsx';
-import {createRecorder, formatDuration} from './recorder.mjs';
+import {createRecorder} from './recorder.mjs';
 import {useAudio} from './hooks/useAudio.js';
 import {useConnection} from './hooks/useConnection.js';
 import {usePhoneVideo} from './hooks/usePhoneVideo.js';
 import {FrameRate} from './components/FrameRate.jsx';
 import {AppsModal} from './components/AppsModal.jsx';
 import {InspectorContent} from './components/InspectorContent.jsx';
+import {useLanguage, translateBackendText} from './i18n.js';
 import React, {useEffect, useRef, useState} from 'react';
-import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Camera, CameraOff, Play, Mouse, ArrowLeft, ArrowRight, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, RotateCw, ChevronLeft, LogOut, Moon, Sun, Layers, Battery, BatteryCharging, BatteryLow, BatteryMedium, BatteryFull, SlidersHorizontal, Bell} from 'lucide-react';
+import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Camera, CameraOff, Play, Mouse, ArrowLeft, ArrowRight, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, RotateCw, ChevronLeft, LogOut, Moon, Sun, Layers, Battery, BatteryCharging, BatteryLow, BatteryMedium, BatteryFull, SlidersHorizontal, Bell, Languages} from 'lucide-react';
 import {resolveBatteryIcon} from './battery.mjs';
 import {rotateDevice} from './orientation.js';
 import './style.css';
 
-
-const platformLabel = navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Linux') ? 'Linux' : 'tu sistema';
 const BATTERY_ICONS = {Battery, BatteryCharging, BatteryLow, BatteryMedium, BatteryFull};
-const sections = [[Smartphone, 'phone', 'Pantalla'], [Volume2, 'audio', 'Audio'], [Clipboard, 'clipboard', 'Portapapeles'], [Palette, 'appearance', 'Apariencia'], [CircleHelp, 'help', 'Ayuda']];
+const sectionDefs = [[Smartphone, 'phone'], [Volume2, 'audio'], [Clipboard, 'clipboard'], [Palette, 'appearance'], [CircleHelp, 'help']];
+
 export default function App() {
+  const {lang, setLang, toggleLang, t} = useLanguage();
+  const platformLabel = navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Linux') ? 'Linux' : t.yourSystem;
+  const sections = sectionDefs.map(([Icon, id]) => [Icon, id, t.sections[id][0]]);
   const [state, setState] = useConnection();
   const [tab, setTab] = useState('phone'), [notice, setNotice] = useState('');
   const [keyboard, setKeyboard] = useState(false), [text, setText] = useState('');
@@ -64,7 +67,7 @@ export default function App() {
       } else {
         await post('/app-switcher', {});
       }
-      setNotice('Selector de apps (multitarea) activado.');
+      setNotice(t.notices.appSwitcher);
     } catch (error) {
       setNotice(error.message);
     }
@@ -73,7 +76,7 @@ export default function App() {
     if (!connected) return;
     try {
       await input.current?.swipe('controlCenter');
-      setNotice('Centro de Control desplegado.');
+      setNotice(t.notices.controlCenter);
     } catch (error) {
       setNotice(error.message);
     }
@@ -82,7 +85,7 @@ export default function App() {
     if (!connected) return;
     try {
       await input.current?.swipe('notifications');
-      setNotice('Centro de Notificaciones desplegado.');
+      setNotice(t.notices.notifications);
     } catch (error) {
       setNotice(error.message);
     }
@@ -92,7 +95,7 @@ export default function App() {
     setLoadingApps(true);
     try {
       const res = await fetch('/apps');
-      if (!res.ok) throw new Error('No se pudo obtener la lista de aplicaciones.');
+      if (!res.ok) throw new Error(t.notices.appsLoadFailed);
       const data = await res.json();
       setDeviceApps(Array.isArray(data) ? data : []);
       setShowApps(true);
@@ -108,7 +111,7 @@ export default function App() {
     try {
       await post('/apps/launch', {bundle_id: app.bundle_id});
       setShowApps(false);
-      setNotice(`Abriendo ${app.name} en el iPhone…`);
+      setNotice(t.notices.launchingApp(app.name));
     } catch (err) {
       setNotice(err.message);
     } finally {
@@ -119,15 +122,15 @@ export default function App() {
     try {
       if (bridge) {
         const msg = await native('diagnostics');
-        if (msg) setNotice(msg);
+        if (msg) setNotice(translateBackendText(msg, lang));
       } else {
         const res = await fetch('/diagnostics');
-        if (!res.ok) throw new Error('No se pudo generar el diagnóstico.');
+        if (!res.ok) throw new Error(t.notices.diagnosticsFailed);
         const blob = new Blob([JSON.stringify(await res.json(), null, 2) + '\n'], {type: 'application/json'});
         const url = URL.createObjectURL(blob), link = document.createElement('a');
-        link.download = 'diagnostico-mirros.json'; link.href = url; link.click();
+        link.download = 'mirros-diagnostics.json'; link.href = url; link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        setNotice('Diagnóstico exportado.');
+        setNotice(t.notices.diagnosticsExported);
       }
     } catch (error) {
       setNotice(error.message.replace(/^Error invoking remote method '[^']+': Error: /, ''));
@@ -139,15 +142,15 @@ export default function App() {
     video.current?.rotateView();
     try {
       const result = await rotateDevice();
-      if (result.currentDeviceOrientation === 'portrait') setNotice('Vista girada. iOS mantiene la aplicación en vertical.');
+      if (result.currentDeviceOrientation === 'portrait') setNotice(t.notices.rotatedPortraitKept);
     }
-    catch { setNotice('Vista girada. iOS no aceptó cambiar la orientación del teléfono.'); }
+    catch { setNotice(t.notices.rotatedDeclined); }
     finally { setRotating(false); }
   }
   const [clipboardBusy, setClipboardBusy] = useState(false);
   async function shareClipboard(direction) {
     setClipboardBusy(true);
-    try { setNotice(await native('clipboard', direction)); }
+    try { setNotice(translateBackendText(await native('clipboard', direction), lang)); }
     catch (error) { setNotice(error.message.replace(/^Error invoking remote method '[^']+': Error: /, '')); }
     finally { setClipboardBusy(false); }
   }
@@ -155,7 +158,7 @@ export default function App() {
   async function runClipboardShortcut(action) {
     if (clipboardLock.current || !connected || !bridge) return;
     clipboardLock.current = true; setClipboardBusy(true);
-    try { setNotice(await native('clipboardShortcut', action)); }
+    try { setNotice(translateBackendText(await native('clipboardShortcut', action), lang)); }
     catch (error) { setNotice(error.message.replace(/^Error invoking remote method '[^']+': Error: /, '')); }
     finally { clipboardLock.current = false; setClipboardBusy(false); }
   }
@@ -211,35 +214,35 @@ export default function App() {
       recorderRef.current = null;
       setRecording(false);
       try {
-        setNotice('Finalizando grabación…');
+        setNotice(t.notices.recordingStopping);
         const {blob, extension} = await active.stop();
         if (!blob || (blob.size === 0 && (!blob.byteLength || blob.byteLength === 0))) {
-          setNotice('La grabación está vacía.');
+          setNotice(t.notices.recordingEmpty);
           return;
         }
         if (bridge) {
           const buffer = await blob.arrayBuffer();
           const bytes = new Uint8Array(buffer);
           const saved = await native('saveRecording', {bytes, extension});
-          if (saved) setNotice('Grabación guardada.');
-          else setNotice('Grabación cancelada.');
+          if (saved) setNotice(t.notices.recordingSaved);
+          else setNotice(t.notices.recordingCanceled);
         } else {
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
-          link.download = `Mirros-Grabacion.${extension}`;
+          link.download = `MirrOS-Recording.${extension}`;
           link.href = url;
           link.click();
           setTimeout(() => URL.revokeObjectURL(url), 1000);
-          setNotice('Grabación descargada.');
+          setNotice(t.notices.recordingDownloaded);
         }
       } catch (err) {
-        setNotice('Error al guardar grabación: ' + err.message);
+        setNotice(t.notices.recordingSaveError(err.message));
       } finally {
         setRecordingDuration(0);
       }
     } else {
       if ((!live && !cameraLive) || !canvas.current) {
-        setNotice('No hay transmisión activa para grabar.');
+        setNotice(t.notices.noActiveStreamToRecord);
         return;
       }
       try {
@@ -252,9 +255,9 @@ export default function App() {
         recorderRef.current = rec;
         setRecording(true);
         setRecordingDuration(0);
-        setNotice('Grabación iniciada (Ctrl+Shift+R para detener).');
+        setNotice(t.notices.recordingStarted);
       } catch (err) {
-        setNotice('No se pudo iniciar la grabación: ' + err.message);
+        setNotice(t.notices.recordingStartError(err.message));
       }
     }
   }
@@ -314,9 +317,9 @@ export default function App() {
         const previous = mediaStateRef.current;
         if (previous.paused === data.paused && previous.reason === (data.paused ? data.reason || 'manual' : null)) return;
         if (data.paused && !previous.paused && data.reason === 'auto_sensor') {
-          setNotice('Cámara detectada en el iPhone. Activando visor en vivo…');
+          setNotice(t.notices.cameraDetected);
         } else if (!data.paused && previous.paused && previous.reason === 'auto_sensor') {
-          setNotice('Cámara cerrada en el iPhone. Pantalla reanudada a 60 FPS.');
+          setNotice(t.notices.cameraClosed);
         }
         applyMediaState(data.paused, data.reason);
       }).catch(() => {});
@@ -337,7 +340,7 @@ export default function App() {
       setAccessibility(next);
     }).catch(() => {});
     return () => { cancelled = true; clearInterval(interval); };
-  }, [connected]);
+  }, [connected, t]);
   async function toggleAccessibility(key, nextValue = !accessibility[key]) {
     if (!connected || accessibilityBusy) return;
     setAccessibilityBusy(true);
@@ -347,14 +350,10 @@ export default function App() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({key, value: Boolean(nextValue)}),
       });
-      if (!res.ok) throw new Error('No se pudo actualizar el ajuste en el iPhone.');
+      if (!res.ok) throw new Error(t.notices.accessibilityUpdateFailed);
       setAccessibility(prev => ({...prev, [key]: Boolean(nextValue)}));
-      const labels = {
-        reduce_motion: 'Reducir movimiento',
-        reduce_transparency: 'Reducir transparencia',
-        increase_contrast: 'Aumentar contraste',
-      };
-      setNotice(`${labels[key] || key}: ${nextValue ? 'activado' : 'desactivado'} en el iPhone.`);
+      const label = t.notices.accessibilityLabels[key] || key;
+      setNotice(t.notices.accessibilityUpdated(label, nextValue));
     } catch (err) {
       setNotice(err.message);
     } finally {
@@ -374,12 +373,12 @@ export default function App() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (body.code === 'media_in_use') applyMediaState(true, body.reason || 'auto_sensor');
-        throw new Error(body.message || body.error || 'No se pudo cambiar el estado de cámara y micrófono.');
+        throw new Error(body.message || body.error || t.notices.mediaToggleFailed);
       }
       applyMediaState(Boolean(nextPaused), body.reason || 'manual');
       setNotice(nextPaused
-        ? 'Cámara y micrófono liberados en el iPhone. Pulsa Reanudar pantalla cuando termines.'
-        : exitApp ? 'Cámara cerrada en el iPhone. Reanudando pantalla…' : 'Reanudando pantalla del iPhone…');
+        ? t.notices.mediaReleased
+        : exitApp ? t.notices.mediaClosingCamera : t.notices.mediaResuming);
       return true;
     } catch (err) {
       setNotice(err.message);
@@ -451,9 +450,9 @@ export default function App() {
         body: JSON.stringify({style}),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || 'No se pudo cambiar el aspecto de iOS.');
+      if (!res.ok) throw new Error(body.error || t.notices.iosStyleFailed);
       setIosStyle(style);
-      setNotice(`Aspecto ${style === 'dark' ? 'oscuro' : 'claro'} aplicado en el iPhone.`);
+      setNotice(t.notices.iosStyleApplied(style === 'dark'));
     } catch (err) {
       setNotice(err.message);
     }
@@ -478,7 +477,7 @@ export default function App() {
     try {
       await post('/session/end', {});
     } catch {}
-    setState(value => ({...value, phase: 'pausado', message: 'Sesión terminada'}));
+    setState(value => ({...value, phase: 'pausado', message: t.status.paused}));
     try { window.close(); } catch {}
   }
   async function closeApp() {
@@ -512,8 +511,6 @@ export default function App() {
       setPointerPosition(null);
       return;
     }
-    // The shell has a 5 px frame around the canvas; keep the visual marker aligned
-    // without changing the coordinates used by usePhoneInput.
     setPointerPosition({x: event.clientX - rect.left + 5, y: event.clientY - rect.top + 5});
   }
 
@@ -539,7 +536,7 @@ export default function App() {
         await post('/display-mode', {mode});
         setState(v => ({...v, displayMode: mode}));
       }
-      setNotice(connected ? (mode === 'aod' ? 'Modo AOD / Reposo activo. La pantalla física descansa mientras el control sigue activo.' : 'Modo Pantalla Dual activo.') : 'Preferencia guardada para la próxima conexión.');
+      setNotice(connected ? (mode === 'aod' ? t.notices.displayModeAod : t.notices.displayModeDual) : t.notices.displayModeSaved);
     } catch (err) {
       setNotice(err.message);
     }
@@ -556,7 +553,7 @@ export default function App() {
         await post('/wake', {});
         if (state.displayMode === 'aod') setState(v => ({...v, displayMode: 'dual'}));
       }
-      setNotice('Despertando iPhone…');
+      setNotice(t.notices.wakingPhone);
     } catch (err) {
       setNotice(err.message);
     }
@@ -566,50 +563,50 @@ export default function App() {
   function button(name) { if (connected) post('/button', {name, state: 'press'}).catch(error => setNotice(error.message)); }
   async function phoneAudioButton(name) {
     if (!connected) return;
-    try { await post('/button', {name, state: 'press'}); setNotice(name === 'mute' ? 'Botón Silencio enviado al iPhone. Comprueba el resultado en iOS.' : 'Volumen del iPhone ajustado.'); }
+    try { await post('/button', {name, state: 'press'}); setNotice(name === 'mute' ? t.notices.muteSent : t.notices.volumeAdjusted); }
     catch (error) { setNotice(error.message); }
   }
   async function capture() {
     if ((!live && !cameraLive) || !canvas.current) return;
     try {
-      const image = await new Promise((resolve, reject) => canvas.current.toBlob(blob => blob ? resolve(blob) : reject(new Error('No se pudo crear la captura.')), 'image/png'));
+      const image = await new Promise((resolve, reject) => canvas.current.toBlob(blob => blob ? resolve(blob) : reject(new Error(t.notices.captureFailed)), 'image/png'));
       if (bridge) {
-        if (await native('saveCapture', new Uint8Array(await image.arrayBuffer()))) setNotice('Captura guardada.');
+        if (await native('saveCapture', new Uint8Array(await image.arrayBuffer()))) setNotice(t.notices.captureSaved);
       } else {
         const url = URL.createObjectURL(image), link = document.createElement('a');
-        link.download = 'Mirros.png'; link.href = url; link.click();
+        link.download = 'MirrOS.png'; link.href = url; link.click();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     } catch (error) { setNotice(error.message); }
   }
   async function sendText(event) {
     event.preventDefault(); if (!text.trim()) return;
-    try { await post('/clipboard', {text}); await post('/key', {usages: [227, 25]}); await post('/key', {usages: []}); setText(''); setNotice('Texto enviado al iPhone.'); } catch (error) { setNotice(error.message); }
+    try { await post('/clipboard', {text}); await post('/key', {usages: [227, 25]}); await post('/key', {usages: []}); setText(''); setNotice(t.notices.textSent); } catch (error) { setNotice(error.message); }
   }
   const isDisplaying = live || cameraLive;
   const preview = <div className={`preview-stage ${floating ? 'is-floating' : ''}`} ref={stage}>
     <div className={`phone-shell ${isDisplaying ? 'is-live' : ''}`} style={{width: phoneSize.width + 12, height: phoneSize.height + 12, '--phone-radius': `${Math.round(Math.min(phoneSize.width, phoneSize.height) * .125)}px`}}>
-      <canvas ref={canvas} tabIndex={0} onPointerMove={trackPointer} onPointerLeave={() => setPointerPosition(null)} onPointerCancel={() => setPointerPosition(null)} onLostPointerCapture={() => setPointerPosition(null)} aria-label="Pantalla del iPhone. Clic para tocar, arrastra para deslizar y usa la rueda para desplazarte." style={{width: phoneSize.width, height: phoneSize.height}}/>
+      <canvas ref={canvas} tabIndex={0} onPointerMove={trackPointer} onPointerLeave={() => setPointerPosition(null)} onPointerCancel={() => setPointerPosition(null)} onLostPointerCapture={() => setPointerPosition(null)} aria-label={t.preview.canvasAria} style={{width: phoneSize.width, height: phoneSize.height}}/>
       {pointerPosition && <span className={`phone-pointer pointer-${pointer.shape}`} aria-hidden="true" style={{left: pointerPosition.x, top: pointerPosition.y, '--pointer-color': pointer.color, '--pointer-scale': pointer.size / 100}}/>}
       {cameraLive && (
         <div className="camera-live-overlay-top">
           <span className="camera-dot" />
-          <span>Cámara en vivo</span>
+          <span>{t.preview.liveCamera}</span>
         </div>
       )}
       {connected && state.displayMode === 'aod' && isDisplaying && (
-        <div className="aod-live-badge" title="Modo AOD / Reposo: la pantalla física descansa. Control e interacción activos en el PC.">
+        <div className="aod-live-badge" title={t.preview.aodTitle}>
           <Moon size={12} />
-          <span>AOD Activo</span>
-          <button type="button" className="aod-badge-btn" onClick={wakePhone} title="Despertar pantalla física (Ctrl+U)">
-            Despertar
+          <span>{t.preview.aodActive}</span>
+          <button type="button" className="aod-badge-btn" onClick={wakePhone} title={t.preview.wakeTitle}>
+            {t.preview.wakeBtn}
           </button>
         </div>
       )}
       {connected && battery && battery.capacity !== null && floating && (
         <div
           className={`floating-battery-badge ${battery.charging ? 'is-charging' : ''} ${battery.capacity <= 20 ? 'is-low' : ''}`}
-          title={`Batería: ${battery.capacity}%${battery.charging ? ' (Cargando)' : ''}`}
+          title={t.preview.batteryTitle(battery.capacity, battery.charging)}
         >
           {React.createElement(resolveBatteryIcon(BATTERY_ICONS, battery.capacity, battery.charging), {size: 13})}
           <span>{battery.capacity}%</span>
@@ -620,51 +617,53 @@ export default function App() {
           duration={recordingDuration}
           onStop={toggleRecording}
           className="phone-overlay-recording"
+          t={t}
         />
       )}
-      {!isDisplaying && <div className="phone-placeholder"><div className="placeholder-symbol">{connected && mediaPaused ? <CameraOff size={26}/> : connected && state.displayMode === 'aod' ? <Moon size={26}/> : connected || state.phase === 'preparando' ? <LoaderCircle size={26} className="spin"/> : <Cable size={28}/>}</div><strong>{state.phase === 'pausado' ? 'Sesión terminada' : state.phase === 'error' ? 'Conexión interrumpida' : state.phase === 'preparando' ? 'Preparando iPhone' : connected && mediaPaused ? 'Cargando visor en vivo…' : connected && state.displayMode === 'aod' ? 'iPhone en reposo' : connected ? 'Cargando pantalla' : 'iPhone desconectado'}</strong><span>{state.phase === 'pausado' ? 'Puedes retirar el cable o volver a conectar.' : connected && mediaPaused ? 'Conectando con el visor en vivo para que uses cámara y micrófono desde el computador.' : connected && state.displayMode === 'aod' ? 'Captura en espera durante el reposo. Despierta el iPhone para continuar.' : connected ? videoStatus : state.phase === 'preparando' ? 'Mantén el cable conectado.' : 'Conecta el cable USB y desbloquea el teléfono.'}</span>{['error','pausado'].includes(state.phase) && <button className="small-button" onClick={() => native('retry')}>Reintentar</button>}{connected && mediaPaused && <div className="placeholder-actions"><button className="small-button" disabled={mediaBusy} onClick={() => toggleMediaPause(false, {exitApp: true})}>Salir de Cámara y reanudar</button><button className="small-button" disabled={mediaBusy} onClick={() => toggleMediaPause(false)}>Reanudar pantalla</button></div>}{connected && !mediaPaused && state.displayMode === 'aod' && <button className="small-button" onClick={wakePhone}>Despertar iPhone</button>}<span className="placeholder-line"/></div>}
+      {!isDisplaying && <div className="phone-placeholder"><div className="placeholder-symbol">{connected && mediaPaused ? <CameraOff size={26}/> : connected && state.displayMode === 'aod' ? <Moon size={26}/> : connected || state.phase === 'preparando' ? <LoaderCircle size={26} className="spin"/> : <Cable size={28}/>}</div><strong>{state.phase === 'pausado' ? t.preview.placeholderTitle.paused : state.phase === 'error' ? t.preview.placeholderTitle.error : state.phase === 'preparando' ? t.preview.placeholderTitle.preparing : connected && mediaPaused ? t.preview.placeholderTitle.mediaPaused : connected && state.displayMode === 'aod' ? t.preview.placeholderTitle.aod : connected ? t.preview.placeholderTitle.loading : t.preview.placeholderTitle.disconnected}</strong><span>{state.phase === 'pausado' ? t.preview.placeholderSub.paused : connected && mediaPaused ? t.preview.placeholderSub.mediaPaused : connected && state.displayMode === 'aod' ? t.preview.placeholderSub.aod : connected ? translateBackendText(videoStatus, lang) : state.phase === 'preparando' ? t.preview.placeholderSub.preparing : t.preview.placeholderSub.disconnected}</span>{['error','pausado'].includes(state.phase) && <button className="small-button" onClick={() => native('retry')}>{t.preview.retry}</button>}{connected && mediaPaused && <div className="placeholder-actions"><button className="small-button" disabled={mediaBusy} onClick={() => toggleMediaPause(false, {exitApp: true})}>{t.preview.exitCameraResume}</button><button className="small-button" disabled={mediaBusy} onClick={() => toggleMediaPause(false)}>{t.preview.resumeScreen}</button></div>}{connected && !mediaPaused && state.displayMode === 'aod' && <button className="small-button" onClick={wakePhone}>{t.preview.wakeIphone}</button>}<span className="placeholder-line"/></div>}
     </div>
     <div className={`controls-panel ${controlsVisible ? 'expanded' : 'collapsed'}`} style={{height: phoneSize.height + 12}}>
-      <button className="controls-tab" aria-label={controlsVisible ? 'Guardar controles' : 'Desplegar controles'} aria-expanded={controlsVisible} title={controlsVisible ? 'Guardar controles' : 'Desplegar controles'} onClick={toggleControls}>{controlsVisible ? <ChevronLeft size={13}/> : <ChevronRight size={13}/>}</button>
+      <button className="controls-tab" aria-label={controlsVisible ? t.controls.collapse : t.controls.expand} aria-expanded={controlsVisible} title={controlsVisible ? t.controls.collapse : t.controls.expand} onClick={toggleControls}>{controlsVisible ? <ChevronLeft size={13}/> : <ChevronRight size={13}/>}</button>
       <div className="controls-drawer" inert={!controlsVisible} aria-hidden={!controlsVisible}>
-        <div className="phone-controls" role="toolbar" aria-label="Controles del iPhone" aria-orientation="vertical">
-          <IconButton icon={X} label="Salir de Mirros" onClick={closeApp}/>
-          <IconButton icon={ArrowLeft} label="Deslizar a la izquierda" disabled={!connected} onClick={() => input.current?.swipe('left')}/>
-          <IconButton icon={ArrowRight} label="Deslizar a la derecha" disabled={!connected} onClick={() => input.current?.swipe('right')}/>
-          <IconButton icon={Home} label="Inicio · Ctrl+H" disabled={!connected} onClick={() => button('home')}/>
-          <IconButton icon={Layers} label="Selector de apps · Ctrl+M" disabled={!connected} onClick={appSwitcher}/>
-          <IconButton icon={SlidersHorizontal} label="Centro de Control" disabled={!connected} onClick={controlCenterSwipe}/>
-          <IconButton icon={Bell} label="Centro de Notificaciones" disabled={!connected} onClick={notificationsSwipe}/>
+        <div className="phone-controls" role="toolbar" aria-label={t.controls.toolbarAria} aria-orientation="vertical">
+          <IconButton icon={X} label={t.controls.quit} onClick={closeApp}/>
+          <IconButton icon={ArrowLeft} label={t.controls.swipeLeft} disabled={!connected} onClick={() => input.current?.swipe('left')}/>
+          <IconButton icon={ArrowRight} label={t.controls.swipeRight} disabled={!connected} onClick={() => input.current?.swipe('right')}/>
+          <IconButton icon={Home} label={t.controls.home} disabled={!connected} onClick={() => button('home')}/>
+          <IconButton icon={Layers} label={t.controls.appSwitcher} disabled={!connected} onClick={appSwitcher}/>
+          <IconButton icon={SlidersHorizontal} label={t.controls.controlCenter} disabled={!connected} onClick={controlCenterSwipe}/>
+          <IconButton icon={Bell} label={t.controls.notifications} disabled={!connected} onClick={notificationsSwipe}/>
           <span className="control-separator"/>
-          <IconButton icon={RotateCw} label="Girar vista 90°" disabled={!connected || rotating} onClick={rotatePhone}/>
-          {bridge && <IconButton icon={Maximize2} label="Usar todo el alto disponible" onClick={() => native('fitHeight')}/>}
-          <IconButton icon={floating ? Monitor : ExternalLink} label={floating ? 'Abrir panel completo' : 'Vista solo teléfono'} onClick={() => switchMode(floating ? 'studio' : 'phone')}/>
-          {bridge && <IconButton icon={Pin} label="Siempre encima" active={state.alwaysOnTop} onClick={() => native('pin', !state.alwaysOnTop)}/>}
+          <IconButton icon={RotateCw} label={t.controls.rotate} disabled={!connected || rotating} onClick={rotatePhone}/>
+          {bridge && <IconButton icon={Maximize2} label={t.controls.fitHeight} onClick={() => native('fitHeight')}/>}
+          <IconButton icon={floating ? Monitor : ExternalLink} label={floating ? t.controls.openStudio : t.controls.phoneOnlyView} onClick={() => switchMode(floating ? 'studio' : 'phone')}/>
+          <IconButton icon={Languages} label={t.controls.switchLang} active={lang === 'es'} onClick={toggleLang}/>
+          {bridge && <IconButton icon={Pin} label={t.controls.alwaysOnTop} active={state.alwaysOnTop} onClick={() => native('pin', !state.alwaysOnTop)}/>}
           <span className="control-separator"/>
-          <IconButton icon={audioEnabled ? Volume2 : VolumeX} label={audioEnabled ? 'Desactivar audio del PC' : 'Activar audio del PC'} active={audioEnabled} onClick={toggleAudio}/>
-          <IconButton icon={VolumeX} label="Alternar silencio del iPhone" disabled={!connected} onClick={() => phoneAudioButton('mute')}/>
-          <IconButton icon={Camera} label="Guardar captura · Ctrl+P" disabled={!isDisplaying} onClick={capture}/>
-          <RecordButton recording={recording} disabled={!isDisplaying && !recording} onClick={toggleRecording}/>
-          <IconButton icon={mediaPaused ? Play : CameraOff} label={mediaPaused ? 'Reanudar pantalla del iPhone' : 'Liberar cámara y micrófono del iPhone'} active={mediaPaused} disabled={!connected || mediaBusy} onClick={() => toggleMediaPause(!mediaPaused)}/>
+          <IconButton icon={audioEnabled ? Volume2 : VolumeX} label={audioEnabled ? t.controls.mutePc : t.controls.unmutePc} active={audioEnabled} onClick={toggleAudio}/>
+          <IconButton icon={VolumeX} label={t.controls.toggleIphoneMute} disabled={!connected} onClick={() => phoneAudioButton('mute')}/>
+          <IconButton icon={Camera} label={t.controls.screenshot} disabled={!isDisplaying} onClick={capture}/>
+          <RecordButton recording={recording} disabled={!isDisplaying && !recording} onClick={toggleRecording} t={t}/>
+          <IconButton icon={mediaPaused ? Play : CameraOff} label={mediaPaused ? t.controls.resumeIphoneScreen : t.controls.releaseCamMic} active={mediaPaused} disabled={!connected || mediaBusy} onClick={() => toggleMediaPause(!mediaPaused)}/>
           <span className="control-separator"/>
-          <IconButton icon={state.displayMode === 'aod' ? Sun : Moon} label={state.displayMode === 'aod' ? 'Modo actual: reposo / AOD (clic para Pantalla Dual)' : 'Modo AOD / Reposo (pantalla física descansa)'} active={state.displayMode === 'aod'} disabled={!connected} onClick={() => setDisplayMode(state.displayMode === 'aod' ? 'dual' : 'aod')}/>
-          <IconButton icon={Sun} label="Solicitar despertar iPhone · Ctrl+U" disabled={!connected} onClick={wakePhone}/>
-          <IconButton icon={LockKeyhole} label="Bloquear iPhone · Ctrl+L" disabled={!connected} onClick={() => button('lock')}/>
-          <IconButton icon={LogOut} label="Desconectar de forma segura" disabled={!connected} onClick={disconnectSession}/>
-          {bridge && <IconButton icon={Minus} label="Minimizar" onClick={() => native('minimize')}/>}
-          {floating && bridge && <span className="control-drag" title="Mover ventana"><GripHorizontal size={16}/></span>}
+          <IconButton icon={state.displayMode === 'aod' ? Sun : Moon} label={state.displayMode === 'aod' ? t.controls.aodCurrent : t.controls.aodEnable} active={state.displayMode === 'aod'} disabled={!connected} onClick={() => setDisplayMode(state.displayMode === 'aod' ? 'dual' : 'aod')}/>
+          <IconButton icon={Sun} label={t.controls.wakeShortcut} disabled={!connected} onClick={wakePhone}/>
+          <IconButton icon={LockKeyhole} label={t.controls.lockShortcut} disabled={!connected} onClick={() => button('lock')}/>
+          <IconButton icon={LogOut} label={t.controls.safeDisconnect} disabled={!connected} onClick={disconnectSession}/>
+          {bridge && <IconButton icon={Minus} label={t.controls.minimize} onClick={() => native('minimize')}/>}
+          {floating && bridge && <span className="control-drag" title={t.controls.dragWindow}><GripHorizontal size={16}/></span>}
         </div>
       </div>
     </div>
   </div>;
-  const statusLabel = connected ? 'Conectado' : state.phase === 'preparando' ? 'Preparando' : state.phase === 'pausado' ? 'Sesión terminada' : state.phase === 'error' ? 'Error de conexión' : 'Sin conexión';
+  const statusLabel = connected ? t.status.connected : state.phase === 'preparando' ? t.status.preparing : state.phase === 'pausado' ? t.status.paused : state.phase === 'error' ? t.status.error : t.status.disconnected;
   const currentSection = sections.find(([, id]) => id === tab);
   const SectionIcon = currentSection[0];
-  if (floating) return <div className="floating-app" data-audio-status={audioStatus}>{preview}{bridge && <ResizeHandles/>}{notice && <div className="floating-notice" role="status">{notice}</div>}</div>;
+  if (floating) return <div className="floating-app" data-audio-status={audioStatus}>{preview}{bridge && <ResizeHandles t={t}/>}{notice && <div className="floating-notice" role="status">{notice}</div>}</div>;
   return <div className="studio">
     <aside className="sidebar">
       <div className="sidebar-brand"><Logo/></div>
-      <div className="sidebar-label">DISPOSITIVO</div>
+      <div className="sidebar-label">{t.studio.deviceHeader}</div>
       <div className={`sidebar-device ${connected ? 'connected' : ''}`}>
         <div className="device-avatar"><Smartphone size={20}/></div>
         <div>
@@ -673,9 +672,9 @@ export default function App() {
           <small><i/>{statusLabel}{connected && battery && battery.capacity !== null ? ` · ${battery.capacity}%` : ''}</small>
         </div>
       </div>
-      <div className="sidebar-label">CONTROLES</div>
-      <nav aria-label="Secciones">{sections.map(([Icon, id, label]) => <button key={id} className={tab === id ? 'selected' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}><Icon size={17}/><span>{label}</span>{tab === id && <span className="nav-dot"/>}</button>)}</nav>
-      <div className="sidebar-bottom"><button className="floating-launch" onClick={() => switchMode('phone')}><ExternalLink size={16}/><span>Vista solo teléfono</span></button><div className="sidebar-app-info"><span>Mirros</span><span>{state.version?.split('.').slice(0,2).join('.') || '—'} · USB</span></div></div>
+      <div className="sidebar-label">{t.studio.controlsHeader}</div>
+      <nav aria-label={t.studio.sectionsAria}>{sections.map(([Icon, id, label]) => <button key={id} className={tab === id ? 'selected' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}><Icon size={17}/><span>{label}</span>{tab === id && <span className="nav-dot"/>}</button>)}</nav>
+      <div className="sidebar-bottom"><button className="floating-launch" onClick={() => switchMode('phone')}><ExternalLink size={16}/><span>{t.studio.phoneOnlyBtn}</span></button><div className="sidebar-app-info"><span>Mirros</span><span>{state.version?.split('.').slice(0,2).join('.') || '—'} · USB</span></div></div>
     </aside>
     <div className="workspace">
       <header className="toolbar">
@@ -685,28 +684,37 @@ export default function App() {
           <ChevronRight size={14}/>
           <span>{currentSection[2]}</span>
         </div>
-        {recording && <RecordingBadge duration={recordingDuration} onStop={toggleRecording} />}
+        {recording && <RecordingBadge duration={recordingDuration} onStop={toggleRecording} t={t} />}
         {connected && battery && battery.capacity !== null && (
           <div
             className={`battery-pill ${battery.charging ? 'is-charging' : ''} ${battery.capacity <= 20 ? 'is-low' : ''}`}
-            title={`Batería del iPhone: ${battery.capacity}%${battery.charging ? ' (Cargando)' : ''}`}
-            aria-label={`Batería ${battery.capacity}%${battery.charging ? ', cargando' : ''}`}
+            title={t.preview.batteryTitle(battery.capacity, battery.charging)}
+            aria-label={t.preview.batteryAria(battery.capacity, battery.charging)}
           >
             {React.createElement(resolveBatteryIcon(BATTERY_ICONS, battery.capacity, battery.charging), {size: 15})}
             <span>{battery.capacity}%</span>
           </div>
         )}
         <div className="window-actions">
-          <RecordButton recording={recording} disabled={!isDisplaying && !recording} onClick={toggleRecording}/>
-          <IconButton icon={Maximize2} label="Pantalla completa · F11" onClick={() => { if (bridge) native('fullscreen'); else if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); }} />
-          <IconButton icon={Minus} label="Minimizar" onClick={() => native('minimize')}/>
-          <IconButton icon={Maximize2} label="Maximizar o restaurar" onClick={() => native('maximize')}/>
-          <IconButton icon={X} label="Cerrar Mirros" className="close-button" onClick={() => native('close')}/>
+          <button
+            type="button"
+            className="small-button"
+            style={{padding: '4px 9px', fontSize: 11, fontWeight: 600, marginRight: 4}}
+            title={t.controls.switchLang}
+            onClick={toggleLang}
+          >
+            {lang === 'en' ? '🇺🇸 EN' : '🇪🇸 ES'}
+          </button>
+          <RecordButton recording={recording} disabled={!isDisplaying && !recording} onClick={toggleRecording} t={t}/>
+          <IconButton icon={Maximize2} label={t.controls.fullscreen} onClick={() => { if (bridge) native('fullscreen'); else if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); }} />
+          <IconButton icon={Minus} label={t.controls.minimize} onClick={() => native('minimize')}/>
+          <IconButton icon={Maximize2} label={t.controls.maximize} onClick={() => native('maximize')}/>
+          <IconButton icon={X} label={t.controls.quit} className="close-button" onClick={() => native('close')}/>
         </div>
       </header>
       <div className="workspace-content">
-        <section className="viewer" aria-label="Vista del iPhone"><div className="viewer-heading"><span className={`connection-pill ${connected ? 'connected' : ''}`}><i/>{connected ? 'USB conectado' : statusLabel}</span><span className="stream-info">{live ? <>{videoMode && <span className={`engine-badge ${videoMode}`} title={videoMode === 'software' ? 'Decodificación compatible por software' : 'Decodificación nativa HEVC'}>{videoMode === 'software' ? `Compatible (${{economy: 'Ahorro', balanced: 'Equilibrado', detail: 'Detalle'}[videoQuality] || 'Soft'})` : 'HEVC'}</span>}<FrameRate frames={frames}/> · {dimensions.width} × {dimensions.height}</> : cameraLive ? <><span className="engine-badge detail" title="Visor en directo vía DVT Instruments">Cámara</span> · Directo DVT</> : 'Vista en directo'}</span></div>{preview}<div className="viewer-hints"><span><Mouse size={13}/>Clic y arrastrar</span><span><Scan size={13}/>Rueda para desplazar</span><span><Keyboard size={13}/>{keyboard ? 'Teclado activo' : 'Clic para escribir'}</span></div></section>
-        <aside className="inspector" aria-label={currentSection[2]}><div className="inspector-heading"><span className="section-symbol"><SectionIcon size={20}/></span><div><h1>{currentSection[2]}</h1><p>{{phone: 'Dispositivo y ventana', audio: 'Salidas y volumen', clipboard: 'Copiar y enviar contenido', appearance: 'Tema, tamaño y gestos', help: 'Conexión y atajos'}[tab]}</p></div></div>
+        <section className="viewer" aria-label={t.studio.viewerAria}><div className="viewer-heading"><span className={`connection-pill ${connected ? 'connected' : ''}`}><i/>{connected ? t.status.usbConnected : statusLabel}</span><span className="stream-info">{live ? <>{videoMode && <span className={`engine-badge ${videoMode}`} title={videoMode === 'software' ? t.studio.softwareDecodeTitle : t.studio.hevcDecodeTitle}>{videoMode === 'software' ? t.studio.compatibleBadge(t.studio.qualityNames[videoQuality] || 'Soft') : 'HEVC'}</span>}<FrameRate frames={frames}/> · {dimensions.width} × {dimensions.height}</> : cameraLive ? <><span className="engine-badge detail" title={t.studio.cameraBadgeTitle}>{t.studio.cameraBadge}</span> · {t.studio.dvtLive}</> : t.studio.liveView}</span></div>{preview}<div className="viewer-hints"><span><Mouse size={13}/>{t.studio.hintClickDrag}</span><span><Scan size={13}/>{t.studio.hintScroll}</span><span><Keyboard size={13}/>{keyboard ? t.studio.hintKeyboardActive : t.studio.hintClickToType}</span></div></section>
+        <aside className="inspector" aria-label={currentSection[2]}><div className="inspector-heading"><span className="section-symbol"><SectionIcon size={20}/></span><div><h1>{currentSection[2]}</h1><p>{t.sections[tab][1]}</p></div></div>
           <InspectorContent
             tab={tab} state={state} connected={connected} live={live} bridge={bridge} native={native} switchMode={switchMode} disconnectSession={disconnectSession}
             videoMode={videoMode} videoQuality={videoQuality} setVideoQuality={setVideoQuality} forceSoftware={forceSoftware} setForceSoftware={setForceSoftware}
@@ -716,13 +724,14 @@ export default function App() {
             button={button} capture={capture} audioEnabled={audioEnabled} audioStatus={audioStatus} volume={volume} setVolume={setVolume} toggleAudio={toggleAudio} phoneAudioButton={phoneAudioButton}
             platformLabel={platformLabel} clipboardBusy={clipboardBusy} shareClipboard={shareClipboard} text={text} setText={setText} sendText={sendText}
             setTheme={setTheme} sensitivity={sensitivity} setSensitivity={setSensitivity} pointer={pointer} updatePointer={updatePointer} exportDiagnostics={exportDiagnostics}
+            lang={lang} setLang={setLang} t={t}
           />
         </aside>
       </div>
-      <footer className="statusbar"><span className={state.phase === 'error' ? 'error-text' : ''}><i className={connected ? 'connected' : ''}/>{connected ? `${state.device?.name || 'iPhone'} conectado por USB` : state.message}</span><span>{audioEnabled ? <Volume2 size={12}/> : <VolumeX size={12}/>}Audio PC {audioEnabled ? 'activado' : 'desactivado'}</span></footer>
+      <footer className="statusbar"><span className={state.phase === 'error' ? 'error-text' : ''}><i className={connected ? 'connected' : ''}/>{connected ? t.status.connectedViaUsb(state.device?.name || 'iPhone') : translateBackendText(state.message, lang)}</span><span>{audioEnabled ? <Volume2 size={12}/> : <VolumeX size={12}/>}{t.status.pcAudio(audioEnabled)}</span></footer>
     </div>
-    {state.phase === 'seleccion' && <div className="modal-backdrop"><section className="device-picker"><h2>Seleccionar iPhone</h2>{state.devices.map(device => <button key={device.udid} onClick={() => native('device', device.udid)}><Smartphone size={18}/>{device.name}<ChevronRight size={15}/></button>)}</section></div>}
-    {showApps && <AppsModal apps={deviceApps} loadingApps={loadingApps} launchingApp={launchingApp} onLaunch={launchDeviceApp} onRefresh={loadDeviceApps} onClose={() => setShowApps(false)}/>}
+    {state.phase === 'seleccion' && <div className="modal-backdrop"><section className="device-picker"><h2>{t.studio.selectIphone}</h2>{state.devices.map(device => <button key={device.udid} onClick={() => native('device', device.udid)}><Smartphone size={18}/>{device.name}<ChevronRight size={15}/></button>)}</section></div>}
+    {showApps && <AppsModal apps={deviceApps} loadingApps={loadingApps} launchingApp={launchingApp} onLaunch={launchDeviceApp} onRefresh={loadDeviceApps} onClose={() => setShowApps(false)} t={t}/>}
     {notice && <div className="toast" role="status">{notice}</div>}
   </div>;
 }
