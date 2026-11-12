@@ -35,8 +35,9 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
     session.samples.push({point: session.pending, at: session.pendingAt});
     session.pending = null;
     // Keep a bounded path, including its first movement and final position.
-    // Dropping every intermediate sample turns edge swipes into teleports.
-    if (session.samples.length > 24) session.samples.splice(1, 1);
+    // Dropping every intermediate sample turns edge swipes into teleports,
+    // while capping at 6 prevents HTTP queue buildup during fast drags.
+    if (session.samples.length > 6) session.samples.splice(1, session.samples.length - 6);
     if (session.moveQueued) return;
     session.moveQueued = true;
     enqueue(async () => {
@@ -142,6 +143,8 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
         right: [{x: 9000, y: 32768}, {x: 56000, y: 32768}],
         home: [{x: 32768, y: 64000}, {x: 32768, y: 25000}],
         switcher: [{x: 32768, y: 64500}, {x: 32768, y: 38000}],
+        controlCenter: [{x: 60000, y: 0}, {x: 60000, y: 29500}],
+        notifications: [{x: 32768, y: 0}, {x: 32768, y: 36000}],
       };
       if (!paths[direction]) { wheelBusy = false; return chain; }
       const hold = direction === 'switcher' ? 350 : 0;
@@ -157,7 +160,7 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
 }
 
 export const keyUsages = (() => {
-  const keys = {Enter: 40, Escape: 41, Backspace: 42, Tab: 43, Space: 44, Minus: 45, Equal: 46, BracketLeft: 47, BracketRight: 48, Backslash: 49, Semicolon: 51, Quote: 52, Backquote: 53, Comma: 54, Period: 55, Slash: 56, CapsLock: 57, ArrowRight: 79, ArrowLeft: 80, ArrowDown: 81, ArrowUp: 82, ControlLeft: 224, ShiftLeft: 225, AltLeft: 226, MetaLeft: 227, ControlRight: 228, ShiftRight: 229, AltRight: 230, MetaRight: 231};
+  const keys = {Enter: 40, NumpadEnter: 40, Escape: 41, Backspace: 42, Tab: 43, Space: 44, Minus: 45, Equal: 46, BracketLeft: 47, BracketRight: 48, Backslash: 49, Semicolon: 51, Quote: 52, Backquote: 53, Comma: 54, Period: 55, Slash: 56, CapsLock: 57, Home: 74, PageUp: 75, Delete: 76, End: 77, PageDown: 78, ArrowRight: 79, ArrowLeft: 80, ArrowDown: 81, ArrowUp: 82, IntlBackslash: 100, ControlLeft: 224, ShiftLeft: 225, AltLeft: 226, MetaLeft: 227, ControlRight: 228, ShiftRight: 229, AltRight: 230, MetaRight: 231};
   for (let i = 0; i < 26; i++) keys['Key' + String.fromCharCode(65 + i)] = 4 + i;
   for (let i = 1; i <= 9; i++) keys['Digit' + i] = 29 + i;
   keys.Digit0 = 39;

@@ -1,33 +1,46 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import {Battery, BatteryCharging, BatteryLow, BatteryMedium, BatteryFull} from 'lucide-react';
-import {getBatteryIcon} from '../frontend/src/battery.mjs';
+import {getBatteryIconName, resolveBatteryIcon} from '../frontend/src/battery.mjs';
 
-test('getBatteryIcon chooses appropriate icon based on capacity and charging state', () => {
+test('getBatteryIconName chooses appropriate icon based on capacity and charging state', () => {
   // Charging state always takes precedence
-  assert.equal(getBatteryIcon(80, true), BatteryCharging);
-  assert.equal(getBatteryIcon(5, true), BatteryCharging);
-  assert.equal(getBatteryIcon(null, true), BatteryCharging);
+  assert.equal(getBatteryIconName(80, true), 'BatteryCharging');
+  assert.equal(getBatteryIconName(5, true), 'BatteryCharging');
+  assert.equal(getBatteryIconName(null, true), 'BatteryCharging');
 
   // Null or missing capacity
-  assert.equal(getBatteryIcon(null, false), Battery);
-  assert.equal(getBatteryIcon(undefined, false), Battery);
+  assert.equal(getBatteryIconName(null, false), 'Battery');
+  assert.equal(getBatteryIconName(undefined, false), 'Battery');
 
   // Critical / Low (<= 15%)
-  assert.equal(getBatteryIcon(0, false), BatteryLow);
-  assert.equal(getBatteryIcon(10, false), BatteryLow);
-  assert.equal(getBatteryIcon(15, false), BatteryLow);
+  assert.equal(getBatteryIconName(0, false), 'BatteryLow');
+  assert.equal(getBatteryIconName(10, false), 'BatteryLow');
+  assert.equal(getBatteryIconName(15, false), 'BatteryLow');
 
   // Medium (16% - 50%)
-  assert.equal(getBatteryIcon(16, false), BatteryMedium);
-  assert.equal(getBatteryIcon(35, false), BatteryMedium);
-  assert.equal(getBatteryIcon(50, false), BatteryMedium);
+  assert.equal(getBatteryIconName(16, false), 'BatteryMedium');
+  assert.equal(getBatteryIconName(35, false), 'BatteryMedium');
+  assert.equal(getBatteryIconName(50, false), 'BatteryMedium');
 
   // Full / High (> 50%)
-  assert.equal(getBatteryIcon(51, false), BatteryFull);
-  assert.equal(getBatteryIcon(85, false), BatteryFull);
-  assert.equal(getBatteryIcon(100, false), BatteryFull);
+  assert.equal(getBatteryIconName(51, false), 'BatteryFull');
+  assert.equal(getBatteryIconName(85, false), 'BatteryFull');
+  assert.equal(getBatteryIconName(100, false), 'BatteryFull');
+
+  // resolveBatteryIcon maps to given icon dictionary
+  const icons = {
+    Battery: 'ICON_DEFAULT',
+    BatteryCharging: 'ICON_CHARGING',
+    BatteryLow: 'ICON_LOW',
+    BatteryMedium: 'ICON_MED',
+    BatteryFull: 'ICON_FULL',
+  };
+  assert.equal(resolveBatteryIcon(icons, 90, true), 'ICON_CHARGING');
+  assert.equal(resolveBatteryIcon(icons, 10, false), 'ICON_LOW');
+  assert.equal(resolveBatteryIcon(icons, 40, false), 'ICON_MED');
+  assert.equal(resolveBatteryIcon(icons, 80, false), 'ICON_FULL');
+  assert.equal(resolveBatteryIcon(icons, null, false), 'ICON_DEFAULT');
 });
 
 test('desktop main.cjs routes set includes /battery and /info', async () => {

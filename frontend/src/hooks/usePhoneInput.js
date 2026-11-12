@@ -15,7 +15,7 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
     const down = event => {
       if (event.button !== 0 || !event.isPrimary) return;
       event.preventDefault(); node.focus({preventScroll: true});
-      const raw = point(event), start = edgeStart(raw, node.getBoundingClientRect(), 4);
+      const raw = point(event), start = edgeStart(raw, node.getBoundingClientRect(), 6);
       if (controls.down(event.pointerId, start)) {
         node.setPointerCapture(event.pointerId);
       }
@@ -31,14 +31,29 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
     const heartbeat = setInterval(() => { if (held.size) sendKeys(); }, 1500);
     const keys = event => {
       if (document.activeElement !== node) return;
-      if (event.type === 'keydown' && (event.ctrlKey || event.metaKey) && ['c','v'].includes(event.key.toLowerCase())) {
+      const lower = event.key.toLowerCase();
+      if (event.type === 'keydown' && (event.ctrlKey || event.metaKey) && ['c','v'].includes(lower)) {
         event.preventDefault();
         if (event.repeat || clipboardInFlight) return;
         clipboardInFlight = true;
-        const action = event.key.toLowerCase() === 'c' ? 'copy' : 'paste';
+        const action = lower === 'c' ? 'copy' : 'paste';
         held.clear();
         controls.enqueueAction(async () => { await post('/key', {usages:[]}); await callbacks.current.clipboardShortcut(action); })
           .finally(() => {clipboardInFlight = false;});
+        return;
+      }
+      // Map Ctrl+A (Select All), Ctrl+X (Cut), Ctrl+Z (Undo) to iOS Cmd + key (from Pane keys.js)
+      if (event.type === 'keydown' && (event.ctrlKey || event.metaKey) && ['a', 'x', 'z'].includes(lower)) {
+        event.preventDefault();
+        if (event.repeat) return;
+        const codeMap = {a: keyUsages.KeyA, x: keyUsages.KeyX, z: keyUsages.KeyZ};
+        const targetUsage = codeMap[lower];
+        held.clear();
+        controls.enqueueAction(async () => {
+          await post('/key', {usages: [227, targetUsage]});
+          await post('/key', {usages: []});
+          if (lower === 'x') await callbacks.current.clipboardShortcut?.('copy');
+        });
         return;
       }
       const shortcuts = {h: 'home', l: 'lock', '[': 'volume-down', ']': 'volume-up', s: 'siri'};

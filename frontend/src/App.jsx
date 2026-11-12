@@ -9,13 +9,14 @@ import {FrameRate} from './components/FrameRate.jsx';
 import {AppsModal} from './components/AppsModal.jsx';
 import {InspectorContent} from './components/InspectorContent.jsx';
 import React, {useEffect, useRef, useState} from 'react';
-import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Camera, CameraOff, Play, Mouse, ArrowLeft, ArrowRight, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, RotateCw, ChevronLeft, LogOut, Moon, Sun, Layers, Battery, BatteryCharging, BatteryLow, BatteryMedium, BatteryFull} from 'lucide-react';
-import {getBatteryIcon} from './battery.mjs';
+import {Smartphone, Pin, Minus, X, Maximize2, Home, LockKeyhole, Volume2, VolumeX, Camera, CameraOff, Play, Mouse, ArrowLeft, ArrowRight, Keyboard, Scan, Palette, Clipboard, ExternalLink, ChevronRight, Cable, CircleHelp, GripHorizontal, Monitor, LoaderCircle, RotateCw, ChevronLeft, LogOut, Moon, Sun, Layers, Battery, BatteryCharging, BatteryLow, BatteryMedium, BatteryFull, SlidersHorizontal, Bell} from 'lucide-react';
+import {resolveBatteryIcon} from './battery.mjs';
 import {rotateDevice} from './orientation.js';
 import './style.css';
 
 
 const platformLabel = navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Linux') ? 'Linux' : 'tu sistema';
+const BATTERY_ICONS = {Battery, BatteryCharging, BatteryLow, BatteryMedium, BatteryFull};
 const sections = [[Smartphone, 'phone', 'Pantalla'], [Volume2, 'audio', 'Audio'], [Clipboard, 'clipboard', 'Portapapeles'], [Palette, 'appearance', 'Apariencia'], [CircleHelp, 'help', 'Ayuda']];
 export default function App() {
   const [state, setState] = useConnection();
@@ -63,6 +64,24 @@ export default function App() {
         await post('/app-switcher', {});
       }
       setNotice('Selector de apps (multitarea) activado.');
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+  async function controlCenterSwipe() {
+    if (!connected) return;
+    try {
+      await input.current?.swipe('controlCenter');
+      setNotice('Centro de Control desplegado.');
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
+  async function notificationsSwipe() {
+    if (!connected) return;
+    try {
+      await input.current?.swipe('notifications');
+      setNotice('Centro de Notificaciones desplegado.');
     } catch (error) {
       setNotice(error.message);
     }
@@ -141,6 +160,8 @@ export default function App() {
   }
   const canvas = useRef(null), stage = useRef(null), [phoneSize, setPhoneSize] = useState({width: 280, height: 610});
   const [mediaPaused, setMediaPaused] = useState(false), [mediaPauseReason, setMediaPauseReason] = useState(null), [mediaBusy, setMediaBusy] = useState(false), [iosStyle, setIosStyle] = useState(null);
+  const [accessibility, setAccessibility] = useState({reduce_motion: false, reduce_transparency: false, increase_contrast: false});
+  const [accessibilityBusy, setAccessibilityBusy] = useState(false);
   const [cameraLive, setCameraLive] = useState(false);
   const mediaBusyRef = useRef(false), mediaStateRef = useRef({paused: false, reason: null});
   const floating = state.mode === 'phone', connected = state.phase === 'conectado', controlsVisible = state.controlsVisible !== false;
@@ -222,8 +243,41 @@ export default function App() {
     fetch('/style').then(r => r.ok ? r.json() : null).then(data => {
       if (!cancelled && data && (data.style === 'light' || data.style === 'dark')) setIosStyle(data.style);
     }).catch(() => {});
+    fetch('/accessibility', {cache: 'no-store'}).then(r => r.ok ? r.json() : null).then(data => {
+      if (cancelled || !data || !Array.isArray(data.settings)) return;
+      const next = {reduce_motion: false, reduce_transparency: false, increase_contrast: false};
+      for (const item of data.settings) {
+        if (item && typeof item.key === 'string' && item.key in next) {
+          next[item.key] = Boolean(item.value);
+        }
+      }
+      setAccessibility(next);
+    }).catch(() => {});
     return () => { cancelled = true; clearInterval(interval); };
   }, [connected]);
+  async function toggleAccessibility(key, nextValue = !accessibility[key]) {
+    if (!connected || accessibilityBusy) return;
+    setAccessibilityBusy(true);
+    try {
+      const res = await fetch('/accessibility/set', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({key, value: Boolean(nextValue)}),
+      });
+      if (!res.ok) throw new Error('No se pudo actualizar el ajuste en el iPhone.');
+      setAccessibility(prev => ({...prev, [key]: Boolean(nextValue)}));
+      const labels = {
+        reduce_motion: 'Reducir movimiento',
+        reduce_transparency: 'Reducir transparencia',
+        increase_contrast: 'Aumentar contraste',
+      };
+      setNotice(`${labels[key] || key}: ${nextValue ? 'activado' : 'desactivado'} en el iPhone.`);
+    } catch (err) {
+      setNotice(err.message);
+    } finally {
+      setAccessibilityBusy(false);
+    }
+  }
   async function toggleMediaPause(nextPaused = !mediaPaused, {exitApp = false} = {}) {
     if (!connected || mediaBusyRef.current) return false;
     mediaBusyRef.current = true;
@@ -442,7 +496,7 @@ export default function App() {
           className={`floating-battery-badge ${battery.charging ? 'is-charging' : ''} ${battery.capacity <= 20 ? 'is-low' : ''}`}
           title={`Batería: ${battery.capacity}%${battery.charging ? ' (Cargando)' : ''}`}
         >
-          {React.createElement(getBatteryIcon(battery.capacity, battery.charging), {size: 13})}
+          {React.createElement(resolveBatteryIcon(BATTERY_ICONS, battery.capacity, battery.charging), {size: 13})}
           <span>{battery.capacity}%</span>
         </div>
       )}
@@ -457,6 +511,8 @@ export default function App() {
           <IconButton icon={ArrowRight} label="Deslizar a la derecha" disabled={!connected} onClick={() => input.current?.swipe('right')}/>
           <IconButton icon={Home} label="Inicio · Ctrl+H" disabled={!connected} onClick={() => button('home')}/>
           <IconButton icon={Layers} label="Selector de apps · Ctrl+M" disabled={!connected} onClick={appSwitcher}/>
+          <IconButton icon={SlidersHorizontal} label="Centro de Control" disabled={!connected} onClick={controlCenterSwipe}/>
+          <IconButton icon={Bell} label="Centro de Notificaciones" disabled={!connected} onClick={notificationsSwipe}/>
           <span className="control-separator"/>
           <IconButton icon={RotateCw} label="Girar vista 90°" disabled={!connected || rotating} onClick={rotatePhone}/>
           <IconButton icon={Maximize2} label="Usar todo el alto disponible" disabled={!bridge} onClick={() => native('fitHeight')}/>
@@ -512,7 +568,7 @@ export default function App() {
             title={`Batería del iPhone: ${battery.capacity}%${battery.charging ? ' (Cargando)' : ''}`}
             aria-label={`Batería ${battery.capacity}%${battery.charging ? ', cargando' : ''}`}
           >
-            {React.createElement(getBatteryIcon(battery.capacity, battery.charging), {size: 15})}
+            {React.createElement(resolveBatteryIcon(BATTERY_ICONS, battery.capacity, battery.charging), {size: 15})}
             <span>{battery.capacity}%</span>
           </div>
         )}
@@ -530,7 +586,8 @@ export default function App() {
             tab={tab} state={state} connected={connected} live={live} bridge={bridge} native={native}
             videoMode={videoMode} videoQuality={videoQuality} setVideoQuality={setVideoQuality} forceSoftware={forceSoftware} setForceSoftware={setForceSoftware}
             mediaPaused={mediaPaused} mediaPauseReason={mediaPauseReason} mediaBusy={mediaBusy} toggleMediaPause={toggleMediaPause} iosStyle={iosStyle} changeIosStyle={changeIosStyle}
-            loadingApps={loadingApps} loadDeviceApps={loadDeviceApps} appSwitcher={appSwitcher} setDisplayMode={setDisplayMode} wakePhone={wakePhone} rotatePhone={rotatePhone} rotating={rotating}
+            accessibility={accessibility} accessibilityBusy={accessibilityBusy} toggleAccessibility={toggleAccessibility}
+            loadingApps={loadingApps} loadDeviceApps={loadDeviceApps} appSwitcher={appSwitcher} controlCenterSwipe={controlCenterSwipe} notificationsSwipe={notificationsSwipe} setDisplayMode={setDisplayMode} wakePhone={wakePhone} rotatePhone={rotatePhone} rotating={rotating}
             button={button} capture={capture} audioEnabled={audioEnabled} audioStatus={audioStatus} volume={volume} setVolume={setVolume} toggleAudio={toggleAudio} phoneAudioButton={phoneAudioButton}
             platformLabel={platformLabel} clipboardBusy={clipboardBusy} shareClipboard={shareClipboard} text={text} setText={setText} sendText={sendText}
             setTheme={setTheme} sensitivity={sensitivity} setSensitivity={setSensitivity} pointer={pointer} updatePointer={updatePointer} exportDiagnostics={exportDiagnostics}

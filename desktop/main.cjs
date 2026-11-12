@@ -42,7 +42,7 @@ async function checkForUpdates() {
 let state = {phase: 'buscando', message: 'Conecta tu iPhone por USB', device: null, version:app.getVersion(), update:{phase:'inactivo',message:'Actualizaciones desde GitHub'}, ...preferences};
 let aspectRatio = 1264 / 2752;
 const root = path.resolve(__dirname, '..');
-const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/battery', '/info', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard', '/display-mode', '/media-state', '/style', '/wake', '/app-switcher', '/apps', '/apps/launch', '/diagnostics', '/camera-frame', '/camera-shutter']);
+const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/battery', '/info', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard', '/display-mode', '/media-state', '/style', '/accessibility', '/accessibility/set', '/accessibility/reset', '/wake', '/app-switcher', '/apps', '/apps/launch', '/diagnostics', '/camera-frame', '/camera-shutter']);
 const assets = new Map([['/', ['index.html', 'text/html']], ['/viewer.js', ['viewer.js', 'application/javascript']], ['/viewer.css', ['viewer.css', 'text/css']], ['/audio-worklet.js', ['audio-worklet.js', 'application/javascript']]]);
 
 function publish(patch = {}) {
