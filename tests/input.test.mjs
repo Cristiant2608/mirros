@@ -141,3 +141,15 @@ test('swipe switcher sends gesture from bottom with pause before release', async
   assert.equal(sent.at(-1).y, 38000);
   input.dispose();
 });
+
+test('new pointerdown recovers cleanly if a previous touch lost its pointerup', async () => {
+  const sent = [];
+  const input = createInput(async (_path, data) => sent.push(data));
+  assert.equal(input.down(1, {x: 10000, y: 10000}), true);
+  // Pointer 1 never got release; pointer 2 arrives and must not get stuck.
+  assert.equal(input.down(2, {x: 40000, y: 45000}), true);
+  await input.release(2, {x: 40000, y: 45000});
+  assert.deepEqual(sent.map(item => item.type), ['contact', 'release', 'contact', 'release']);
+  assert.deepEqual(sent.at(-1), {type: 'release', x: 40000, y: 45000});
+  input.dispose();
+});

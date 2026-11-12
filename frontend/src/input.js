@@ -43,7 +43,9 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
       try {
         while (session.samples.length && !disposed && !session.cancelled) {
           const {point, at} = session.samples.shift();
-          await sleep(Math.max(0, at - session.startedAt - (performance.now() - session.sentAt)));
+          const pace = session.samples.length ? Math.min(8, Math.max(0, at - session.lastSampleAt)) : 0;
+          session.lastSampleAt = at;
+          if (pace > 0) await sleep(pace);
           if (point.x !== session.last.x || point.y !== session.last.y) {
             session.last = point;
             await contact(point);
@@ -105,10 +107,12 @@ export function createInput(send, onError = () => {}, {getSize = () => ({width: 
   }
   return {
     down(id, point) {
-      if (active || disposed || !point) return false;
+      if (disposed || !point) return false;
+      if (active) release(null);
       // A click interrupts wheel/programmatic motion after lifting its finger.
       ++gestureToken; wheelDelta = 0; clearTimeout(wheelTimer); wheelTimer = null;
-      const session = {id, start: point, last: point, pending: null, samples: [], pendingAt: 0, moveQueued: false, dragged: false, sentAt: 0, startedAt: performance.now(), size: getSize()};
+      const now = performance.now();
+      const session = {id, start: point, last: point, pending: null, samples: [], pendingAt: 0, lastSampleAt: now, moveQueued: false, dragged: false, sentAt: 0, startedAt: now, size: getSize()};
       active = session;
       enqueue(async () => { await contact(point); session.sentAt = performance.now(); });
       return true;

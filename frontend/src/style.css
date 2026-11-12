@@ -52,16 +52,22 @@ html:has(body.floating),body.floating,body.floating #root{background:transparent
 .camera-live-overlay-top{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(0,0,0,0.65);border:1px solid rgba(255,255,255,0.18);border-radius:20px;font-size:10px;font-weight:500;color:#fff;backdrop-filter:blur(8px);z-index:6;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,0.35)}
 .camera-dot{width:7px;height:7px;border-radius:50%;background:#34c759;box-shadow:0 0 6px #34c759;animation:camera-pulse 2s infinite}
 @keyframes camera-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.85)}}
-.camera-live-overlay-bottom{position:absolute;bottom:14px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:8px;z-index:6;pointer-events:none}
-.camera-shutter-btn{width:56px;height:56px;border-radius:50%;background:transparent;border:3px solid rgba(255,255,255,0.85);display:grid;place-items:center;padding:0;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.4);transition:transform .12s ease,border-color .15s;pointer-events:auto}
-.camera-shutter-btn:hover{border-color:#fff;transform:scale(1.04)}
-.camera-shutter-inner{width:44px;height:44px;border-radius:50%;background:#ffffff;display:block;transition:transform .1s ease,background-color .15s}
-.camera-shutter-btn.shutter-active .camera-shutter-inner,.camera-shutter-btn:active .camera-shutter-inner{transform:scale(0.86);background:#e0e0e0}
-.camera-exit-btn{font-size:10px;font-weight:500;padding:5px 12px;background:rgba(0,0,0,0.6);color:#ffffff;border:1px solid rgba(255,255,255,0.22);border-radius:14px;backdrop-filter:blur(8px);cursor:pointer;transition:background .15s,border-color .15s;pointer-events:auto}
-.camera-exit-btn:hover{background:rgba(255,255,255,0.2);border-color:#fff}
 
 /* AOD / Reposo Live Badge */
 .aod-live-badge{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;padding:4px 10px;background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.3);border-radius:20px;font-size:10.5px;font-weight:500;color:#cbd5e1;backdrop-filter:blur(8px);z-index:6;box-shadow:0 2px 8px rgba(0,0,0,0.4);transition:opacity .2s ease;pointer-events:auto}
 .aod-live-badge svg{color:#38bdf8}
 .aod-badge-btn{border:0;background:rgba(56,189,248,0.2);color:#38bdf8;padding:2px 8px;border-radius:10px;font-size:9.5px;font-weight:600;cursor:pointer;margin-left:2px;transition:background .15s,color .15s}
 .aod-badge-btn:hover{background:rgba(56,189,248,0.4);color:#fff}
+
+/* Battery Indicator & Product Model */
+.battery-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:550;color:var(--text);background:var(--surface);border:1px solid var(--line);padding:3px 8px;border-radius:100px;box-shadow:0 1px 3px var(--shadow);user-select:none;-webkit-app-region:no-drag;margin-left:auto;margin-right:8px;transition:all .2s ease}
+.battery-pill svg{color:var(--text);opacity:.85}
+.battery-pill.is-charging{color:#10b981;border-color:rgba(16,185,129,0.35);background:rgba(16,185,129,0.12)}
+.battery-pill.is-charging svg{color:#10b981;opacity:1}
+.battery-pill.is-low:not(.is-charging){color:#ef4444;border-color:rgba(239,68,68,0.35);background:rgba(239,68,68,0.12)}
+.battery-pill.is-low:not(.is-charging) svg{color:#ef4444;opacity:1}
+.device-model-badge{font-size:10px;font-weight:500;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:2px 6px;border-radius:6px;margin-left:6px}
+.device-model-label{display:block;font-size:9px;color:var(--muted);opacity:.85;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px}
+.floating-battery-badge{position:absolute;bottom:12px;right:14px;display:flex;align-items:center;gap:4px;padding:3px 7px;background:rgba(15,23,42,0.75);border:1px solid rgba(148,163,184,0.25);border-radius:12px;font-size:9.5px;font-weight:550;color:#e2e8f0;backdrop-filter:blur(6px);z-index:6;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+.floating-battery-badge.is-charging{color:#34d399;border-color:rgba(52,211,153,0.4)}
+.floating-battery-badge.is-low:not(.is-charging){color:#f87171;border-color:rgba(248,113,113,0.4)}

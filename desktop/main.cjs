@@ -42,7 +42,7 @@ async function checkForUpdates() {
 let state = {phase: 'buscando', message: 'Conecta tu iPhone por USB', device: null, version:app.getVersion(), update:{phase:'inactivo',message:'Actualizaciones desde GitHub'}, ...preferences};
 let aspectRatio = 1264 / 2752;
 const root = path.resolve(__dirname, '..');
-const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard', '/display-mode', '/media-state', '/style', '/wake', '/app-switcher', '/apps', '/apps/launch', '/diagnostics', '/camera-frame', '/camera-shutter']);
+const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/battery', '/info', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard', '/display-mode', '/media-state', '/style', '/wake', '/app-switcher', '/apps', '/apps/launch', '/diagnostics', '/camera-frame', '/camera-shutter']);
 const assets = new Map([['/', ['index.html', 'text/html']], ['/viewer.js', ['viewer.js', 'application/javascript']], ['/viewer.css', ['viewer.css', 'text/css']], ['/audio-worklet.js', ['audio-worklet.js', 'application/javascript']]]);
 
 function publish(patch = {}) {
@@ -84,6 +84,12 @@ function createWindow() {
   win.once('closed', () => clearTimeout(resizeTimer));
   win.setMenu(null);
   win.webContents.setWindowOpenHandler(() => ({action: 'deny'}));
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F11') {
+      event.preventDefault();
+      win.setFullScreen(!win.isFullScreen());
+    }
+  });
   win.webContents.on('will-navigate', (event, url) => { if (!url.startsWith(`http://127.0.0.1:${guiPort}/`)) event.preventDefault(); });
   win.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   win.once('ready-to-show', () => { win.show(); if (previous && !previous.isDestroyed()) previous.destroy(); switching = false; publish(); });
@@ -201,6 +207,7 @@ async function start() {
       }
       case 'minimize': window.minimize(); return;
       case 'maximize': window.isMaximized() ? window.unmaximize() : window.maximize(); return;
+      case 'fullscreen': if (window && !window.isDestroyed()) window.setFullScreen(!window.isFullScreen()); return;
       case 'close': app.quit(); return;
       case 'clipboard': {
         try { return await shareClipboard({clipboard:systemClipboard, ClipboardItem, nativeImage, fetch, backendPort: state.phase === 'conectado' ? session.port : null}, value); }

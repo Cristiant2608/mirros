@@ -62,6 +62,8 @@ async def inspect_device(udid: str, reveal_developer_mode: bool = True) -> dict[
     info: dict[str, Any] = {
         "udid": udid,
         "name": "iPhone",
+        "model": "iPhone",
+        "product_type": "",
         "version": "",
         "paired": True,
         "developer_mode": True,
@@ -94,6 +96,19 @@ async def inspect_device(udid: str, reveal_developer_mode: bool = True) -> dict[
 
             all_values = getattr(lockdown, "all_values", None) or {}
             info["name"] = all_values.get("DeviceName") or "iPhone"
+            product_type = all_values.get("ProductType") or getattr(lockdown, "product_type", "")
+            if product_type:
+                info["product_type"] = product_type
+                try:
+                    from pymobiledevice3.lockdown import IRECV_DEVICES
+                    for d in IRECV_DEVICES:
+                        if getattr(d, "product_type", None) == product_type:
+                            info["model"] = getattr(d, "display_name", None) or product_type
+                            break
+                    else:
+                        info["model"] = product_type
+                except Exception:
+                    info["model"] = product_type
             version_str = getattr(lockdown, "product_version", "") or all_values.get("ProductVersion") or info["version"]
             if version_str:
                 info["version"] = str(version_str)

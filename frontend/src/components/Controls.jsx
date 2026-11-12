@@ -17,7 +17,17 @@ export function ResizeHandles() {
     if (drag.current !== null) native('resizeEnd');
     drag.current = null;
   };
-  useEffect(() => { window.addEventListener('blur', finish); return () => { window.removeEventListener('blur', finish); finish(); }; }, []);
+  useEffect(() => {
+    window.addEventListener('blur', finish);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('pointercancel', finish);
+    return () => {
+      window.removeEventListener('blur', finish);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+      finish();
+    };
+  }, []);
   const start = (event, edge) => {
     if (event.button !== 0) return;
     event.preventDefault(); event.stopPropagation();

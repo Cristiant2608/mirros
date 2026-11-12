@@ -228,3 +228,68 @@ test('retries PLI while waiting for keyframe when deltas arrive after cooldown',
     Object.assign(globalThis, original);
   }
 });
+test('stretches top-left encoder resolution collapse to fill the full canvas footprint', async () => {
+  const original = {fetch: globalThis.fetch, VideoDecoder: globalThis.VideoDecoder, createImageBitmap: globalThis.createImageBitmap, document: globalThis.document};
+  let drawArgs = null;
+  globalThis.VideoDecoder = undefined;
+  globalThis.document = {
+    createElement: () => ({
+      width: 0,
+      height: 0,
+      getContext: () => ({
+        drawImage: () => {},
+        getImageData: (_x, _y, w, h) => {
+          const data = new Uint8ClampedArray(w * h * 4);
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const i = (y * w + x) * 4;
+              const collapsed = x >= Math.floor(w * 0.5) || y >= Math.floor(h * 0.5);
+              const val = collapsed ? 128 : 40;
+              data[i] = val; data[i + 1] = val; data[i + 2] = val; data[i + 3] = 255;
+            }
+          }
+          return {data};
+        },
+      }),
+    }),
+  };
+  globalThis.createImageBitmap = async () => ({width: 1264, height: 2752, close: () => {}});
+  globalThis.fetch = async url => String(url).startsWith('/frames.bin') ? {
+    ok: true,
+    body: {
+      getReader: () => {
+        let sent = false;
+        return {
+          read: async () => sent ? {done: true} : (sent = true, {done: false, value: Uint8Array.from([0, 0, 0, 1, 7])}),
+          cancel: async () => {},
+          releaseLock: () => {},
+        };
+      },
+    },
+  } : {ok: false};
+  const canvas = {
+    getContext: () => ({setTransform: () => {}, translate: () => {}, rotate: () => {}, drawImage: (...args) => { drawArgs = args; }}),
+    width: 0,
+    height: 0,
+  };
+  let stop;
+  try {
+    stop = startVideo(canvas, {onFrame: () => {}, onStatus: () => {}, onDimensions: () => {}, forceSoftware: true});
+    for (let i = 0; i < 20 && !drawArgs; i++) await new Promise(r => setTimeout(r, 10));
+    assert.ok(drawArgs, 'drawImage should be called');
+    assert.equal(drawArgs.length, 9, 'collapsed frame should use 9-arg cropped drawImage');
+    assert.equal(drawArgs[1], 0);
+    assert.equal(drawArgs[2], 0);
+    assert.ok(drawArgs[3] > 500 && drawArgs[3] < 700, `expected cropped srcW ~632, got ${drawArgs[3]}`);
+    assert.ok(drawArgs[4] > 1200 && drawArgs[4] < 1500, `expected cropped srcH ~1376, got ${drawArgs[4]}`);
+    assert.equal(drawArgs[7], 1264);
+    assert.equal(drawArgs[8], 2752);
+  } finally {
+    stop?.();
+    if (original.document === undefined) delete globalThis.document;
+    else globalThis.document = original.document;
+    globalThis.fetch = original.fetch;
+    globalThis.VideoDecoder = original.VideoDecoder;
+    globalThis.createImageBitmap = original.createImageBitmap;
+  }
+});
