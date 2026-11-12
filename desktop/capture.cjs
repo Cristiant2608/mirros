@@ -1,4 +1,5 @@
 const fs = require('node:fs/promises');
+const {saveRecording} = require('./recording.cjs');
 const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 async function saveCapture({dialog, window, writeFile = fs.writeFile}, value) {
   if (!(value instanceof Uint8Array) || value.byteLength > 64 * 1024 * 1024) throw new Error('Captura no válida.');
@@ -11,4 +12,4 @@ async function saveCapture({dialog, window, writeFile = fs.writeFile}, value) {
   await writeFile(filePath, bytes);
   return true;
 }
-module.exports = {saveCapture};
+module.exports = {saveCapture, saveRecording};

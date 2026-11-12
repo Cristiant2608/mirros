@@ -1,53 +1,103 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MirrOS — Duplicar y Controlar iPhone por USB en Windows y Linux (scrcpy para iOS)</title>
-  <meta name="description" content="MirrOS permite duplicar la pantalla, escuchar el audio y controlar tu iPhone por USB desde Windows y Linux con baja latencia. Alternativa open-source a scrcpy e iPhone Mirroring para iOS 17.4+." />
-  <meta name="keywords" content="MirrOS, iPhone Mirroring Windows, iPhone Mirroring Linux, scrcpy iOS, ios-scrcpy, duplicar pantalla iPhone USB, controlar iPhone desde PC, controlar iPhone en Linux, controlar iPhone en Windows, pymobiledevice3, CoreDevice, HEVC WebCodecs" />
+  <title>MirrOS — iPhone Screen Mirroring &amp; USB Control for Windows and Linux (scrcpy for iOS)</title>
+  <meta name="description" content="MirrOS is the open-source iPhone screen mirroring, real-time audio streaming, screen recording, and USB HID control app for Windows and Linux (scrcpy alternative for iOS 17.4+ and iOS 18)." />
+  <meta name="keywords" content="MirrOS, iPhone Mirroring Linux, iPhone Mirroring Windows, scrcpy iOS, scrcpy for iPhone, ios-scrcpy, mirror iPhone to PC USB, control iPhone from Linux, control iPhone from Windows, pymobiledevice3, CoreDevice, HEVC WebCodecs, iOS 17.4, iOS 18" />
   <meta name="author" content="Cristian Torres" />
-  <meta name="robots" content="index, follow" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
   <link rel="canonical" href="https://cristiant2608.github.io/mirros/" />
+  <link rel="alternate" hreflang="en" href="https://cristiant2608.github.io/mirros/" />
+  <link rel="alternate" hreflang="es" href="https://cristiant2608.github.io/mirros/?lang=es" />
+  <link rel="alternate" hreflang="x-default" href="https://cristiant2608.github.io/mirros/" />
 
   <!-- Open Graph / Facebook / Discord -->
   <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="MirrOS" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="es_ES" />
   <meta property="og:url" content="https://cristiant2608.github.io/mirros/" />
-  <meta property="og:title" content="MirrOS — iPhone Screen Mirroring & USB Control for Windows and Linux" />
-  <meta property="og:description" content="Pantalla, audio, gestos multitarea y portapapeles bidireccional de tu iPhone por USB en Windows y Linux. Alternativa libre estilo scrcpy para iOS." />
-  <meta property="og:image" content="https://cristiant2608.github.io/mirros/screenshots/pantalla.png" />
+  <meta property="og:title" content="MirrOS — iPhone Screen Mirroring &amp; USB Control for Windows and Linux (scrcpy for iOS)" />
+  <meta property="og:description" content="60 FPS USB screen mirroring, real-time AAC-ELD audio, HID touch/keyboard control, screen recording, and bidirectional clipboard for iPhone on Windows &amp; Linux." />
+  <meta property="og:image" content="https://cristiant2608.github.io/mirros/screenshots/social-preview.png" />
+  <meta property="og:image:width" content="1280" />
+  <meta property="og:image:height" content="640" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="MirrOS — Duplicación y Control de iPhone por USB en Windows y Linux" />
-  <meta name="twitter:description" content="Alternativa open-source estilo scrcpy para iOS 17.4+: video HEVC/software, audio en tiempo real, teclado, portapapeles Ctrl+C/Ctrl+V y ventana flotante." />
-  <meta name="twitter:image" content="https://cristiant2608.github.io/mirros/screenshots/pantalla.png" />
+  <meta name="twitter:title" content="MirrOS — iPhone Screen Mirroring &amp; USB Control for Windows and Linux" />
+  <meta name="twitter:description" content="Open-source scrcpy-like experience for iOS 17.4+ &amp; iOS 18: 60 FPS HEVC video, audio, keyboard, Ctrl+C/Ctrl+V clipboard, screen recording, and floating phone view." />
+  <meta name="twitter:image" content="https://cristiant2608.github.io/mirros/screenshots/social-preview.png" />
 
-  <!-- Schema.org JSON-LD for Google Rich Results -->
+  <!-- Schema.org JSON-LD: SoftwareApplication + FAQPage for Google Rich Results -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "MirrOS",
-    "alternateName": ["ios-scrcpy", "Mirros iPhone Mirroring"],
-    "operatingSystem": "Windows 10, Windows 11, Linux (Ubuntu, Debian, Arch, Fedora)",
-    "applicationCategory": "UtilitiesApplication",
-    "softwareVersion": "1.2.0",
-    "license": "https://opensource.org/licenses/MIT",
-    "url": "https://cristiant2608.github.io/mirros/",
-    "downloadUrl": "https://github.com/Cristiant2608/mirros/releases/latest",
-    "screenshot": "https://cristiant2608.github.io/mirros/screenshots/pantalla.png",
-    "description": "Open-source iPhone screen mirroring, audio streaming, and USB HID touch/keyboard control for Windows and Linux (scrcpy alternative for iOS).",
-    "author": {
-      "@type": "Person",
-      "name": "Cristian Torres",
-      "url": "https://github.com/Cristiant2608"
-    },
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    }
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "MirrOS",
+        "alternateName": ["ios-scrcpy", "MirrOS iPhone Mirroring"],
+        "operatingSystem": "Windows 10, Windows 11, Linux (Ubuntu, Debian, Arch, Fedora)",
+        "applicationCategory": "UtilitiesApplication",
+        "softwareVersion": "1.3.0",
+        "license": "https://opensource.org/licenses/MIT",
+        "url": "https://cristiant2608.github.io/mirros/",
+        "downloadUrl": "https://github.com/Cristiant2608/mirros/releases/latest",
+        "screenshot": "https://cristiant2608.github.io/mirros/screenshots/social-preview.png",
+        "description": "Open-source iPhone screen mirroring, real-time audio streaming, screen recording, and USB HID touch/keyboard control for Windows and Linux (scrcpy alternative for iOS 17.4+ and iOS 18).",
+        "featureList": [
+          "60 FPS HEVC hardware video decoding via WebCodecs with PyAV software fallback",
+          "USB HID touch, swipe gestures, Control Center, Notification Center, and App Switcher",
+          "PC keyboard input with iOS shortcuts (Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Z)",
+          "Bidirectional clipboard sync for Unicode text and PNG images",
+          "Real-time AAC-ELD audio streaming via AudioWorklet",
+          "Built-in 60 FPS WebM/MP4 screen and audio recorder",
+          "Floating borderless phone mode and AOD Standby Mode"
+        ],
+        "author": {
+          "@type": "Person",
+          "name": "Cristian Torres",
+          "url": "https://github.com/Cristiant2608"
+        },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How can I mirror and control my iPhone on Linux or Windows over USB like scrcpy?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Download the portable MirrOS binary (.exe on Windows or .AppImage on Linux) or install the mirros CLI, connect your iPhone (iOS 17.4+) with a USB data cable, tap 'Trust This Computer', and enable Developer Mode in Settings > Privacy & Security."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does MirrOS require Jailbreak, a Mac, or a paid Apple Developer account?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. MirrOS uses official iOS 17.4+ CoreDevice services over USB via pymobiledevice3. No jailbreak, no third-party iOS app, and no paid developer account is needed."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does MirrOS support mouse, keyboard, audio, and clipboard sync on iOS?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. MirrOS provides USB HID touch/swipe control, PC keyboard typing (with Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Z), real-time AAC-ELD audio playback, 60 FPS screen recording, and bidirectional text/image clipboard sharing."
+            }
+          }
+        ]
+      }
+    ]
   }
   </script>
 
@@ -201,18 +251,6 @@
       gap: 14px;
       margin-bottom: 24px;
     }
-    .en-banner {
-      max-width: 820px;
-      margin: 26px auto 0;
-      padding: 14px 20px;
-      border-radius: 12px;
-      background: rgba(29, 38, 56, 0.65);
-      border: 1px solid var(--line);
-      font-size: 13.5px;
-      color: var(--muted);
-      text-align: left;
-    }
-    .en-banner strong { color: var(--text); }
     .showcase {
       margin: 40px auto 64px;
       border-radius: 18px;
@@ -330,138 +368,134 @@
         <span class="logo-mark" aria-hidden="true"><span></span><span></span></span>
         <span>MirrOS</span>
       </a>
-      <nav class="nav-links" aria-label="Navegación principal">
-        <a href="#caracteristicas" data-es="Características" data-en="Features">Características</a>
-        <a href="#capturas" data-es="Capturas" data-en="Screenshots">Capturas</a>
-        <a href="#cli" data-es="Terminal / CLI" data-en="Terminal / CLI">Terminal / CLI</a>
-        <a href="#faq" data-es="Preguntas frecuentes" data-en="FAQ">Preguntas frecuentes</a>
-        <a href="https://github.com/Cristiant2608/mirros/blob/main/README.en.md">Docs (EN)</a>
+      <nav class="nav-links" aria-label="Main navigation">
+        <a href="#features" data-en="Features" data-es="Características">Features</a>
+        <a href="#screenshots" data-en="Screenshots" data-es="Capturas">Screenshots</a>
+        <a href="#cli" data-en="Terminal / CLI" data-es="Terminal / CLI">Terminal / CLI</a>
+        <a href="#faq" data-en="FAQ" data-es="Preguntas frecuentes">FAQ</a>
+        <a href="https://github.com/Cristiant2608/mirros/blob/main/README.md" data-en="Docs (EN)" data-es="Docs (ES)" id="docs-link">Docs (EN)</a>
         <a href="https://github.com/Cristiant2608/mirros">GitHub</a>
       </nav>
       <div style="display:flex;gap:10px;align-items:center">
-        <button id="lang-toggle" class="btn" type="button" style="padding:8px 13px;font-size:13px;cursor:pointer" aria-label="Switch language ES/EN">🇪🇸 ES / 🇬🇧 EN</button>
-        <a class="btn btn-primary" href="https://github.com/Cristiant2608/mirros/releases/latest" data-es="Descargar v1.2.0" data-en="Download v1.2.0">Descargar v1.2.0</a>
+        <button id="lang-toggle" class="btn" type="button" style="padding:8px 13px;font-size:13px;cursor:pointer" aria-label="Switch language EN/ES">🇺🇸 EN / 🇪🇸 ES</button>
+        <a class="btn btn-primary" href="https://github.com/Cristiant2608/mirros/releases/latest" data-en="Download v1.3.0" data-es="Descargar v1.3.0">Download v1.3.0</a>
       </div>
     </div>
   </header>
 
   <main id="top" class="container">
     <section class="hero">
-      <div class="pill"><i></i> Open Source · Windows x64 &amp; Linux x64 · iOS 17.4+</div>
-      <h1 data-es="Duplica la pantalla y controla tu iPhone por USB en Windows y Linux" data-en="Mirror and Control Your iPhone over USB on Windows &amp; Linux">Duplica la pantalla y controla tu iPhone por USB en Windows y Linux</h1>
-      <p class="subtitle" data-es="MirrOS es la alternativa libre estilo scrcpy para iOS: transmite vídeo HEVC de baja latencia, audio en tiempo real, gestos táctiles, multitarea de apps, teclado y portapapeles bidireccional entre tu iPhone y tu PC." data-en="MirrOS is the open-source scrcpy-like experience for iOS: low-latency HEVC video, real-time audio, HID touch gestures, App Switcher multitasking, keyboard, and bidirectional clipboard between your iPhone and PC.">
-        <strong>MirrOS</strong> es la alternativa libre estilo <code>scrcpy</code> para iOS: transmite vídeo HEVC de baja latencia, audio en tiempo real, gestos táctiles, multitarea de apps, teclado y portapapeles bidireccional entre tu iPhone y tu PC.
+      <div class="pill"><i></i> Open Source · Windows x64 &amp; Linux x64 · iOS 17.4+ &amp; iOS 18</div>
+      <h1 data-en="Mirror and Control Your iPhone over USB on Windows &amp; Linux" data-es="Duplica la pantalla y controla tu iPhone por USB en Windows y Linux">Mirror and Control Your iPhone over USB on Windows &amp; Linux</h1>
+      <p class="subtitle" data-en="MirrOS is the open-source scrcpy-like experience for iOS: 60 FPS HEVC video, real-time audio, USB HID touch gestures, App Switcher multitasking, screen recording, keyboard, and bidirectional clipboard between your iPhone and PC." data-es="MirrOS es la alternativa libre estilo scrcpy para iOS: transmite vídeo HEVC a 60 FPS, audio en tiempo real, gestos táctiles HID, multitarea de apps, grabación de pantalla, teclado y portapapeles bidireccional entre tu iPhone y tu PC.">
+        MirrOS is the open-source scrcpy-like experience for iOS: 60 FPS HEVC video, real-time audio, USB HID touch gestures, App Switcher multitasking, screen recording, keyboard, and bidirectional clipboard between your iPhone and PC.
       </p>
 
       <div class="cta-group">
-        <a class="btn btn-primary" href="https://github.com/Cristiant2608/mirros/releases/latest" data-es="Descargar para Windows (.exe portátil)" data-en="Download for Windows (Portable .exe)">
-          Descargar para Windows (.exe portátil)
+        <a class="btn btn-primary" href="https://github.com/Cristiant2608/mirros/releases/latest" data-en="Download for Windows (Portable .exe)" data-es="Descargar para Windows (.exe portátil)">
+          Download for Windows (Portable .exe)
         </a>
-        <a class="btn" href="https://github.com/Cristiant2608/mirros/releases/latest" data-es="Descargar para Linux (.AppImage)" data-en="Download for Linux (.AppImage)">
-          Descargar para Linux (.AppImage)
+        <a class="btn" href="https://github.com/Cristiant2608/mirros/releases/latest" data-en="Download for Linux (.AppImage)" data-es="Descargar para Linux (.AppImage)">
+          Download for Linux (.AppImage)
         </a>
-        <a class="btn" href="https://github.com/Cristiant2608/mirros" data-es="Ver código en GitHub" data-en="View on GitHub">
-          Ver código en GitHub
+        <a class="btn" href="https://github.com/Cristiant2608/mirros" data-en="View on GitHub" data-es="Ver código en GitHub">
+          View on GitHub
         </a>
-      </div>
-
-      <div class="en-banner" lang="en">
-        <strong>🇬🇧 English — iPhone Screen Mirroring &amp; Control on Windows and Linux over USB (<code>scrcpy</code> for iOS):</strong>
-        MirrOS streams your iPhone screen, audio, and HID touch/keyboard input over a regular USB data cable on Windows and Linux without jailbreak. Includes native WebCodecs HEVC decoding with automatic PyAV software fallback, bidirectional clipboard (<code>Ctrl+C</code> / <code>Ctrl+V</code>), App Switcher multitasking (<code>Ctrl+M</code>), floating borderless phone mode, and standalone portable builds.
       </div>
 
       <div class="showcase">
-        <img src="screenshots/pantalla.png" alt="Interfaz de escritorio de MirrOS mostrando la pantalla del iPhone y controles en Windows y Linux" width="1280" height="800" />
+        <img src="screenshots/pantalla.png" alt="MirrOS Desktop Studio showing iPhone screen mirroring and USB controls on Windows and Linux" width="1280" height="800" />
       </div>
     </section>
 
-    <section id="caracteristicas">
-      <h2>Todo lo que necesitas para usar tu iPhone desde el PC</h2>
-      <p class="section-lead">Diseñado para funcionar sin Jailbreak sobre el transporte USB oficial de desarrollo de iOS 17.4+.</p>
+    <section id="features">
+      <h2 data-en="Everything You Need to Use Your iPhone from Your PC" data-es="Todo lo que necesitas para usar tu iPhone desde el PC">Everything You Need to Use Your iPhone from Your PC</h2>
+      <p class="section-lead" data-en="Built to work without Jailbreak over the official iOS 17.4+ USB developer transport." data-es="Diseñado para funcionar sin Jailbreak sobre el transporte USB oficial de desarrollo de iOS 17.4+.">Built to work without Jailbreak over the official iOS 17.4+ USB developer transport.</p>
 
       <div class="grid">
         <article class="card">
-          <h3>Vídeo HEVC + Respaldo por Software</h3>
-          <p>Aprovecha la decodificación HEVC nativa de Chromium (WebCodecs) y cambia automáticamente al decodificador por software PyAV con perfiles <em>Económico</em>, <em>Equilibrado</em> y <em>Detalle</em> si tu sistema no incluye códecs propietarios.</p>
+          <h3 data-en="60 FPS HEVC Video + Software Fallback" data-es="Vídeo HEVC a 60 FPS + Respaldo por Software">60 FPS HEVC Video + Software Fallback</h3>
+          <p data-en="Leverages native Chromium WebCodecs HEVC hardware decoding with RVRA resolution-tier padding detection, and automatically switches to the PyAV software decoder (Economy, Balanced, Detail) when needed." data-es="Aprovecha la decodificación HEVC nativa de Chromium (WebCodecs) con detección de escalones RVRA y cambia automáticamente al decodificador por software PyAV con perfiles Económico, Equilibrado y Detalle.">Leverages native Chromium WebCodecs HEVC hardware decoding with RVRA resolution-tier padding detection, and automatically switches to the PyAV software decoder (Economy, Balanced, Detail) when needed.</p>
         </article>
         <article class="card">
-          <h3>Control Táctil, Gestos de Borde y Puntero</h3>
-          <p>Toques precisos, pulsación larga sostenida, desplazamiento con rueda vertical y horizontal, gestos desde los bordes (Notificaciones, Centro de control, Inicio) y puntero visual personalizable (flecha, círculo o punto).</p>
+          <h3 data-en="HID Touch, Edge Gestures &amp; Custom Pointer" data-es="Control Táctil, Gestos de Borde y Puntero">HID Touch, Edge Gestures &amp; Custom Pointer</h3>
+          <p data-en="Accurate normalized touch, long-press hold preservation, proportional mouse-wheel scrolling, 1-click Control Center, Notification Center, and Home gestures, plus a customizable cursor (arrow, circle, or dot)." data-es="Toques precisos, pulsación larga sostenida, desplazamiento con rueda vertical y horizontal, gestos directos para Notificaciones, Centro de Control e Inicio, y puntero visual personalizable.">Accurate normalized touch, long-press hold preservation, proportional mouse-wheel scrolling, 1-click Control Center, Notification Center, and Home gestures, plus a customizable cursor (arrow, circle, or dot).</p>
         </article>
         <article class="card">
-          <h3>Multitarea (App Switcher) y Visor de Apps</h3>
-          <p>Abre el selector de aplicaciones abiertas en segundo plano con <code>Ctrl+M</code>, <code>Ctrl+Tab</code> o el botón dedicado, y consulta el listado de aplicaciones instaladas en tu iPhone con buscador integrado.</p>
+          <h3 data-en="App Switcher, Installed Apps &amp; Recording" data-es="Multitarea (App Switcher), Visor de Apps y Grabación">App Switcher, Installed Apps &amp; Recording</h3>
+          <p data-en="Open the iOS App Switcher with Ctrl+M or the toolbar button, browse and launch installed iPhone apps, and record 60 FPS video + audio (Ctrl+Shift+R) or PNG screenshots (Ctrl+P)." data-es="Abre el selector de aplicaciones con Ctrl+M, consulta y abre aplicaciones instaladas en tu iPhone, y graba vídeo + audio a 60 FPS (Ctrl+Shift+R) o capturas PNG (Ctrl+P).">Open the iOS App Switcher with Ctrl+M or the toolbar button, browse and launch installed iPhone apps, and record 60 FPS video + audio (Ctrl+Shift+R) or PNG screenshots (Ctrl+P).</p>
         </article>
         <article class="card">
-          <h3>Portapapeles Bidireccional y Teclado</h3>
-          <p>Escribe directamente desde el teclado de tu ordenador y transfiere texto Unicode o imágenes PNG en ambos sentidos entre el PC y el iPhone usando <code>Ctrl+C</code> y <code>Ctrl+V</code>.</p>
+          <h3 data-en="PC Keyboard &amp; Bidirectional Clipboard" data-es="Teclado del PC y Portapapeles Bidireccional">PC Keyboard &amp; Bidirectional Clipboard</h3>
+          <p data-en="Type directly from your PC keyboard with iOS editing shortcuts (Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Z) and transfer Unicode text or PNG images in both directions between PC and iPhone." data-es="Escribe directamente desde el teclado de tu ordenador con atajos nativos de iOS (Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Z) y transfiere texto Unicode o imágenes PNG en ambos sentidos.">Type directly from your PC keyboard with iOS editing shortcuts (Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Z) and transfer Unicode text or PNG images in both directions between PC and iPhone.</p>
         </article>
         <article class="card">
-          <h3>Audio AAC-ELD en Tiempo Real</h3>
-          <p>Escucha el sonido del iPhone en el PC con una cola <code>AudioWorklet</code> adaptable de baja latencia y controla por separado el volumen del ordenador y el del teléfono.</p>
+          <h3 data-en="Real-Time AAC-ELD Audio &amp; Live Camera" data-es="Audio AAC-ELD en Tiempo Real y Cámara en Vivo">Real-Time AAC-ELD Audio &amp; Live Camera</h3>
+          <p data-en="Stream iPhone audio to your PC with an adaptive low-latency AudioWorklet buffer, and use the iPhone Camera &amp; Microphone seamlessly via the DVT live viewfinder bypass." data-es="Escucha el sonido del iPhone en el PC con una cola AudioWorklet adaptable de baja latencia y usa la Cámara y el Micrófono del iPhone mediante el visor DVT en directo.">Stream iPhone audio to your PC with an adaptive low-latency AudioWorklet buffer, and use the iPhone Camera &amp; Microphone seamlessly via the DVT live viewfinder bypass.</p>
         </article>
         <article class="card">
-          <h3>Modo AOD / Reposo y Ventana Flotante</h3>
-          <p>Separa el teléfono en una ventana flotante transparente siempre visible y activa el Modo AOD / Reposo estilo Mac para que la pantalla física del iPhone descanse mientras sigues usándolo en el PC.</p>
+          <h3 data-en="Unified Floating Phone &amp; AOD Standby Mode" data-es="Ventana Flotante Unificada y Modo AOD / Reposo">Unified Floating Phone &amp; AOD Standby Mode</h3>
+          <p data-en="Launch directly in a compact, borderless Floating Phone window (CLI &amp; Desktop) or expand into the full Studio workspace, with AOD Standby Mode so the physical iPhone screen rests." data-es="Abre directamente en una ventana flotante compacta sin bordes (tanto en CLI como en Escritorio) o despliega el panel Studio completo, con Modo AOD / Reposo para que la pantalla física descanse.">Launch directly in a compact, borderless Floating Phone window (CLI &amp; Desktop) or expand into the full Studio workspace, with AOD Standby Mode so the physical iPhone screen rests.</p>
         </article>
       </div>
     </section>
 
-    <section id="capturas">
-      <h2>Interfaz adaptable y modo flotante</h2>
-      <p class="section-lead">Cuatro temas visuales (Claro, Oscuro, Lavanda y Océano) y controles laterales plegables bajo el teléfono.</p>
+    <section id="screenshots">
+      <h2 data-en="Adaptive Themes &amp; Floating Phone Mode" data-es="Interfaz adaptable y modo flotante">Adaptive Themes &amp; Floating Phone Mode</h2>
+      <p class="section-lead" data-en="Four built-in themes (Light, Dark, Lavender, and Ocean), collapsible side controls, and instant EN/ES language switching." data-es="Cuatro temas visuales (Claro, Oscuro, Lavanda y Océano), controles laterales plegables y cambio instantáneo de idioma EN/ES.">Four built-in themes (Light, Dark, Lavender, and Ocean), collapsible side controls, and instant EN/ES language switching.</p>
 
       <div class="gallery">
         <figure>
-          <img src="screenshots/oscuro.png" alt="MirrOS en tema oscuro" loading="lazy" />
-          <figcaption>Estudio completo en tema Oscuro</figcaption>
+          <img src="screenshots/oscuro.png" alt="MirrOS Dark Theme Studio" loading="lazy" />
+          <figcaption data-en="Full Studio workspace in Dark theme" data-es="Estudio completo en tema Oscuro">Full Studio workspace in Dark theme</figcaption>
         </figure>
         <figure>
-          <img src="screenshots/apariencia.png" alt="Personalización de temas y puntero en MirrOS" loading="lazy" />
-          <figcaption>Temas, escala del teléfono y puntero configurable</figcaption>
+          <img src="screenshots/apariencia.png" alt="MirrOS theme and pointer customization" loading="lazy" />
+          <figcaption data-en="Themes, language selector, phone scale, and custom pointer" data-es="Temas, selector de idioma, escala del teléfono y puntero configurable">Themes, language selector, phone scale, and custom pointer</figcaption>
         </figure>
         <figure>
-          <img src="screenshots/telefono-flotante.png" alt="Modo de teléfono flotante transparente con barra lateral" loading="lazy" />
-          <figcaption>Modo flotante sin bordes con controles desplegados</figcaption>
+          <img src="screenshots/telefono-flotante.png" alt="MirrOS borderless floating phone mode" loading="lazy" />
+          <figcaption data-en="Borderless floating phone mode with collapsible side controls" data-es="Modo flotante sin bordes con controles desplegados">Borderless floating phone mode with collapsible side controls</figcaption>
         </figure>
       </div>
     </section>
 
     <section id="cli">
-      <h2>Uso desde terminal (CLI: <code>mirros</code> / <code>ios-scrcpy</code>)</h2>
-      <p class="section-lead">Además de los ejecutables portátiles, puedes instalar y controlar MirrOS directamente desde la línea de comandos en Linux y Windows.</p>
+      <h2 data-en="Command-Line Usage (CLI: mirros / ios-scrcpy)" data-es="Uso desde terminal (CLI: mirros / ios-scrcpy)">Command-Line Usage (CLI: <code>mirros</code> / <code>ios-scrcpy</code>)</h2>
+      <p class="section-lead" data-en="In addition to standalone portable builds, you can install and launch MirrOS directly from the terminal on Linux and Windows." data-es="Además de los ejecutables portátiles, puedes instalar y controlar MirrOS directamente desde la línea de comandos en Linux y Windows.">In addition to standalone portable builds, you can install and launch MirrOS directly from the terminal on Linux and Windows.</p>
 
-      <pre><code># Instalar y diagnosticar conexión USB
+      <pre><code># Install and diagnose USB connection
 git clone https://github.com/Cristiant2608/mirros.git
 cd mirros
 ./setup.sh
 mirros --diagnose
 
-# Iniciar duplicación de pantalla y audio
+# Launch floating phone view with audio
 mirros --audio
 
-# Forzar decodificación por software con perfil fluido
+# Open full Studio panel or force software decoding
+mirros --studio
 mirros --force-software --video-quality economy
 
-# Ver aplicaciones instaladas o abrir el selector multitarea (App Switcher)
+# List installed apps or open the iOS App Switcher
 mirros --list-apps
 mirros --app-switcher</code></pre>
     </section>
 
     <section id="faq">
-      <h2>Preguntas frecuentes (FAQ)</h2>
+      <h2 data-en="Frequently Asked Questions (FAQ)" data-es="Preguntas frecuentes (FAQ)">Frequently Asked Questions (FAQ)</h2>
       <div class="faq-list">
         <div class="faq-item">
-          <h3>¿Cómo duplicar y controlar un iPhone en Windows o Linux como scrcpy?</h3>
-          <p>Descarga el ejecutable portátil de <strong>MirrOS</strong> (<code>.exe</code> en Windows o <code>.AppImage</code> en Linux), conecta tu iPhone con un cable USB de datos, acepta «Confiar en este ordenador» y activa el Modo Desarrollador en <em>Ajustes → Privacidad y seguridad</em>. En Windows necesitas tener instalado Apple Mobile Device Service (incluido en Dispositivos Apple o iTunes) y en Linux el servicio <code>usbmuxd</code>.</p>
+          <h3 data-en="How can I mirror and control an iPhone on Windows or Linux like scrcpy?" data-es="¿Cómo duplicar y controlar un iPhone en Windows o Linux como scrcpy?">How can I mirror and control an iPhone on Windows or Linux like scrcpy?</h3>
+          <p data-en="Download the portable MirrOS executable (.exe on Windows or .AppImage on Linux), connect your iPhone with a USB data cable, tap 'Trust This Computer', and enable Developer Mode in Settings → Privacy &amp; Security. On Windows you need Apple Mobile Device Service (included with Apple Devices or iTunes) and on Linux the usbmuxd service." data-es="Descarga el ejecutable portátil de MirrOS (.exe en Windows o .AppImage en Linux), conecta tu iPhone con un cable USB de datos, acepta «Confiar en este ordenador» y activa el Modo Desarrollador en Ajustes → Privacidad y seguridad. En Windows necesitas Apple Mobile Device Service y en Linux el servicio usbmuxd.">Download the portable MirrOS executable (.exe on Windows or .AppImage on Linux), connect your iPhone with a USB data cable, tap 'Trust This Computer', and enable Developer Mode in Settings → Privacy &amp; Security. On Windows you need Apple Mobile Device Service (included with Apple Devices or iTunes) and on Linux the usbmuxd service.</p>
         </div>
         <div class="faq-item">
-          <h3>¿Necesita Jailbreak o instalar una app de terceros en el iPhone?</h3>
-          <p>No. MirrOS utiliza los servicios de desarrollo integrados en iOS 17.4 o superior mediante <code>pymobiledevice3</code>, sin requerir Jailbreak ni cuentas de desarrollador de pago.</p>
+          <h3 data-en="Does MirrOS require Jailbreak or installing a third-party app on the iPhone?" data-es="¿Necesita Jailbreak o instalar una app de terceros en el iPhone?">Does MirrOS require Jailbreak or installing a third-party app on the iPhone?</h3>
+          <p data-en="No. MirrOS uses the built-in developer services in iOS 17.4+ and iOS 18 via pymobiledevice3, requiring no Jailbreak, no third-party iOS app, and no paid Apple Developer account." data-es="No. MirrOS utiliza los servicios de desarrollo integrados en iOS 17.4+ e iOS 18 mediante pymobiledevice3, sin requerir Jailbreak ni cuentas de desarrollador de pago.">No. MirrOS uses the built-in developer services in iOS 17.4+ and iOS 18 via pymobiledevice3, requiring no Jailbreak, no third-party iOS app, and no paid Apple Developer account.</p>
         </div>
-        <div class="faq-item" lang="en">
-          <h3>Does MirrOS work as an iOS alternative to scrcpy on Linux and Windows?</h3>
-          <p>Yes. MirrOS provides both the <code>mirros</code> (and <code>ios-scrcpy</code> alias) CLI and an Electron desktop studio for Windows x64 and Linux x64, supporting USB screen mirroring, HID touch/swipe control, App Switcher multitasking, audio playback, and clipboard sync.</p>
+        <div class="faq-item">
+          <h3 data-en="How do I switch the language between English and Spanish?" data-es="¿Cómo cambio el idioma entre Inglés y Español?">How do I switch the language between English and Spanish?</h3>
+          <p data-en="Both the MirrOS app and this website start in English by default and include a 1-click EN / ES language toggle in the header, floating toolbar, and Appearance settings." data-es="Tanto la aplicación MirrOS como este sitio web inician en Inglés por defecto e incluyen un botón EN / ES en la barra superior, los controles flotantes y la pestaña Apariencia.">Both the MirrOS app and this website start in English by default and include a 1-click EN / ES language toggle in the header, floating toolbar, and Appearance settings.</p>
         </div>
       </div>
     </section>
@@ -470,27 +504,38 @@ mirros --app-switcher</code></pre>
   <footer>
     <div class="container">
       <p>
-        <strong>MirrOS</strong> · Código abierto bajo licencia <a href="https://github.com/Cristiant2608/mirros/blob/main/LICENSE">MIT</a> ·
-        <a href="https://github.com/Cristiant2608/mirros">Repositorio en GitHub</a> ·
-        <a href="https://github.com/Cristiant2608/mirros/blob/main/README.en.md">English README</a> ·
-        <a href="https://github.com/Cristiant2608/mirros/releases">Descargar Releases</a> ·
-        <a href="https://github.com/Cristiant2608/mirros/issues/new/choose">Reportar Bug / Compatibilidad</a> ·
-        <a href="https://github.com/Cristiant2608/mirros/discussions">Comunidad y Soporte</a>
+        <strong>MirrOS</strong> · Open Source under the <a href="https://github.com/Cristiant2608/mirros/blob/main/LICENSE">MIT License</a> ·
+        <a href="https://github.com/Cristiant2608/mirros">GitHub Repository</a> ·
+        <a href="https://github.com/Cristiant2608/mirros/blob/main/README.md">English README</a> ·
+        <a href="https://github.com/Cristiant2608/mirros/blob/main/README.es.md">README en Español</a> ·
+        <a href="https://github.com/Cristiant2608/mirros/releases">Releases</a> ·
+        <a href="https://github.com/Cristiant2608/mirros/issues/new/choose">Report Bug</a>
       </p>
     </div>
   </footer>
   <script>
     (() => {
-      let lang = 'es';
+      const params = new URLSearchParams(window.location.search);
+      let lang = params.get('lang') === 'es' ? 'es' : (localStorage.getItem('mirros_site_lang') === 'es' ? 'es' : 'en');
       const btn = document.getElementById('lang-toggle');
-      if (!btn) return;
-      btn.addEventListener('click', () => {
-        lang = lang === 'es' ? 'en' : 'es';
+      const docsLink = document.getElementById('docs-link');
+      function applyLang(next) {
+        lang = next === 'es' ? 'es' : 'en';
         document.documentElement.lang = lang;
+        try { localStorage.setItem('mirros_site_lang', lang); } catch {}
         document.querySelectorAll('[data-' + lang + ']').forEach(el => {
           el.textContent = el.getAttribute('data-' + lang);
         });
-      });
+        if (docsLink) {
+          docsLink.href = lang === 'es'
+            ? 'https://github.com/Cristiant2608/mirros/blob/main/README.es.md'
+            : 'https://github.com/Cristiant2608/mirros/blob/main/README.md';
+        }
+      }
+      if (lang === 'es') applyLang('es');
+      if (btn) {
+        btn.addEventListener('click', () => applyLang(lang === 'en' ? 'es' : 'en'));
+      }
     })();
   </script>
 </body>

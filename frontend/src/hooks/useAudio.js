@@ -10,5 +10,5 @@ export function useAudio(connected) {
   }, [connected, audioEnabled]);
   useEffect(() => { audio.current?.setVolume(volume); }, [volume]);
   function toggleAudio() { setAudioEnabled(value => {localStorage.setItem('audio', value ? 'off' : 'on'); return !value;}); }
-  return {audioEnabled, audioStatus, volume, setVolume, toggleAudio};
+  return {audioEnabled, audioStatus, volume, setVolume, toggleAudio, getAudioStream: () => audio.current?.getAudioStream?.() || null};
 }

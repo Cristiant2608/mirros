@@ -1,7 +1,7 @@
 {
   "name": "mirros",
-  "version": "1.2.0",
-  "description": "Pantalla, audio y control de iPhone por USB en Windows y Linux",
+  "version": "1.3.0",
+  "description": "Open-source iPhone screen mirroring, audio streaming, screen recording, and USB HID control for Windows and Linux (scrcpy for iOS)",
   "main": "desktop/main.cjs",
   "scripts": {
     "start": "electron .",

@@ -1,48 +1,49 @@
-name: 📱 Reporte de compatibilidad / Device Compatibility Report
-description: Comparte qué modelo de iPhone, versión de iOS y sistema operativo probaste con éxito o con limitaciones.
-title: "[Compatibilidad]: "
+name: 📱 Device Compatibility Report / Reporte de compatibilidad
+description: Share which iPhone model, iOS version, and operating system you tested with MirrOS.
+title: "[Compatibility]: "
 labels: ["documentation"]
 body:
   - type: markdown
     attributes:
       value: |
-        Usa esta plantilla para registrar pruebas con un **iPhone físico** en Windows o Linux y ayudar a mantener actualizada la matriz de [Compatibilidad](https://github.com/Cristiant2608/mirros/blob/main/docs/COMPATIBILIDAD.md).
-        > **Privacidad:** No adjuntes UDIDs, números de serie ni capturas con información personal.
+        Use this template to record tests with a **physical iPhone** on Windows or Linux and help keep the [Compatibility Matrix](https://github.com/Cristiant2608/mirros/blob/main/docs/COMPATIBILIDAD.md) up to date.
+        > **Privacy:** Never attach UDIDs, serial numbers, or screenshots containing personal data.
 
   - type: input
     id: environment
     attributes:
-      label: Sistema operativo y versión de MirrOS / OS & MirrOS Version
-      placeholder: "Ejemplo: Windows 11 24H2 / Ubuntu 24.04 (Wayland) — MirrOS 1.1.7"
+      label: Operating System & MirrOS Version
+      placeholder: "Example: Windows 11 24H2 / Ubuntu 24.04 (Wayland) — MirrOS 1.2.0"
     validations:
       required: true
 
   - type: input
     id: device
     attributes:
-      label: Modelo de iPhone y versión de iOS / iPhone Model & iOS Version
-      placeholder: "Ejemplo: iPhone 14 Pro — iOS 18.2"
+      label: iPhone Model & iOS Version
+      placeholder: "Example: iPhone 15 Pro — iOS 18.2"
     validations:
       required: true
 
   - type: checkboxes
     id: checks
     attributes:
-      label: Funciones verificadas físicamente / Verified Features
-      description: Marca únicamente las funciones que probaste directamente con el dispositivo conectado por USB.
+      label: Physically Verified Features
+      description: Check only the features you tested directly with the USB-connected device.
       options:
-        - label: Detección USB y preparación automática de imagen de desarrollo (DDI)
-        - label: Vídeo en directo (indica abajo si usó HEVC Nativo o Software MJPEG)
-        - label: Toques, arrastres, rueda del ratón y gestos desde los bordes
-        - label: Selector de aplicaciones / Multitarea (`Ctrl+M`) y listado de apps instaladas
-        - label: Escritura con teclado del PC y liberación al cambiar de ventana
-        - label: Audio del iPhone en el PC
-        - label: Portapapeles bidireccional (`Ctrl+C` / `Ctrl+V`) con texto e imagen PNG
-        - label: Modo AOD / Reposo (`Ctrl+L`) y Despertar (`Ctrl+U`)
-        - label: Desconexión segura y reconexión del cable
+        - label: USB detection & automatic Developer Disk Image (DDI) preparation
+        - label: Live video stream (specify below if Native HEVC or Software MJPEG was used)
+        - label: Touch, drag, mouse-wheel scroll, and edge swipe gestures
+        - label: App Switcher (`Ctrl+M`), Control Center, and Installed Apps viewer
+        - label: PC keyboard typing and modifier release on window blur
+        - label: Real-time iPhone audio on PC
+        - label: Bidirectional clipboard (`Ctrl+C` / `Ctrl+V`) with Unicode text and PNG images
+        - label: Screen & audio recording (`Ctrl+Shift+R`)
+        - label: AOD / Standby Mode (`Ctrl+L`) and Wake (`Ctrl+U`)
+        - label: Safe disconnect and USB cable reconnection
 
   - type: textarea
     id: notes
     attributes:
-      label: Observaciones / Notes
-      placeholder: "Indica cualquier detalle adicional (FPS aproximados, modo de video usado, compositor Linux, etc.)."
+      label: Notes / Observaciones
+      placeholder: "Any extra details (approximate FPS, video decode mode used, Linux compositor, etc.)."

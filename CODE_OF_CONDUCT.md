@@ -1,28 +1,28 @@
-# Código de Conducta / Contributor Covenant Code of Conduct
+# Contributor Covenant Code of Conduct
 
-## Nuestro compromiso
+## Our Pledge
 
-En interés de fomentar una comunidad abierta y acogedora, nosotros, como colaboradores y mantenedores de **MirrOS**, nos comprometemos a hacer que la participación en nuestro proyecto sea una experiencia libre de acoso para todas las personas, independientemente de su nivel de experiencia, sistema operativo, nacionalidad, idioma o identidad.
+In the interest of fostering an open and welcoming community, we as contributors and maintainers of **MirrOS** pledge to make participation in our project a harassment-free experience for everyone, regardless of experience level, operating system, nationality, language, or identity.
 
-## Nuestros estándares
+## Our Standards
 
-Ejemplos de comportamiento que contribuyen a crear un ambiente positivo:
+Examples of behavior that contributes to creating a positive environment include:
 
-- Usar un lenguaje amable, técnico y constructivo en Issues, Pull Requests y Discussions.
-- Respetar la privacidad: **nunca publicar UDIDs, números de serie, capturas con datos personales ni contenido del portapapeles** propio o de terceros.
-- Aportar información verificable al reportar errores (versión de iOS, distribución Linux o edición de Windows, y salida sanitizada de `python -m mirros.diagnostics`).
-- Aceptar constructivamente las revisiones técnicas y los límites documentados del transporte USB.
+- Using welcoming, technical, and constructive language in Issues, Pull Requests, and Discussions (in English or Spanish).
+- Respecting privacy: **never publishing UDIDs, serial numbers, screenshots containing personal data, or private clipboard contents**.
+- Providing verifiable technical context when reporting bugs (iOS version, Linux distribution or Windows build, and sanitized output from `python -m mirros.diagnostics`).
+- Constructively accepting code reviews and documented USB transport scope boundaries.
 
-Ejemplos de comportamiento inaceptable:
+Examples of unacceptable behavior include:
 
-- Ataques personales, insultos o comentarios despectivos.
-- Publicar información privada de dispositivos o usuarios sin permiso explícito.
-- Cualquier otra conducta que razonablemente pueda considerarse inapropiada en un entorno profesional de código abierto.
+- Personal attacks, insults, or derogatory comments.
+- Publishing others' private device or personal information without explicit permission.
+- Other conduct which could reasonably be considered inappropriate in a professional open-source setting.
 
-## Cumplimiento
+## Enforcement
 
-Los mantenedores del proyecto son responsables de aclarar los estándares de comportamiento aceptable y pueden editar, ocultar o cerrar cualquier comentario, Issue o Pull Request que no se alinee con este Código de Conducta o que exponga datos sensibles de un dispositivo.
+Project maintainers are responsible for clarifying the standards of acceptable behavior and may edit, hide, or close any comment, Issue, or Pull Request that does not align with this Code of Conduct or that exposes sensitive device information.
 
-## Atribución
+## Attribution
 
-Adaptado del [Contributor Covenant](https://www.contributor-covenant.org/es/version/2/1/code_of_conduct.html), versión 2.1.
+Adapted from the [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html), version 2.1.

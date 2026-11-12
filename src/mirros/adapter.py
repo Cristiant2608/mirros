@@ -851,7 +851,36 @@ async def get_battery_info(server):
     return res
 
 
+WEB_ASSETS = {
+    b'/': ('web/index.html', b'text/html; charset=utf-8'),
+    b'/index.html': ('web/index.html', b'text/html; charset=utf-8'),
+    b'/viewer.js': ('web/viewer.js', b'application/javascript; charset=utf-8'),
+    b'/viewer.css': ('web/viewer.css', b'text/css; charset=utf-8'),
+    b'/audio-worklet.js': ('web/audio-worklet.js', b'application/javascript; charset=utf-8'),
+}
+
+FALLBACK_INDEX_HTML = (
+    b'<!doctype html><html lang="en"><head><meta charset="UTF-8"/>'
+    b'<meta name="viewport" content="width=device-width, initial-scale=1.0"/>'
+    b'<title>MirrOS</title><link rel="stylesheet" href="/viewer.css"/></head>'
+    b'<body><div id="root"></div><script type="module" src="/viewer.js"></script></body></html>'
+)
+
+
+def read_web_asset(asset_rel: str) -> bytes:
+    target = files('mirros').joinpath(asset_rel)
+    if target.is_file():
+        return target.read_bytes()
+    if asset_rel == 'web/index.html':
+        return FALLBACK_INDEX_HTML
+    return b''
+
 MIRROS_ROUTES = frozenset({
+    (b'GET', b'/'),
+    (b'GET', b'/index.html'),
+    (b'GET', b'/viewer.js'),
+    (b'GET', b'/viewer.css'),
+    (b'GET', b'/audio-worklet.js'),
     (b'GET', b'/battery'),
     (b'GET', b'/info'),
     (b'GET', b'/camera-frame'),
@@ -897,6 +926,10 @@ async def orientation_connection(server, reader, writer, original):
             query = parse_qs(urlsplit(request[1].decode('utf-8', errors='ignore')).query, keep_blank_values=True)
             video_quality = query.get('quality', ['balanced'])[0]
             request[1] = b'/frames.bin'
+        elif len(request) == 2 and request[0] == b'GET' and b'?' in request[1]:
+            clean_path = request[1].split(b'?', 1)[0] or b'/'
+            if clean_path in WEB_ASSETS:
+                request[1] = clean_path
         hid = len(request) == 2 and request[0] == b'POST' and request[1] in (b'/key', b'/touch', b'/button')
         route_key = tuple(request) if len(request) == 2 else ()
         if not hid and route_key not in MIRROS_ROUTES:
@@ -937,6 +970,14 @@ async def orientation_connection(server, reader, writer, original):
     refusal = server._refuse_request(headers)
     if refusal is not None:
         writer.write(refusal)
+    elif len(request) == 2 and request[0] == b'GET' and request[1] in WEB_ASSETS:
+        asset_rel, content_type = WEB_ASSETS[request[1]]
+        body = read_web_asset(asset_rel)
+        writer.write(
+            b'HTTP/1.1 200 OK\r\nContent-Type: ' + content_type +
+            b'\r\nCache-Control: no-store\r\nContent-Length: ' +
+            str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body
+        )
     elif request == [b'GET', b'/control']:
         from mirros.control import serve_control
         return await serve_control(server, reader, writer, headers, release_input)

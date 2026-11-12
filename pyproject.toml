@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mirros"
-version = "1.2.0"
-description = "Visualiza y controla tu iPhone por USB desde Windows o Linux (alternativa scrcpy para iOS)"
+version = "1.3.0"
+description = "Open-source iPhone screen mirroring, audio streaming, screen recording, and USB HID control for Windows and Linux (scrcpy for iOS)"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"

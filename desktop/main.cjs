@@ -8,6 +8,7 @@ const systemClipboard = waylandClipboard(clipboard, ClipboardItem);
 const {shareClipboard, clipboardShortcut} = require('./clipboard.cjs');
 const updates = require('./updates.cjs');
 const {saveCapture} = require('./capture.cjs');
+const {saveRecording} = require('./recording.cjs');
 const {createSession} = require('./session.cjs');
 const {deviceRequest} = require('./device-request.cjs');
 const {workerArgs: buildWorkerArgs, resizeBounds, orientedBounds} = require('./runtime.cjs');
@@ -218,6 +219,7 @@ async function start() {
         catch (error) { logStream.write(`[clipboard-shortcut] ${value}: ${error.message}\n`); throw error; }
       }
       case 'saveCapture': return saveCapture({dialog, window}, value);
+      case 'saveRecording': return saveRecording({dialog, window}, value);
       case 'displayMode': {
         if (['dual', 'aod'].includes(value)) {
           if (session?.port) {

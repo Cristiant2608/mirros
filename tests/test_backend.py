@@ -50,6 +50,24 @@ class SessionHealthTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(b'503 Service Unavailable', body)
         self.assertIn(b'transport_closed', body)
 
+    async def test_root_with_query_serves_mirros_web_viewer(self):
+        import asyncio
+        from unittest.mock import Mock
+        from mirros.adapter import orientation_connection
+        server = self.server(closed=False)
+        server._refuse_request = Mock(return_value=None)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'GET /?mode=phone HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        original = AsyncMock()
+        await orientation_connection(server, reader, writer, original)
+        body = writer.write.call_args.args[0]
+        self.assertIn(b'HTTP/1.1 200 OK', body)
+        self.assertIn(b'Content-Type: text/html', body)
+        self.assertIn(b'/viewer.js', body)
+        original.assert_not_awaited()
+
 
 class ClipboardPolicyTests(unittest.IsolatedAsyncioTestCase):
     async def test_clipboard_route_after_key_on_the_same_connection(self):

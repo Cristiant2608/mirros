@@ -3,6 +3,13 @@ export function startAudio({onStatus, volume = 0.8}) {
   const abort = new AbortController();
   const context = new AudioContext({sampleRate: 48000, latencyHint: 'playback'});
   const gain = context.createGain(); gain.gain.value = volume; gain.connect(context.destination);
+  let streamDestination = null;
+  try {
+    if (typeof context.createMediaStreamDestination === 'function') {
+      streamDestination = context.createMediaStreamDestination();
+      gain.connect(streamDestination);
+    }
+  } catch {}
   let stopped = false, player, lastStatus;
   const status = message => { if (!stopped && message !== lastStatus) {lastStatus = message; onStatus(message);} };
   const wait = ms => new Promise(resolve => {
@@ -46,5 +53,18 @@ export function startAudio({onStatus, volume = 0.8}) {
     } catch (error) { status(error.message || 'No se pudo reproducir el audio.'); }
   }
   run();
-  return {stop() {if (stopped) return; stopped = true; abort.abort(); player?.disconnect(); player?.port.close(); gain.disconnect(); context.close().catch(() => {});}, setVolume(value) {gain.gain.value = value;}};
+  return {
+    stop() {
+      if (stopped) return;
+      stopped = true;
+      abort.abort();
+      player?.disconnect();
+      player?.port.close();
+      gain.disconnect();
+      streamDestination?.disconnect?.();
+      context.close().catch(() => {});
+    },
+    setVolume(value) { gain.gain.value = value; },
+    getAudioStream() { return streamDestination?.stream || null; },
+  };
 }

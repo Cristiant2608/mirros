@@ -27,6 +27,16 @@ class CliTests(unittest.TestCase):
             mock_runner.assert_called_once()
             self.assertEqual(mock_runner.call_args.kwargs["force_software"], False)
             self.assertIsNone(mock_runner.call_args.kwargs["video_quality"])
+            self.assertEqual(mock_runner.call_args.kwargs["ui_mode"], "phone")
+            mock_exit.assert_called_once_with(0)
+
+    def test_cli_studio_flag_selects_studio_mode(self):
+        with patch.object(sys, "argv", ["mirros", "--studio"]), \
+             patch("mirros.cli.run_mirros", return_value=0) as mock_runner, \
+             patch("sys.exit") as mock_exit:
+            main()
+            mock_runner.assert_called_once()
+            self.assertEqual(mock_runner.call_args.kwargs["ui_mode"], "studio")
             mock_exit.assert_called_once_with(0)
 
     def test_cli_rejects_invalid_video_quality(self):
@@ -112,6 +122,7 @@ class RunnerUrlTests(unittest.TestCase):
             print_calls = [c.args[0] for c in mock_print.call_args_list if c.args]
             url_line = next((s for s in print_calls if "http://127.0.0.1:8080/" in s), None)
             self.assertIsNotNone(url_line)
+            self.assertIn("mode=phone", url_line)
             self.assertIn("software=1", url_line)
             self.assertIn("quality=economy", url_line)
 
