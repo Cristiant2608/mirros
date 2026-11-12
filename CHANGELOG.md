@@ -1,3 +1,13 @@
+# 1.3.0 — 2026-11-12
+
+- **Unified Console & Desktop Floating Phone UI:** Running `mirros` from the terminal now serves the full MirrOS React interface directly from `adapter.py` and opens by default in the compact borderless floating phone view (`?mode=phone`, `--floating` / `--studio`).
+- **English-First Bilingual Experience (`EN` / `ES`):** Sets English (`en`) as the default language across the desktop/console UI, official website, and repository documentation, with a 1-click `EN` / `ES` language switcher in the toolbar, floating controls, and Appearance tab.
+- **Built-in 60 FPS Screen & Audio Recording:** Record WebM/MP4 video with synchronized iPhone audio (`Ctrl+Shift+R` or toolbar button) via `recorder.mjs` and `recording.cjs`.
+- **RVRA Resolution Switch & VAAPI Padding Compensation:** Detects both full-range (`~128`) and limited-range VAAPI/Mesa (`~139`) YUV→RGB neutral padding, strips `3px`/`18px` hardware scaler bleed (`738×1280` → `720×1280`, `1091×1920` → `1088×1920`), and disables mid-motion forced PLIs (`_motion_idr = False`) to prevent encoder resolution collapse.
+- **Live iOS Accessibility & Performance Toggles:** Exposes live toggles for *Reduce Motion*, *Reduce Transparency*, and *Increase Contrast* via CoreDevice (`/accessibility`, `/accessibility/set`).
+- **Native iOS Text Editing Shortcuts & Quick System Gestures:** Maps `Ctrl+A` (Select All), `Ctrl+X` (Cut + clipboard sync), and `Ctrl+Z` (Undo) to iOS `Cmd` shortcuts, adds extended HID keys (`Delete`, `Home`, `End`, `PageUp`, `PageDown`, `NumpadEnter`, `IntlBackslash`), and adds 1-click **Control Center** and **Notification Center** gestures.
+- **Real-Time Battery Telemetry & Fullscreen Mode:** Displays live iPhone battery percentage, charging status, and model badge (`/battery`, `/info`), plus `F11` fullscreen support.
+
 # 1.2.0 — 2026-10-23
 
 - **Motor Híbrido de Cámara en Directo:** Supera la restricción de pantalla negra de Apple (`AVCaptureVideoPreviewLayer`) mediante el bypass de diagnóstico DVT Instruments (`GET /camera-frame`), proyectando el visor del lente en vivo en el canvas de MirrOS en tiempo real.

@@ -4,7 +4,7 @@
   <strong>🇺🇸 English</strong> ·
   <strong><a href="README.es.md">🇪🇸 Leer en Español</a></strong> ·
   <strong><a href="https://cristiant2608.github.io/mirros/">🌐 Official Website</a></strong> ·
-  <strong><a href="https://github.com/Cristiant2608/mirros/releases/latest">⬇️ Download Latest Release (v1.2.0)</a></strong>
+  <strong><a href="https://github.com/Cristiant2608/mirros/releases/latest">⬇️ Download Latest Release (v1.3.0)</a></strong>
 </p>
 
 [![Latest Release](https://img.shields.io/github/v/release/Cristiant2608/mirros?label=release&color=5269c4)](https://github.com/Cristiant2608/mirros/releases/latest)
@@ -45,16 +45,16 @@ Download the latest self-contained binaries from [GitHub Releases](https://githu
 
 | File | Platform & Usage |
 | --- | --- |
-| `Mirros-1.2.0-Windows.exe` | **Windows 10 / 11 (x64) Portable:** download and run the `.exe`. |
-| `Mirros-1.2.0-Linux-x64.AppImage` | **Linux (x64) Portable:** make executable (`chmod +x`) and run. |
-| `Mirros-1.2.0-Source.zip` | Source code archive from the verified release tag. |
+| `Mirros-1.3.0-Windows.exe` | **Windows 10 / 11 (x64) Portable:** download and run the `.exe`. |
+| `Mirros-1.3.0-Linux-x64.AppImage` | **Linux (x64) Portable:** make executable (`chmod +x`) and run. |
+| `Mirros-1.3.0-Source.zip` | Source code archive from the verified release tag. |
 | `SHA256SUMS.txt` | SHA-256 checksums for all release artifacts. |
 
 On Linux:
 
 ```bash
-chmod +x Mirros-1.2.0-Linux-x64.AppImage
-./Mirros-1.2.0-Linux-x64.AppImage
+chmod +x Mirros-1.3.0-Linux-x64.AppImage
+./Mirros-1.3.0-Linux-x64.AppImage
 ```
 
 ---
