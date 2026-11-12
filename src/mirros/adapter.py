@@ -859,6 +859,22 @@ WEB_ASSETS = {
     b'/audio-worklet.js': ('web/audio-worklet.js', b'application/javascript; charset=utf-8'),
 }
 
+FALLBACK_INDEX_HTML = (
+    b'<!doctype html><html lang="en"><head><meta charset="UTF-8"/>'
+    b'<meta name="viewport" content="width=device-width, initial-scale=1.0"/>'
+    b'<title>MirrOS</title><link rel="stylesheet" href="/viewer.css"/></head>'
+    b'<body><div id="root"></div><script type="module" src="/viewer.js"></script></body></html>'
+)
+
+
+def read_web_asset(asset_rel: str) -> bytes:
+    target = files('mirros').joinpath(asset_rel)
+    if target.is_file():
+        return target.read_bytes()
+    if asset_rel == 'web/index.html':
+        return FALLBACK_INDEX_HTML
+    return b''
+
 MIRROS_ROUTES = frozenset({
     (b'GET', b'/'),
     (b'GET', b'/index.html'),
@@ -956,7 +972,7 @@ async def orientation_connection(server, reader, writer, original):
         writer.write(refusal)
     elif len(request) == 2 and request[0] == b'GET' and request[1] in WEB_ASSETS:
         asset_rel, content_type = WEB_ASSETS[request[1]]
-        body = files('mirros').joinpath(asset_rel).read_bytes()
+        body = read_web_asset(asset_rel)
         writer.write(
             b'HTTP/1.1 200 OK\r\nContent-Type: ' + content_type +
             b'\r\nCache-Control: no-store\r\nContent-Length: ' +
