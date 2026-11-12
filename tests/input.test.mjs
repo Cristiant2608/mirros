@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 const source = fs.readFileSync(new URL('../frontend/src/input.js', import.meta.url), 'utf8');
-const {coordinates, edgeStart, wheelPath, createInput} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+const {coordinates, edgeStart, wheelPath, createInput, keyUsages} = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 globalThis.requestAnimationFrame = callback => setTimeout(callback, 1);
 globalThis.cancelAnimationFrame = clearTimeout;
 test('maps scaled canvas taps and clamps outside edges', () => {
@@ -152,4 +152,32 @@ test('new pointerdown recovers cleanly if a previous touch lost its pointerup', 
   assert.deepEqual(sent.map(item => item.type), ['contact', 'release', 'contact', 'release']);
   assert.deepEqual(sent.at(-1), {type: 'release', x: 40000, y: 45000});
   input.dispose();
+});
+
+test('supports extended HID key usages and Control Center / Notifications swipes', async () => {
+  assert.equal(keyUsages.NumpadEnter, 40);
+  assert.equal(keyUsages.Home, 74);
+  assert.equal(keyUsages.PageUp, 75);
+  assert.equal(keyUsages.Delete, 76);
+  assert.equal(keyUsages.End, 77);
+  assert.equal(keyUsages.PageDown, 78);
+  assert.equal(keyUsages.IntlBackslash, 100);
+
+  const ccSent = [];
+  const input = createInput(async (_path, data) => ccSent.push(data));
+  await input.swipe('controlCenter');
+  assert.equal(ccSent[0].x, 60000);
+  assert.equal(ccSent[0].y, 0);
+  assert.equal(ccSent.at(-1).type, 'release');
+  assert.equal(ccSent.at(-1).y, 29500);
+
+  const notifSent = [];
+  const input2 = createInput(async (_path, data) => notifSent.push(data));
+  await input2.swipe('notifications');
+  assert.equal(notifSent[0].x, 32768);
+  assert.equal(notifSent[0].y, 0);
+  assert.equal(notifSent.at(-1).type, 'release');
+  assert.equal(notifSent.at(-1).y, 36000);
+  input.dispose();
+  input2.dispose();
 });
