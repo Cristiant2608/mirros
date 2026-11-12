@@ -23,16 +23,18 @@ export function followOrientation(onOrientation) {
   const abort = new AbortController();
   let timer, previous;
   async function poll() {
-    try {
-      const response = await fetch('/orientation', {signal: AbortSignal.any([abort.signal, AbortSignal.timeout(4500)]), cache: 'no-store'});
-      if (response.ok) {
-        const value = await response.json();
-        if (!abort.signal.aborted && value.orientation in degrees && value.orientation !== previous) {
-          previous = value.orientation; onOrientation(value.orientation);
+    if (typeof document === 'undefined' || !document.hidden) {
+      try {
+        const response = await fetch('/orientation', {signal: AbortSignal.any([abort.signal, AbortSignal.timeout(4500)]), cache: 'no-store'});
+        if (response.ok) {
+          const value = await response.json();
+          if (!abort.signal.aborted && value.orientation in degrees && value.orientation !== previous) {
+            previous = value.orientation; onOrientation(value.orientation);
+          }
         }
-      }
-    } catch { /* Older iOS services can lack orientation queries; video still works. */ }
-    if (!abort.signal.aborted) timer = setTimeout(poll, 800);
+      } catch { /* Older iOS services can lack orientation queries; video still works. */ }
+    }
+    if (!abort.signal.aborted) timer = setTimeout(poll, 1500);
   }
   poll();
   return () => { abort.abort(); clearTimeout(timer); };

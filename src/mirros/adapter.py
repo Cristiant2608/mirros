@@ -156,7 +156,7 @@ async def close_orientation(server):
 
 
 async def read_orientation(server):
-    if getattr(server, '_mirros_display_mode', 'dual') == 'aod':
+    if getattr(server, '_mirros_display_mode', 'dual') == 'aod' or getattr(server, '_mirros_media_paused', False):
         cached = getattr(server, '_mirros_last_orientation', None)
         if cached:
             return cached
@@ -175,10 +175,10 @@ async def read_orientation(server):
             try:
                 if service is None:
                     service = SpringBoardServicesService(current_rsd)
-                    await service.connect()
+                    await asyncio.wait_for(service.connect(), 1.5)
                     server._mirros_springboard = service
                     server._mirros_springboard_rsd = current_rsd
-                value = await service.get_interface_orientation()
+                value = await asyncio.wait_for(service.get_interface_orientation(), 1.5)
                 orientation = {1: 'portrait', 2: 'portraitUpsideDown', 3: 'landscapeLeft', 4: 'landscapeRight'}[int(value)]
                 server._mirros_last_orientation = orientation
                 return orientation
@@ -313,24 +313,19 @@ async def wake_device(server):
     return {'status': 'ok', 'mode': 'dual', 'keepAwake': True}
 
 
-SENSOR_BUNDLE_IDS = frozenset({
+CAMERA_BUNDLE_IDS = frozenset({
     'com.apple.camera',
-    'com.apple.VoiceMemos',
     'com.apple.Magnifier',
-    'com.apple.facetime',
-    'net.whatsapp.WhatsApp',
-    'com.burbn.instagram',
-    'ph.telegra.Telegraph',
-    'us.zoom.videomeetings',
-    'com.google.Meet',
-    'com.skype.skype',
-    'com.microsoft.teams',
 })
+
+SENSOR_BUNDLE_IDS = CAMERA_BUNDLE_IDS
 
 
 def classify_sensor_log(filename: str, message: str):
-    """Clasifica eventos de os_trace de cámara o micrófono en 'hot', 'cold' o None."""
+    """Clasifica eventos de os_trace de la app Cámara/Lupa en 'hot', 'cold' o None."""
     if not filename or not message:
+        return None
+    if 'cameracaptured' not in filename and 'audiomxd' not in filename:
         return None
     # os_trace entrega la ruta completa del ejecutable (p. ej. /usr/libexec/cameracaptured).
     filename = posixpath.basename(filename)
@@ -339,17 +334,17 @@ def classify_sensor_log(filename: str, message: str):
         # se registra con cualquier cambio de pantalla (incluso bloqueada) y no indica uso real.
         if 'MediaSafetyNet state:' not in message:
             return None
-        if 'Cam(Hot:' in message or 'Mic(Hot:' in message:
-            return 'hot'
-        if 'Cam(Cold:' in message and 'Mic(Hot:' not in message:
+        if 'Cam(Hot:' in message:
+            cam_section = message.split('Cam(Hot:', 1)[1].split(')', 1)[0]
+            if any(bundle_id in cam_section for bundle_id in CAMERA_BUNDLE_IDS):
+                return 'hot'
             return 'cold'
-        if 'Mic(Cold:' in message and 'Cam(Hot:' not in message:
+        if 'Cam(Cold:' in message:
             return 'cold'
     elif filename == 'audiomxd':
-        if 'is now Foreground' in message and any(f'Client {bundle_id}' in message for bundle_id in SENSOR_BUNDLE_IDS):
+        if 'is now Foreground' in message and any(f'Client {bundle_id}' in message for bundle_id in CAMERA_BUNDLE_IDS):
             return 'hot'
-        # Notas de Voz u otras apps liberan el micrófono al pasar a segundo plano o terminar.
-        if 'is now Background' in message and any(f'Client {bundle_id}' in message for bundle_id in SENSOR_BUNDLE_IDS):
+        if 'is now Background' in message and any(f'Client {bundle_id}' in message for bundle_id in CAMERA_BUNDLE_IDS):
             return 'cold'
     return None
 
@@ -673,9 +668,13 @@ async def sensor_activity_loop(server):
             sensor_state = None
             try:
                 async with OsTraceService(server._rsd) as trace:
-                    log.info('Monitor de cámara y micrófono activo')
+                    log.info('Monitor de cámara activo')
                     failures = 0
+                    entries_seen = 0
                     async for entry in trace.syslog(stream_flags=stream_flags):
+                        entries_seen += 1
+                        if entries_seen % 32 == 0:
+                            await asyncio.sleep(0)
                         state = classify_sensor_log(entry.filename, entry.message)
                         if state is None or state == sensor_state:
                             continue
@@ -763,7 +762,98 @@ async def camera_snapshot(server) -> tuple[bytes, str]:
         return png_data, 'image/png'
 
 
+def product_type_to_name(product_type: str) -> str:
+    if not product_type:
+        return ''
+    try:
+        from pymobiledevice3.lockdown import IRECV_DEVICES
+        for device in IRECV_DEVICES:
+            if getattr(device, 'product_type', None) == product_type:
+                return getattr(device, 'display_name', None) or product_type
+    except Exception:
+        pass
+    return product_type
+
+
+def get_lockdown_client(server):
+    lockdown = getattr(server, '_lockdown', None)
+    if lockdown is not None:
+        return lockdown
+    lockdown = getattr(server, 'lockdown', None)
+    if lockdown is not None:
+        return lockdown
+    rsd = getattr(server, '_rsd', None)
+    if rsd is not None:
+        lockdown = getattr(rsd, '_lockdown', None)
+        if lockdown is not None:
+            return lockdown
+        if hasattr(rsd, 'get_value'):
+            return rsd
+    return None
+
+
+async def get_device_model(server) -> str:
+    cached = getattr(server, '_mirros_device_model', None)
+    if cached:
+        return cached
+    lockdown = get_lockdown_client(server)
+    if lockdown is not None:
+        display_name = getattr(lockdown, 'display_name', None)
+        if display_name:
+            with contextlib.suppress(Exception):
+                server._mirros_device_model = display_name
+            return display_name
+        product_type = getattr(lockdown, 'product_type', None) or getattr(lockdown, 'all_values', {}).get('ProductType')
+        if not product_type and hasattr(lockdown, 'get_value'):
+            with contextlib.suppress(Exception):
+                product_type = await asyncio.wait_for(lockdown.get_value(key='ProductType'), timeout=3)
+        if product_type:
+            name = product_type_to_name(product_type)
+            with contextlib.suppress(Exception):
+                server._mirros_device_model = name
+                server._mirros_product_type = product_type
+            return name
+    return ''
+
+
+async def get_battery_info(server):
+    now = time.monotonic()
+    cache = getattr(server, '_mirros_battery_cache', None)
+    if cache is not None:
+        cached_at, cached_data = cache
+        if now - cached_at < 15.0:
+            return cached_data
+
+    safe_fallback = {'capacity': None, 'charging': False, 'connected': False}
+    lockdown = get_lockdown_client(server)
+    if lockdown is None or not hasattr(lockdown, 'get_value'):
+        return safe_fallback
+
+    try:
+        data = await asyncio.wait_for(
+            lockdown.get_value(domain="com.apple.mobile.battery"),
+            timeout=5.0
+        )
+        if not isinstance(data, dict):
+            res = safe_fallback
+        else:
+            raw_cap = data.get('BatteryCurrentCapacity', data.get('capacity'))
+            cap = int(raw_cap) if raw_cap is not None and isinstance(raw_cap, (int, float)) else None
+            charging = bool(data.get('BatteryIsCharging', data.get('charging', False)))
+            connected = bool(data.get('ExternalConnected', data.get('connected', True if cap is not None else False)))
+            res = {'capacity': cap, 'charging': charging, 'connected': connected}
+    except Exception as error:
+        logging.getLogger(__name__).debug('No se pudo consultar el estado de la batería: %s', error)
+        res = safe_fallback
+
+    with contextlib.suppress(Exception):
+        server._mirros_battery_cache = (now, res)
+    return res
+
+
 MIRROS_ROUTES = frozenset({
+    (b'GET', b'/battery'),
+    (b'GET', b'/info'),
     (b'GET', b'/camera-frame'),
     (b'POST', b'/camera-shutter'),
     (b'GET', b'/control'),
@@ -967,9 +1057,21 @@ async def orientation_connection(server, reader, writer, original):
         else:
             result = await asyncio.wait_for(launch_device_app(server, bundle_id), 10)
             write_json(writer, b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK', result)
+    elif request == [b'GET', b'/battery']:
+        battery = await get_battery_info(server)
+        write_json(writer, b'200 OK', battery)
+    elif request == [b'GET', b'/info']:
+        model = await get_device_model(server)
+        product_type = getattr(server, '_mirros_product_type', None)
+        write_json(writer, b'200 OK', {'model': model or 'iPhone', 'product_type': product_type})
     elif request == [b'GET', b'/diagnostics']:
         from mirros.diagnostics import collect_report
         report = await asyncio.to_thread(collect_report, True)
+        model = await get_device_model(server)
+        if model:
+            report['model'] = model
+            if getattr(server, '_mirros_product_type', None):
+                report['product_type'] = getattr(server, '_mirros_product_type', None)
         write_json(writer, b'200 OK', report)
     else:
         try:
@@ -1086,10 +1188,67 @@ def configure_viewer() -> None:
         except Exception:
             logging.getLogger(__name__).warning("keep-awake loop crashed", exc_info=True)
     screen_stream.ScreenStreamServer._keep_awake_loop = controlled_keep_awake
+    if callable(getattr(screen_stream.ScreenStreamServer, '_decoder_refresh_loop', None)):
+        async def settled_decoder_refresh_loop(server):
+            loop = asyncio.get_running_loop()
+            motion_threshold_bps = 200_000
+            settle_quiet = 0.9
+            heartbeat = 10.0
+            min_interval = 0.7
+            active_interval = 1.0
+            quiet_since = None
+            motion_active = False
+            motion_started_t = 0.0
+            while True:
+                try:
+                    await asyncio.sleep(0.1)
+                except asyncio.CancelledError:
+                    return
+                if not getattr(server, '_subscribers', None):
+                    continue
+                if getattr(server, '_active_service', None) is None or getattr(server, '_rtcp_dest', None) is None:
+                    continue
+                if getattr(server, '_mirros_media_paused', False) or getattr(server, '_mirros_display_mode', 'dual') == 'aod':
+                    continue
+                now = loop.time()
+                window_bytes = sum(s for _, s in getattr(server, '_au_byte_window', ()))
+                currently_active = window_bytes >= motion_threshold_bps
+                if currently_active and not motion_active:
+                    motion_started_t = now
+                motion_active = currently_active
+                if currently_active:
+                    quiet_since = None
+                elif quiet_since is None:
+                    quiet_since = now
+                since_refresh = now - getattr(server, '_last_refresh_t', 0.0)
+                if since_refresh < min_interval:
+                    continue
+                quiet_for = None if quiet_since is None else (now - quiet_since)
+                active = (
+                    bool(getattr(server, '_motion_idr', False))
+                    and currently_active
+                    and motion_started_t > 0
+                    and (now - motion_started_t) >= active_interval
+                    and since_refresh >= active_interval
+                )
+                settled = (
+                    quiet_since is not None
+                    and quiet_for is not None
+                    and quiet_for >= settle_quiet
+                    and getattr(server, '_last_refresh_t', 0.0) < quiet_since
+                )
+                heartbeat_due = quiet_for is not None and since_refresh >= heartbeat
+                if not (active or settled or heartbeat_due):
+                    continue
+                reason = 'active' if active else ('settled' if settled else 'heartbeat')
+                if callable(getattr(server, '_fire_decoder_refresh', None)):
+                    server._fire_decoder_refresh(now, reason=reason)
+        screen_stream.ScreenStreamServer._decoder_refresh_loop = settled_decoder_refresh_loop
     original_serve = screen_stream.ScreenStreamServer.serve
     async def cancellable_serve(server):
         server._mirros_started = asyncio.get_running_loop().time()
         server._mirros_serve_task = asyncio.current_task()
+        server._motion_idr = False
         with contextlib.suppress(Exception):
             if hasattr(server, '_rsd') and hasattr(server._rsd, 'set_value'):
                 await server._rsd.set_value(True, domain='com.apple.coredevice.dtremotedisplayd', key='disableDisplayWakeOnStart')

@@ -571,13 +571,19 @@ class SensorAutoPauseTests(unittest.IsolatedAsyncioTestCase):
     def test_classify_sensor_log_detects_camera_open_and_close(self):
         from mirros.adapter import classify_sensor_log
         self.assertEqual(classify_sensor_log('cameracaptured', 'MediaSafetyNet state: Cam(Hot: com.apple.camera) Mic(Cold:)'), 'hot')
+        self.assertEqual(classify_sensor_log('cameracaptured', 'MediaSafetyNet state: Cam(Hot: com.apple.Magnifier) Mic(Cold:)'), 'hot')
         # os_trace entrega la ruta completa del ejecutable.
         self.assertEqual(classify_sensor_log('/usr/libexec/cameracaptured', 'MediaSafetyNet state: Cam(Cold:)'), 'cold')
         self.assertEqual(classify_sensor_log('/usr/sbin/audiomxd', 'Client com.apple.camera is now Foreground'), 'hot')
-        self.assertEqual(classify_sensor_log('cameracaptured', 'MediaSafetyNet state: Cam(Cold:) Mic(Hot: com.apple.VoiceMemos)'), 'hot')
+        # Micrófono u otras apps (WhatsApp, Instagram, Telegram, Notas de Voz) NO activan el visor de cámara.
+        self.assertEqual(classify_sensor_log('cameracaptured', 'MediaSafetyNet state: Cam(Cold:) Mic(Hot: com.apple.VoiceMemos)'), 'cold')
+        self.assertEqual(classify_sensor_log('cameracaptured', 'MediaSafetyNet state: Cam(Hot: net.whatsapp.WhatsApp) Mic(Hot: net.whatsapp.WhatsApp)'), 'cold')
         self.assertEqual(classify_sensor_log('audiomxd', 'Client com.apple.camera (pid 12) is now Background'), 'cold')
         self.assertIsNone(classify_sensor_log('cameracaptured', 'Looking for com.apple.camera in the Main Display layout'))
-        self.assertEqual(classify_sensor_log('audiomxd', 'Client com.apple.VoiceMemos (pid 9) is now Foreground'), 'hot')
+        self.assertIsNone(classify_sensor_log('audiomxd', 'Client com.apple.VoiceMemos (pid 9) is now Foreground'))
+        self.assertIsNone(classify_sensor_log('audiomxd', 'Client net.whatsapp.WhatsApp (pid 42) is now Foreground'))
+        self.assertIsNone(classify_sensor_log('audiomxd', 'Client com.burbn.instagram (pid 43) is now Foreground'))
+        self.assertIsNone(classify_sensor_log('audiomxd', 'Client ph.telegra.Telegraph (pid 44) is now Foreground'))
         self.assertIsNone(classify_sensor_log('audiomxd', 'Client com.apple.Music is now Background'))
         self.assertIsNone(classify_sensor_log('SpringBoard', 'Cam(Hot: x)'))
         self.assertIsNone(classify_sensor_log('', ''))
@@ -643,9 +649,10 @@ class SensorAutoPauseTests(unittest.IsolatedAsyncioTestCase):
         context = AsyncMock()
         context.__aenter__.return_value = SimpleNamespace(launch_application=AsyncMock())
         with patch('pymobiledevice3.remote.core_device.app_service.AppServiceService', return_value=context):
-            result = await launch_device_app(server, 'com.test.app')
-        self.assertFalse(result['media_paused'])
-        self.assertFalse(getattr(server, '_mirros_media_paused', False))
+            for bundle in ('com.test.app', 'net.whatsapp.WhatsApp', 'com.burbn.instagram', 'ph.telegra.Telegraph'):
+                result = await launch_device_app(server, bundle)
+                self.assertFalse(result['media_paused'])
+                self.assertFalse(getattr(server, '_mirros_media_paused', False))
 
     async def test_media_state_exit_app_presses_home_then_resumes(self):
         from unittest.mock import Mock, patch
@@ -754,3 +761,104 @@ class SensorAutoPauseTests(unittest.IsolatedAsyncioTestCase):
             press_btn.assert_awaited_once_with(server, 'volume-down')
             body = writer.write.call_args.args[0]
             self.assertIn(b'200 OK', body)
+
+    async def test_battery_endpoint_success(self):
+        from unittest.mock import Mock, AsyncMock
+        from mirros.adapter import orientation_connection
+        mock_lockdown = SimpleNamespace(
+            get_value=AsyncMock(return_value={
+                'BatteryCurrentCapacity': 85,
+                'BatteryIsCharging': True,
+                'ExternalConnected': True,
+            })
+        )
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None), lockdown=mock_lockdown)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'GET /battery HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        mock_lockdown.get_value.assert_awaited_once_with(domain="com.apple.mobile.battery")
+        body = writer.write.call_args.args[0]
+        self.assertIn(b'200 OK', body)
+        self.assertIn(b'"capacity": 85', body)
+        self.assertIn(b'"charging": true', body)
+        self.assertIn(b'"connected": true', body)
+
+    async def test_battery_endpoint_failure_fallback(self):
+        from unittest.mock import Mock, AsyncMock
+        from mirros.adapter import orientation_connection
+        mock_lockdown = SimpleNamespace(
+            get_value=AsyncMock(side_effect=RuntimeError('lockdown socket closed'))
+        )
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None), lockdown=mock_lockdown)
+        reader = asyncio.StreamReader()
+        reader.feed_data(b'GET /battery HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        reader.feed_eof()
+        writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader, writer, AsyncMock())
+        body = writer.write.call_args.args[0]
+        self.assertIn(b'200 OK', body)
+        self.assertIn(b'"capacity": null', body)
+        self.assertIn(b'"charging": false', body)
+        self.assertIn(b'"connected": false', body)
+
+    async def test_battery_endpoint_15s_cache(self):
+        from unittest.mock import Mock, AsyncMock, patch
+        from mirros.adapter import orientation_connection
+        mock_lockdown = SimpleNamespace(
+            get_value=AsyncMock(return_value={'BatteryCurrentCapacity': 90, 'BatteryIsCharging': False, 'ExternalConnected': True})
+        )
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None), lockdown=mock_lockdown)
+
+        current_time = 100.0
+        with patch('time.monotonic', side_effect=lambda: current_time):
+            reader1 = asyncio.StreamReader()
+            reader1.feed_data(b'GET /battery HTTP/1.1\r\nHost: localhost\r\n\r\n')
+            reader1.feed_eof()
+            writer1 = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader1, writer1, AsyncMock())
+            self.assertEqual(mock_lockdown.get_value.await_count, 1)
+
+            current_time = 105.0
+            reader2 = asyncio.StreamReader()
+            reader2.feed_data(b'GET /battery HTTP/1.1\r\nHost: localhost\r\n\r\n')
+            reader2.feed_eof()
+            writer2 = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader2, writer2, AsyncMock())
+            self.assertEqual(mock_lockdown.get_value.await_count, 1)
+
+            current_time = 116.0
+            reader3 = asyncio.StreamReader()
+            reader3.feed_data(b'GET /battery HTTP/1.1\r\nHost: localhost\r\n\r\n')
+            reader3.feed_eof()
+            writer3 = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader3, writer3, AsyncMock())
+            self.assertEqual(mock_lockdown.get_value.await_count, 2)
+
+    async def test_diagnostics_and_info_endpoint_includes_product_model(self):
+        from unittest.mock import Mock, AsyncMock, patch
+        from mirros.adapter import orientation_connection
+        mock_lockdown = SimpleNamespace(
+            display_name='iPhone 15 Pro',
+            product_type='iPhone16,1',
+            get_value=AsyncMock(return_value='iPhone16,1')
+        )
+        server = SimpleNamespace(_refuse_request=Mock(return_value=None), lockdown=mock_lockdown)
+
+        with patch('mirros.diagnostics.collect_report', return_value={'schema_version': 1}):
+            reader = asyncio.StreamReader()
+            reader.feed_data(b'GET /diagnostics HTTP/1.1\r\nHost: localhost\r\n\r\n')
+            reader.feed_eof()
+            writer = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+            await orientation_connection(server, reader, writer, AsyncMock())
+            body = writer.write.call_args.args[0]
+            self.assertIn(b'"model": "iPhone 15 Pro"', body)
+
+        reader_info = asyncio.StreamReader()
+        reader_info.feed_data(b'GET /info HTTP/1.1\r\nHost: localhost\r\n\r\n')
+        reader_info.feed_eof()
+        writer_info = SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock())
+        await orientation_connection(server, reader_info, writer_info, AsyncMock())
+        body_info = writer_info.write.call_args.args[0]
+        self.assertIn(b'"model": "iPhone 15 Pro"', body_info)

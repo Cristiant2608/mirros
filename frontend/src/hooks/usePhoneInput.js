@@ -12,19 +12,16 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
     const send = (path, data) => post(path, path === '/touch' ? {...data, ...devicePoint(data, rotation)} : data);
     const controls = createInput(send, error => callbacks.current.onError(error.message), {getSize: () => node.getBoundingClientRect()}); input.current = controls;
     const point = event => coordinates(event.clientX, event.clientY, node.getBoundingClientRect());
-    let startOffset = {x: 0, y: 0};
-    const gesturePoint = event => { const p = point(event); return p && {x: Math.max(0, Math.min(65535, p.x + startOffset.x)), y: Math.max(0, Math.min(65535, p.y + startOffset.y))}; };
     const down = event => {
       if (event.button !== 0 || !event.isPrimary) return;
       event.preventDefault(); node.focus({preventScroll: true});
-      const raw = point(event), start = edgeStart(raw, node.getBoundingClientRect());
+      const raw = point(event), start = edgeStart(raw, node.getBoundingClientRect(), 6);
       if (controls.down(event.pointerId, start)) {
-        startOffset = {x: start.x - raw.x, y: start.y - raw.y};
         node.setPointerCapture(event.pointerId);
       }
     };
-    const move = event => controls.move(event.pointerId, gesturePoint(event.getCoalescedEvents?.().at(-1) || event));
-    const up = event => controls.release(event.pointerId, gesturePoint(event));
+    const move = event => controls.move(event.pointerId, point(event.getCoalescedEvents?.().at(-1) || event));
+    const up = event => controls.release(event.pointerId, point(event));
     const release = () => controls.release(null);
     const wheel = event => { event.preventDefault(); controls.wheel(point(event), event.deltaY, event.deltaMode, node.clientHeight, sensitivity, event.deltaX, node.clientWidth); };
     const context = event => { event.preventDefault(); callbacks.current.button('home'); };
@@ -34,14 +31,29 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
     const heartbeat = setInterval(() => { if (held.size) sendKeys(); }, 1500);
     const keys = event => {
       if (document.activeElement !== node) return;
-      if (event.type === 'keydown' && (event.ctrlKey || event.metaKey) && ['c','v'].includes(event.key.toLowerCase())) {
+      const lower = event.key.toLowerCase();
+      if (event.type === 'keydown' && (event.ctrlKey || event.metaKey) && ['c','v'].includes(lower)) {
         event.preventDefault();
         if (event.repeat || clipboardInFlight) return;
         clipboardInFlight = true;
-        const action = event.key.toLowerCase() === 'c' ? 'copy' : 'paste';
+        const action = lower === 'c' ? 'copy' : 'paste';
         held.clear();
         controls.enqueueAction(async () => { await post('/key', {usages:[]}); await callbacks.current.clipboardShortcut(action); })
           .finally(() => {clipboardInFlight = false;});
+        return;
+      }
+      // Map Ctrl+A (Select All), Ctrl+X (Cut), Ctrl+Z (Undo) to iOS Cmd + key (from Pane keys.js)
+      if (event.type === 'keydown' && (event.ctrlKey || event.metaKey) && ['a', 'x', 'z'].includes(lower)) {
+        event.preventDefault();
+        if (event.repeat) return;
+        const codeMap = {a: keyUsages.KeyA, x: keyUsages.KeyX, z: keyUsages.KeyZ};
+        const targetUsage = codeMap[lower];
+        held.clear();
+        controls.enqueueAction(async () => {
+          await post('/key', {usages: [227, targetUsage]});
+          await post('/key', {usages: []});
+          if (lower === 'x') await callbacks.current.clipboardShortcut?.('copy');
+        });
         return;
       }
       const shortcuts = {h: 'home', l: 'lock', '[': 'volume-down', ']': 'volume-up', s: 'siri'};
@@ -54,11 +66,12 @@ export function usePhoneInput({canvas, connected, sensitivity, rotation, floatin
       event.type === 'keydown' ? held.add(usage) : held.delete(usage); sendKeys();
     };
     const blur = () => { release(); if (held.size) { held.clear(); sendKeys(); } controls.enqueueAction(() => post('/key', {usages: [], detach: true})); callbacks.current.setKeyboard(false); };
+    const visibility = () => { if (document.hidden) blur(); };
     const focus = () => callbacks.current.setKeyboard(true);
     node.addEventListener('pointerdown', down); node.addEventListener('pointermove', move); node.addEventListener('pointerup', up); node.addEventListener('pointercancel', release); node.addEventListener('lostpointercapture', release);
     node.addEventListener('wheel', wheel, {passive: false}); node.addEventListener('contextmenu', context); node.addEventListener('focus', focus); node.addEventListener('blur', blur);
-    window.addEventListener('pointerup', up); window.addEventListener('blur', blur); window.addEventListener('keydown', keys); window.addEventListener('keyup', keys);
-    return () => { clearInterval(heartbeat); blur(); controls.dispose(); input.current = null; node.removeEventListener('pointerdown', down); node.removeEventListener('pointermove', move); node.removeEventListener('pointerup', up); node.removeEventListener('pointercancel', release); node.removeEventListener('lostpointercapture', release); node.removeEventListener('wheel', wheel); node.removeEventListener('contextmenu', context); node.removeEventListener('focus', focus); node.removeEventListener('blur', blur); window.removeEventListener('pointerup', up); window.removeEventListener('blur', blur); window.removeEventListener('keydown', keys); window.removeEventListener('keyup', keys); };
+    window.addEventListener('pointerup', up); window.addEventListener('pointercancel', release); window.addEventListener('blur', blur); document.addEventListener('visibilitychange', visibility); window.addEventListener('keydown', keys); window.addEventListener('keyup', keys);
+    return () => { clearInterval(heartbeat); blur(); controls.dispose(); input.current = null; node.removeEventListener('pointerdown', down); node.removeEventListener('pointermove', move); node.removeEventListener('pointerup', up); node.removeEventListener('pointercancel', release); node.removeEventListener('lostpointercapture', release); node.removeEventListener('wheel', wheel); node.removeEventListener('contextmenu', context); node.removeEventListener('focus', focus); node.removeEventListener('blur', blur); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', release); window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('keydown', keys); window.removeEventListener('keyup', keys); };
   }, [connected, sensitivity, rotation]);
   return input;
 }

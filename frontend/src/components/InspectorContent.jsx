@@ -1,5 +1,5 @@
 import React from 'react';
-import {Camera, Check, ChevronRight, CircleHelp, Clipboard, Download, ExternalLink, Home, Layers, LockKeyhole, LogOut, Moon, Mouse, RefreshCw, RotateCw, Send, Smartphone, Sun, Volume1, Volume2, VolumeX} from 'lucide-react';
+import {Bell, Camera, Check, ChevronRight, CircleHelp, Clipboard, Download, ExternalLink, Home, Layers, LockKeyhole, LogOut, Moon, Mouse, RefreshCw, RotateCw, Send, SlidersHorizontal, Smartphone, Sun, Volume1, Volume2, VolumeX} from 'lucide-react';
 import {Toggle} from './Controls.jsx';
 
 const themes = [['claro', 'Claro'], ['oscuro', 'Oscuro'], ['lavanda', 'Lavanda'], ['oceano', 'Océano']];
@@ -8,7 +8,8 @@ export function InspectorContent({
   tab, state, connected, live, bridge, native,
   videoMode, videoQuality, setVideoQuality, forceSoftware, setForceSoftware,
   mediaPaused, mediaPauseReason, mediaBusy, toggleMediaPause, iosStyle, changeIosStyle,
-  loadingApps, loadDeviceApps, appSwitcher, setDisplayMode, wakePhone, rotatePhone, rotating,
+  accessibility = {}, accessibilityBusy = false, toggleAccessibility,
+  loadingApps, loadDeviceApps, appSwitcher, controlCenterSwipe, notificationsSwipe, setDisplayMode, wakePhone, rotatePhone, rotating,
   button, capture, audioEnabled, audioStatus, volume, setVolume, toggleAudio, phoneAudioButton,
   platformLabel, clipboardBusy, shareClipboard, text, setText, sendText,
   setTheme, sensitivity, setSensitivity, pointer, updatePointer, exportDiagnostics,
@@ -16,7 +17,7 @@ export function InspectorContent({
   return (
     <div className="inspector-content" key={tab}>
       {tab === 'phone' && <>
-        <section className="settings-group"><h2>Dispositivo</h2><div className="settings-box"><div className="info-row"><span>Nombre</span><strong>{state.device?.name || 'iPhone'}</strong></div><div className="info-row"><span>Conexión</span><strong>{connected ? 'USB' : 'No conectado'}</strong></div>{state.device?.version && <div className="info-row"><span>Versión</span><strong>iOS {state.device.version}</strong></div>}<button className="row-button" disabled={!connected} onClick={appSwitcher}><Layers size={15}/>Abrir selector de apps (Multitarea)<ChevronRight size={14}/></button><button className="row-button" disabled={!connected || loadingApps} onClick={loadDeviceApps}><Smartphone size={15}/>{loadingApps ? 'Cargando aplicaciones…' : 'Ver aplicaciones instaladas'}<ChevronRight size={14}/></button><button className="row-button" onClick={() => native('retry')}><RefreshCw size={15}/>Reconectar<ChevronRight size={14}/></button></div></section>
+        <section className="settings-group"><h2>Dispositivo</h2><div className="settings-box"><div className="info-row"><span>Nombre</span><strong>{state.device?.name || 'iPhone'}</strong></div><div className="info-row"><span>Conexión</span><strong>{connected ? 'USB' : 'No conectado'}</strong></div>{state.device?.version && <div className="info-row"><span>Versión</span><strong>iOS {state.device.version}</strong></div>}<button className="row-button" disabled={!connected} onClick={appSwitcher}><Layers size={15}/>Abrir selector de apps (Multitarea)<ChevronRight size={14}/></button><button className="row-button" disabled={!connected} onClick={controlCenterSwipe}><SlidersHorizontal size={15}/>Abrir Centro de Control<ChevronRight size={14}/></button><button className="row-button" disabled={!connected} onClick={notificationsSwipe}><Bell size={15}/>Abrir Centro de Notificaciones<ChevronRight size={14}/></button><button className="row-button" disabled={!connected || loadingApps} onClick={loadDeviceApps}><Smartphone size={15}/>{loadingApps ? 'Cargando aplicaciones…' : 'Ver aplicaciones instaladas'}<ChevronRight size={14}/></button><button className="row-button" onClick={() => native('retry')}><RefreshCw size={15}/>Reconectar<ChevronRight size={14}/></button></div></section>
         <section className="settings-group"><h2>Video</h2>
           <div className="settings-box">
             <Toggle label="Forzar video compatible" detail={videoMode === 'software' ? 'Decodificación compatible activa' : videoMode === 'native' ? 'Decodificación automática activa' : 'Detección al conectar'} value={forceSoftware} onClick={() => setForceSoftware(value => !value)}/>
@@ -28,6 +29,32 @@ export function InspectorContent({
           </div>
           <p className="group-description">{{economy: 'Hasta 960 px y 20 FPS.', balanced: 'Hasta 1568 px y 30 FPS.', detail: 'Hasta 2160 px y 30 FPS.'}[videoQuality]} Mantiene la imagen completa. Se aplica al video compatible; el modo automático conserva HEVC cuando el navegador lo admite. Cambiar el perfil reinicia solo el video.</p>
           {videoMode === 'software' && videoQuality === 'detail' && <div className="note" style={{marginTop: 8}}><CircleHelp size={13}/><span>Si notas lentitud o sobrecarga de CPU, prueba el perfil <strong>Equilibrado</strong> o <strong>Ahorro</strong>.</span></div>}
+        </section>
+        <section className="settings-group"><h2>Rendimiento y Accesibilidad en iOS</h2>
+          <div className="settings-box">
+            <Toggle
+              label="Reducir movimiento en iOS"
+              detail="Sustituye animaciones de zoom por fundidos para mantener máxima resolución HEVC"
+              value={Boolean(accessibility.reduce_motion)}
+              disabled={!connected || accessibilityBusy}
+              onClick={() => toggleAccessibility?.('reduce_motion', !accessibility.reduce_motion)}
+            />
+            <Toggle
+              label="Reducir transparencia"
+              detail="Desactiva el desenfoque Liquid Glass en iOS para mayor nitidez y fluidez"
+              value={Boolean(accessibility.reduce_transparency)}
+              disabled={!connected || accessibilityBusy}
+              onClick={() => toggleAccessibility?.('reduce_transparency', !accessibility.reduce_transparency)}
+            />
+            <Toggle
+              label="Aumentar contraste"
+              detail="Mejora la legibilidad de bordes y botones en la pantalla del iPhone"
+              value={Boolean(accessibility.increase_contrast)}
+              disabled={!connected || accessibilityBusy}
+              onClick={() => toggleAccessibility?.('increase_contrast', !accessibility.increase_contrast)}
+            />
+          </div>
+          <p className="group-description">Estos ajustes se aplican directamente en el iPhone mediante CoreDevice. Activar «Reducir movimiento» evita que el codificador de iOS baje la resolución al cambiar de aplicación.</p>
         </section>
         <section className="settings-group"><h2>Cámara y micrófono del iPhone</h2>
           <div className="settings-box">
@@ -85,7 +112,7 @@ export function InspectorContent({
         <div className="note"><Volume2 size={17}/><p>Para escuchar solo en el iPhone, desactiva el audio del PC.</p></div>
       </>}
       {tab === 'clipboard' && <>
-        <section className="settings-group"><h2>Copiar y pegar</h2><div className="settings-box"><div className="info-row"><span>Copiar la selección del iPhone al PC</span><kbd>Ctrl + C</kbd></div><div className="info-row"><span>Pegar del PC en el iPhone</span><kbd>Ctrl + V</kbd></div></div><p className="group-description">Haz clic en la pantalla del iPhone para usar los atajos. En las aplicaciones del PC, copia y pega normalmente. Texto e imágenes compatibles.</p>{clipboardBusy && <p className="group-description" role="status">Preparando el portapapeles… iOS puede tardar con contenido de algunas aplicaciones.</p>}</section>
+        <section className="settings-group"><h2>Copiar, pegar y edición en iOS</h2><div className="settings-box"><div className="info-row"><span>Seleccionar todo en iOS</span><kbd>Ctrl + A</kbd></div><div className="info-row"><span>Copiar la selección del iPhone al PC</span><kbd>Ctrl + C</kbd></div><div className="info-row"><span>Cortar selección en el iPhone</span><kbd>Ctrl + X</kbd></div><div className="info-row"><span>Pegar del PC en el iPhone</span><kbd>Ctrl + V</kbd></div><div className="info-row"><span>Deshacer escritura en iOS</span><kbd>Ctrl + Z</kbd></div></div><p className="group-description">Haz clic en la pantalla del iPhone para usar los atajos. En las aplicaciones del PC, copia y pega normalmente. Texto e imágenes compatibles.</p>{clipboardBusy && <p className="group-description" role="status">Preparando el portapapeles… iOS puede tardar con contenido de algunas aplicaciones.</p>}</section>
         <details className="settings-group"><summary>Transferencia manual y envío de texto</summary>
         <section className="settings-group"><h2>Compartir portapapeles</h2><div className="transfer-stack"><button disabled={!bridge || !connected || clipboardBusy} onClick={() => shareClipboard('toPhone')}><span className="transfer-icon"><Send size={20}/></span><span><strong>PC → iPhone</strong><small>Enviar lo que copiaste en el PC</small></span><ChevronRight size={16}/></button><button disabled={!bridge || !connected || clipboardBusy} onClick={() => shareClipboard('toPC')}><span className="transfer-icon"><Download size={20}/></span><span><strong>iPhone → PC</strong><small>Traer lo que copiaste en el iPhone</small></span><ChevronRight size={16}/></button></div><p className="group-description">{clipboardBusy ? 'Transfiriendo… iOS puede tardar hasta un minuto y medio con contenido de algunas aplicaciones.' : 'Texto e imágenes. Después, pega en la aplicación de destino.'}</p></section>
         <section className="settings-group"><h2>Enviar texto</h2><form className="text-form" onSubmit={sendText}><textarea value={text} onChange={event => setText(event.target.value)} placeholder="Escribe o pega aquí…" aria-label="Texto para enviar al iPhone"/><button className="primary-button" disabled={!connected || !text.trim()}><Send size={15}/>Pegar en el iPhone</button></form><p className="group-description">Selecciona primero un campo de texto en el teléfono.</p></section>
@@ -101,7 +128,7 @@ export function InspectorContent({
         <section className="settings-group"><h2>Actualizaciones</h2><div className="settings-box"><div className="info-row"><span>Versión instalada</span><strong>{state.version || '—'}</strong></div><button className="row-button" disabled={['comprobando','descargando'].includes(state.update?.phase)} onClick={() => native('updatesCheck')}><RefreshCw size={15}/>Buscar actualizaciones<ChevronRight size={14}/></button>{state.update?.phase === 'disponible' && <button className="row-button" onClick={() => native('updatesDownload')}><Download size={15}/>Descargar {state.update.version}<ChevronRight size={14}/></button>}{state.update?.phase === 'lista' && <button className="row-button" onClick={() => native('updatesInstall')}><RefreshCw size={15}/>Reiniciar y actualizar<ChevronRight size={14}/></button>}</div><p className="group-description">{state.update?.message || 'Consulta automáticamente las versiones publicadas en GitHub.'}{state.update?.phase === 'descargando' ? ` ${state.update.progress || 0} %` : ''}</p></section>
         <section className="settings-group"><h2>Conectar el iPhone</h2><ol className="steps"><li><span>1</span><p>Conecta un cable USB de datos.</p></li><li><span>2</span><p>Desbloquea el iPhone y acepta «Confiar».</p></li><li><span>3</span><p>Activa Modo Desarrollador en Ajustes → Privacidad y seguridad.</p></li></ol></section>
         <section className="settings-group"><h2>Controles</h2><div className="settings-box">{[['Tocar','Clic'],['Deslizar','Clic y arrastrar'],['Desplazar','Rueda del ratón'],['Inicio','Clic derecho']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><strong>{b}</strong></div>)}</div></section>
-        <section className="settings-group"><h2>Atajos sobre la pantalla</h2><div className="settings-box">{[['Inicio','Ctrl + H'],['Selector de apps / Multitarea','Ctrl + M'],['Bloquear / Reposo','Ctrl + L'],['Solicitar despertar','Ctrl + U'],['Guardar captura','Ctrl + P']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><kbd>{b}</kbd></div>)}</div></section>
+        <section className="settings-group"><h2>Atajos sobre la pantalla</h2><div className="settings-box">{[['Inicio','Ctrl + H'],['Selector de apps / Multitarea','Ctrl + M'],['Bloquear / Reposo','Ctrl + L'],['Solicitar despertar','Ctrl + U'],['Guardar captura','Ctrl + P'],['Seleccionar / Cortar / Deshacer','Ctrl + A / X / Z']].map(([a,b]) => <div className="info-row" key={a}><span>{a}</span><kbd>{b}</kbd></div>)}</div></section>
         <section className="settings-group"><h2>Diagnóstico</h2><div className="settings-box"><button className="row-button" onClick={exportDiagnostics}><Download size={15}/>Exportar diagnóstico privado<ChevronRight size={14}/></button>{bridge && <button className="row-button" onClick={() => native('logs')}><ExternalLink size={15}/>Abrir registro de conexión<ChevronRight size={14}/></button>}</div><p className="group-description">El informe exportado incluye versiones y disponibilidad USB sin UDID, nombre del teléfono ni contenido del portapapeles.</p></section>
       </>}
     </div>
