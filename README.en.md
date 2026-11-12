@@ -31,7 +31,8 @@
 | **App Switcher & Installed Apps** | Open iOS background multitasking (**App Switcher**) via toolbar button, `Ctrl+M` / `Ctrl+Tab`, or `mirros --app-switcher`, plus a searchable **Installed Applications** viewer (`mirros --list-apps`). |
 | **PC Keyboard & Bidirectional Clipboard** | Type directly on your iPhone from your PC keyboard and copy/paste Unicode text and PNG images in both directions with `Ctrl+C` and `Ctrl+V`. |
 | **Real-Time AAC-ELD Audio** | Streams iPhone audio to your PC using an adaptive `AudioWorklet` jitter buffer (120–240 ms) with independent PC and iPhone volume controls. |
-| **AOD / Standby Mode & Floating Phone** | Detach the iPhone into a borderless, transparent, always-on-top floating window, or switch to **AOD / Standby Mode** (`Ctrl+L` / `Ctrl+U`) so the physical iPhone screen rests while mirroring continues on your PC. |
+| **AOD / Standby Mode & Floating Phone** | Detach the iPhone into a borderless, transparent, always-on-top floating window (default in both CLI and Desktop), or switch to **AOD / Standby Mode** (`Ctrl+L` / `Ctrl+U`) so the physical iPhone screen rests while mirroring continues on your PC. |
+| **Live iOS Performance & Accessibility Toggles** | Toggle *Reduce Motion*, *Reduce Transparency*, and *Increase Contrast* directly from MirrOS via CoreDevice to prevent HEVC encoder resolution drops during animations. |
 | **Standalone Portable Packages** | Self-contained `.exe` (Windows x64) and `.AppImage` (Linux x64) packages with Python and Electron bundled, plus SHA-256 verified updates. |
 
 ---
@@ -126,6 +127,7 @@ To build standalone distributables locally:
 | `--video-quality {economy,balanced,detail}` | Sets the software video profile (`economy`: 20 FPS / 960px, `balanced`: 28 FPS / 1280px, `detail`: 30 FPS / 1568px). |
 | `--app-switcher` | Triggers the iOS App Switcher (background multitasking) on an active session. |
 | `--list-apps` | Lists user-installed applications on the USB-connected iPhone in the terminal. |
+| `--floating` / `--studio` | Opens the compact floating phone view (default) or the full Studio panel (`--studio`). |
 | `--no-userspace` | Uses an external tunnel instead of the built-in userspace tunnel. |
 
 ---
@@ -137,7 +139,9 @@ To build standalone distributables locally:
 | Home Screen | `Ctrl + H` or Right-Click |
 | App Switcher (Multitasking) | `Ctrl + M` or `Ctrl + Tab` |
 | Copy from iPhone to PC | `Ctrl + C` |
+| Cut / Select All / Undo in iOS | `Ctrl + X` / `Ctrl + A` / `Ctrl + Z` |
 | Paste from PC to iPhone | `Ctrl + V` |
+| Toggle Fullscreen | `F11` |
 | Lock iPhone / AOD Standby | `Ctrl + L` |
 | Wake & Unlock Gesture | `Ctrl + U` |
 | Save PNG Screenshot | `Ctrl + P` |
@@ -158,3 +162,9 @@ To build standalone distributables locally:
 - [Changelog](CHANGELOG.md)
 
 MirrOS is released under the [MIT License](LICENSE). Third-party dependencies retain their own licenses; see [NOTICE](desktop/NOTICE.txt).
+
+---
+
+## ⭐ Support & Star History
+
+If **MirrOS** helps you use your iPhone on Linux or Windows, please consider giving the repository a **⭐ Star** on [GitHub](https://github.com/Cristiant2608/mirros) — it helps other Linux and Windows users discover the project!

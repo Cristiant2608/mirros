@@ -25,11 +25,12 @@ con un teléfono se registran por separado en [Compatibilidad](docs/COMPATIBILID
 
 ## Características principales / Key Features
 
-- **Vídeo fluido por USB:** Decodificación HEVC nativa vía WebCodecs y alternativa automática por software (PyAV/MJPEG con perfiles `economy`, `balanced` y `detail`).
-- **Control total (ratón, gestos y teclado):** Toques, arrastres, rueda proporcional, gestos desde los bordes (Notificaciones, Centro de control, Inicio), **Selector de apps en segundo plano (Multitarea)** (`Ctrl+M` / `Ctrl+Tab`), puntero personalizable y escritura directa con el teclado del PC.
-- **Audio en tiempo real:** Reproducción PCM mediante `AudioWorklet` con reserva adaptable y controles de volumen independientes para el PC y el iPhone.
-- **Portapapeles bidireccional:** Copia y pega texto Unicode e imágenes PNG entre el PC y el iPhone con `Ctrl+C` y `Ctrl+V`.
-- **Modo AOD / Reposo y ventana flotante:** Permite dejar descansar la pantalla física del iPhone mientras sigues interactuando desde el PC, con modo de teléfono flotante sin bordes y «Siempre encima».
+- **Vídeo fluido por USB a 60 FPS (sin caídas de resolución RVRA):** Decodificación HEVC nativa vía WebCodecs con compensación automática de escalones RVRA en Linux/VAAPI y alternativa automática por software (PyAV/MJPEG con perfiles `economy`, `balanced` y `detail`).
+- **Control total (ratón, gestos rápidos y teclado):** Toques, arrastres, rueda proporcional, gestos directos para **Centro de Control**, **Centro de Notificaciones** y **Selector de apps (Multitarea)** (`Ctrl+M` / `Ctrl+Tab`), clic derecho para volver a Inicio, puntero personalizable y escritura directa con el teclado del PC (incluyendo `Ctrl+A`, `Ctrl+C`, `Ctrl+X`, `Ctrl+V` y `Ctrl+Z`).
+- **Visor de Cámara en vivo y aislamiento de micrófono:** Al abrir la app Cámara de iOS, MirrOS conmuta automáticamente al visor en directo vía DVT Instruments sin bloqueos por el error CoreDevice 9022.
+- **Ajustes de Rendimiento / Accesibilidad de iOS en vivo:** Conmuta *Reducir movimiento*, *Reducir transparencia* y *Aumentar contraste* directamente desde MirrOS para maximizar la nitidez HEVC.
+- **Audio en tiempo real y telemetría de batería:** Reproducción PCM mediante `AudioWorklet` con reserva adaptable, controles de volumen independientes e indicador de batería y modelo del iPhone en vivo.
+- **Modo AOD / Reposo y vista de Solo Teléfono flotante:** Permite dejar descansar la pantalla física del iPhone mientras sigues interactuando desde el PC, con vista compacta de solo celular tanto en escritorio como al ejecutar `mirros` por consola.
 - **Portátil y autónomo:** Ejecutables portátiles para Windows (`.exe`) y Linux (`.AppImage`) con actualizaciones verificadas por SHA-256.
 
 ## Descargar los portátiles
@@ -134,6 +135,7 @@ genera el EXE portátil en `dist/windows`. Los paquetes publicados se descargan 
 | `--video-quality {economy,balanced,detail}` | Selecciona el perfil de calidad/rendimiento para el video por software (`balanced` por defecto). |
 | `--app-switcher` | Abre el selector de aplicaciones en segundo plano (multitarea) en una sesión activa. |
 | `--list-apps` | Lista en la terminal las aplicaciones de usuario instaladas en el iPhone conectado por USB. |
+| `--floating` / `--studio` | Abre la vista compacta de solo teléfono flotante (por defecto) o el panel completo Studio (`--studio`). |
 | `--no-userspace` | Usa un túnel externo para el dispositivo. |
 
 Sin `--port`, busca un puerto libre desde 8080. El servidor escucha en
@@ -160,3 +162,11 @@ commit validado. No se publica al integrar un PR.
 
 El código de MirrOS usa la licencia [MIT](LICENSE). El backend y las dependencias
 conservan sus propias licencias; véase [NOTICE](desktop/NOTICE.txt).
+
+---
+
+## ⭐ Apoya el alcance del proyecto
+
+Si **MirrOS** te resulta útil para usar tu iPhone en Linux o Windows:
+1. Dale una **⭐ Star** arriba a la derecha en [GitHub](https://github.com/Cristiant2608/mirros) (ayuda enormemente a que otros usuarios de Linux y Windows lo encuentren en GitHub Explore).
+2. Compártelo en comunidades como `r/linux`, `r/opensource`, `r/Windows11` o Hacker News.

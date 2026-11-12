@@ -97,6 +97,18 @@ def main() -> None:
         default=None,
         help="Ejecutable de navegador específico a utilizar (ej. chromium, brave-browser, msedge).",
     )
+    server_group.add_argument(
+        "--studio",
+        action="store_true",
+        default=False,
+        help="Abre el panel completo (Studio) en lugar de la vista compacta de solo teléfono.",
+    )
+    server_group.add_argument(
+        "--floating",
+        action="store_true",
+        default=False,
+        help="Abre únicamente la vista compacta del iPhone con su barra lateral de controles (por defecto).",
+    )
 
     # Diagnóstico e información
     diag_group = parser.add_argument_group("Diagnóstico e información")
@@ -143,6 +155,7 @@ def main() -> None:
         display_mode=args.display_mode,
         force_software=args.force_software,
         video_quality=args.video_quality,
+        ui_mode="studio" if args.studio and not args.floating else "phone",
     )
     sys.exit(exit_code)
 

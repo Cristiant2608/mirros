@@ -1,7 +1,8 @@
 import {post} from './transport.js';
 import {usePhoneInput} from './hooks/usePhoneInput.js';
 import {bridge, native} from './bridge.js';
-import {IconButton, Toggle, Logo, ResizeHandles} from './components/Controls.jsx';
+import {IconButton, Toggle, Logo, ResizeHandles, RecordButton, RecordingBadge} from './components/Controls.jsx';
+import {createRecorder, formatDuration} from './recorder.mjs';
 import {useAudio} from './hooks/useAudio.js';
 import {useConnection} from './hooks/useConnection.js';
 import {usePhoneVideo} from './hooks/usePhoneVideo.js';
@@ -193,6 +194,86 @@ export default function App() {
       clearInterval(interval);
     };
   }, [connected]);
+
+  const {audioEnabled, audioStatus, volume, setVolume, toggleAudio, getAudioStream} = useAudio(connected && !mediaPaused);
+  const recorderRef = useRef(null);
+  const [recording, setRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const recordingLock = useRef(false);
+
+  async function toggleRecording() {
+    if (recordingLock.current) return;
+    recordingLock.current = true;
+    setTimeout(() => { recordingLock.current = false; }, 300);
+
+    if (recorderRef.current) {
+      const active = recorderRef.current;
+      recorderRef.current = null;
+      setRecording(false);
+      try {
+        setNotice('Finalizando grabación…');
+        const {blob, extension} = await active.stop();
+        if (!blob || (blob.size === 0 && (!blob.byteLength || blob.byteLength === 0))) {
+          setNotice('La grabación está vacía.');
+          return;
+        }
+        if (bridge) {
+          const buffer = await blob.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          const saved = await native('saveRecording', {bytes, extension});
+          if (saved) setNotice('Grabación guardada.');
+          else setNotice('Grabación cancelada.');
+        } else {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.download = `Mirros-Grabacion.${extension}`;
+          link.href = url;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          setNotice('Grabación descargada.');
+        }
+      } catch (err) {
+        setNotice('Error al guardar grabación: ' + err.message);
+      } finally {
+        setRecordingDuration(0);
+      }
+    } else {
+      if ((!live && !cameraLive) || !canvas.current) {
+        setNotice('No hay transmisión activa para grabar.');
+        return;
+      }
+      try {
+        const audioStream = getAudioStream?.();
+        const rec = createRecorder({
+          canvas: canvas.current,
+          audioStream,
+          onTick: secs => setRecordingDuration(secs),
+        });
+        recorderRef.current = rec;
+        setRecording(true);
+        setRecordingDuration(0);
+        setNotice('Grabación iniciada (Ctrl+Shift+R para detener).');
+      } catch (err) {
+        setNotice('No se pudo iniciar la grabación: ' + err.message);
+      }
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current) {
+        recorderRef.current.stop().catch(() => {});
+        recorderRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!connected && recorderRef.current) {
+      toggleRecording();
+    }
+  }, [connected]);
+
   useEffect(() => {
     function handleKeyDown(event) {
       if (event.key === 'F11') {
@@ -204,12 +285,14 @@ export default function App() {
         } else {
           document.documentElement.requestFullscreen().catch(() => {});
         }
+      } else if ((event.ctrlKey || event.metaKey) && event.shiftKey && (event.key?.toLowerCase() === 'r' || event.code === 'KeyR')) {
+        event.preventDefault();
+        toggleRecording();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-  const {audioEnabled, audioStatus, volume, setVolume, toggleAudio} = useAudio(connected && !mediaPaused);
   const {dimensions, frames, live, videoStatus, rotation, video, videoMode} = usePhoneVideo(canvas, connected && !mediaPaused, floating, videoQuality, forceSoftware);
   function applyMediaState(paused, reason) {
     const nextReason = paused ? (reason || 'manual') : null;
@@ -376,7 +459,39 @@ export default function App() {
     }
   }
   function toggleControls() { if (bridge) native('controls', !controlsVisible); else setState(value => ({...value, controlsVisible: !controlsVisible})); }
-  useEffect(() => { document.body.classList.toggle('floating', floating); }, [floating]);
+  function switchMode(nextMode) {
+    if (bridge) {
+      native('mode', nextMode);
+    } else {
+      setState(value => ({...value, mode: nextMode}));
+      try {
+        if (nextMode === 'studio') window.resizeTo?.(1120, 800);
+        else window.resizeTo?.(410, 860);
+      } catch {}
+    }
+  }
+  async function disconnectSession() {
+    if (bridge) {
+      native('disconnect');
+      return;
+    }
+    try {
+      await post('/session/end', {});
+    } catch {}
+    setState(value => ({...value, phase: 'pausado', message: 'Sesión terminada'}));
+    try { window.close(); } catch {}
+  }
+  async function closeApp() {
+    if (bridge) {
+      native('close');
+      return;
+    }
+    await disconnectSession();
+  }
+  useEffect(() => {
+    document.body.classList.toggle('floating', floating);
+    document.body.classList.toggle('is-browser', !bridge);
+  }, [floating]);
   useEffect(() => {
     const media = matchMedia('(prefers-color-scheme: dark)');
     const update = () => { document.documentElement.dataset.theme = state.theme === 'sistema' ? (media.matches ? 'oscuro' : 'claro') : state.theme || 'claro'; };
@@ -446,7 +561,7 @@ export default function App() {
       setNotice(err.message);
     }
   }
-  const input = usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError: setNotice, button, capture, setKeyboard, clipboardShortcut: runClipboardShortcut, wake: wakePhone, appSwitcher});
+  const input = usePhoneInput({canvas, connected, sensitivity, rotation, floating, onError: setNotice, button, capture, setKeyboard, clipboardShortcut: runClipboardShortcut, wake: wakePhone, appSwitcher, toggleRecording});
   useEffect(() => { if (!notice) return; const timeout = setTimeout(() => setNotice(''), 4500); return () => clearTimeout(timeout); }, [notice]);
   function button(name) { if (connected) post('/button', {name, state: 'press'}).catch(error => setNotice(error.message)); }
   async function phoneAudioButton(name) {
@@ -500,13 +615,20 @@ export default function App() {
           <span>{battery.capacity}%</span>
         </div>
       )}
+      {recording && (
+        <RecordingBadge
+          duration={recordingDuration}
+          onStop={toggleRecording}
+          className="phone-overlay-recording"
+        />
+      )}
       {!isDisplaying && <div className="phone-placeholder"><div className="placeholder-symbol">{connected && mediaPaused ? <CameraOff size={26}/> : connected && state.displayMode === 'aod' ? <Moon size={26}/> : connected || state.phase === 'preparando' ? <LoaderCircle size={26} className="spin"/> : <Cable size={28}/>}</div><strong>{state.phase === 'pausado' ? 'Sesión terminada' : state.phase === 'error' ? 'Conexión interrumpida' : state.phase === 'preparando' ? 'Preparando iPhone' : connected && mediaPaused ? 'Cargando visor en vivo…' : connected && state.displayMode === 'aod' ? 'iPhone en reposo' : connected ? 'Cargando pantalla' : 'iPhone desconectado'}</strong><span>{state.phase === 'pausado' ? 'Puedes retirar el cable o volver a conectar.' : connected && mediaPaused ? 'Conectando con el visor en vivo para que uses cámara y micrófono desde el computador.' : connected && state.displayMode === 'aod' ? 'Captura en espera durante el reposo. Despierta el iPhone para continuar.' : connected ? videoStatus : state.phase === 'preparando' ? 'Mantén el cable conectado.' : 'Conecta el cable USB y desbloquea el teléfono.'}</span>{['error','pausado'].includes(state.phase) && <button className="small-button" onClick={() => native('retry')}>Reintentar</button>}{connected && mediaPaused && <div className="placeholder-actions"><button className="small-button" disabled={mediaBusy} onClick={() => toggleMediaPause(false, {exitApp: true})}>Salir de Cámara y reanudar</button><button className="small-button" disabled={mediaBusy} onClick={() => toggleMediaPause(false)}>Reanudar pantalla</button></div>}{connected && !mediaPaused && state.displayMode === 'aod' && <button className="small-button" onClick={wakePhone}>Despertar iPhone</button>}<span className="placeholder-line"/></div>}
     </div>
     <div className={`controls-panel ${controlsVisible ? 'expanded' : 'collapsed'}`} style={{height: phoneSize.height + 12}}>
       <button className="controls-tab" aria-label={controlsVisible ? 'Guardar controles' : 'Desplegar controles'} aria-expanded={controlsVisible} title={controlsVisible ? 'Guardar controles' : 'Desplegar controles'} onClick={toggleControls}>{controlsVisible ? <ChevronLeft size={13}/> : <ChevronRight size={13}/>}</button>
       <div className="controls-drawer" inert={!controlsVisible} aria-hidden={!controlsVisible}>
         <div className="phone-controls" role="toolbar" aria-label="Controles del iPhone" aria-orientation="vertical">
-          <IconButton icon={X} label="Salir de Mirros" onClick={() => native('close')} disabled={!bridge}/>
+          <IconButton icon={X} label="Salir de Mirros" onClick={closeApp}/>
           <IconButton icon={ArrowLeft} label="Deslizar a la izquierda" disabled={!connected} onClick={() => input.current?.swipe('left')}/>
           <IconButton icon={ArrowRight} label="Deslizar a la derecha" disabled={!connected} onClick={() => input.current?.swipe('right')}/>
           <IconButton icon={Home} label="Inicio · Ctrl+H" disabled={!connected} onClick={() => button('home')}/>
@@ -515,21 +637,22 @@ export default function App() {
           <IconButton icon={Bell} label="Centro de Notificaciones" disabled={!connected} onClick={notificationsSwipe}/>
           <span className="control-separator"/>
           <IconButton icon={RotateCw} label="Girar vista 90°" disabled={!connected || rotating} onClick={rotatePhone}/>
-          <IconButton icon={Maximize2} label="Usar todo el alto disponible" disabled={!bridge} onClick={() => native('fitHeight')}/>
-          <IconButton icon={floating ? Monitor : ExternalLink} label={floating ? 'Abrir panel' : 'Ventana flotante'} disabled={!bridge} onClick={() => native('mode', floating ? 'studio' : 'phone')}/>
-          <IconButton icon={Pin} label="Siempre encima" active={state.alwaysOnTop} disabled={!bridge} onClick={() => native('pin', !state.alwaysOnTop)}/>
+          {bridge && <IconButton icon={Maximize2} label="Usar todo el alto disponible" onClick={() => native('fitHeight')}/>}
+          <IconButton icon={floating ? Monitor : ExternalLink} label={floating ? 'Abrir panel completo' : 'Vista solo teléfono'} onClick={() => switchMode(floating ? 'studio' : 'phone')}/>
+          {bridge && <IconButton icon={Pin} label="Siempre encima" active={state.alwaysOnTop} onClick={() => native('pin', !state.alwaysOnTop)}/>}
           <span className="control-separator"/>
           <IconButton icon={audioEnabled ? Volume2 : VolumeX} label={audioEnabled ? 'Desactivar audio del PC' : 'Activar audio del PC'} active={audioEnabled} onClick={toggleAudio}/>
           <IconButton icon={VolumeX} label="Alternar silencio del iPhone" disabled={!connected} onClick={() => phoneAudioButton('mute')}/>
           <IconButton icon={Camera} label="Guardar captura · Ctrl+P" disabled={!isDisplaying} onClick={capture}/>
+          <RecordButton recording={recording} disabled={!isDisplaying && !recording} onClick={toggleRecording}/>
           <IconButton icon={mediaPaused ? Play : CameraOff} label={mediaPaused ? 'Reanudar pantalla del iPhone' : 'Liberar cámara y micrófono del iPhone'} active={mediaPaused} disabled={!connected || mediaBusy} onClick={() => toggleMediaPause(!mediaPaused)}/>
           <span className="control-separator"/>
           <IconButton icon={state.displayMode === 'aod' ? Sun : Moon} label={state.displayMode === 'aod' ? 'Modo actual: reposo / AOD (clic para Pantalla Dual)' : 'Modo AOD / Reposo (pantalla física descansa)'} active={state.displayMode === 'aod'} disabled={!connected} onClick={() => setDisplayMode(state.displayMode === 'aod' ? 'dual' : 'aod')}/>
           <IconButton icon={Sun} label="Solicitar despertar iPhone · Ctrl+U" disabled={!connected} onClick={wakePhone}/>
           <IconButton icon={LockKeyhole} label="Bloquear iPhone · Ctrl+L" disabled={!connected} onClick={() => button('lock')}/>
-          <IconButton icon={LogOut} label="Desconectar de forma segura" disabled={!connected} onClick={() => native('disconnect')}/>
-          <IconButton icon={Minus} label="Minimizar" onClick={() => native('minimize')} disabled={!bridge}/>
-          {floating && <span className="control-drag" title="Mover ventana"><GripHorizontal size={16}/></span>}
+          <IconButton icon={LogOut} label="Desconectar de forma segura" disabled={!connected} onClick={disconnectSession}/>
+          {bridge && <IconButton icon={Minus} label="Minimizar" onClick={() => native('minimize')}/>}
+          {floating && bridge && <span className="control-drag" title="Mover ventana"><GripHorizontal size={16}/></span>}
         </div>
       </div>
     </div>
@@ -537,7 +660,7 @@ export default function App() {
   const statusLabel = connected ? 'Conectado' : state.phase === 'preparando' ? 'Preparando' : state.phase === 'pausado' ? 'Sesión terminada' : state.phase === 'error' ? 'Error de conexión' : 'Sin conexión';
   const currentSection = sections.find(([, id]) => id === tab);
   const SectionIcon = currentSection[0];
-  if (floating) return <div className="floating-app" data-audio-status={audioStatus}>{preview}<ResizeHandles/>{notice && <div className="floating-notice" role="status">{notice}</div>}</div>;
+  if (floating) return <div className="floating-app" data-audio-status={audioStatus}>{preview}{bridge && <ResizeHandles/>}{notice && <div className="floating-notice" role="status">{notice}</div>}</div>;
   return <div className="studio">
     <aside className="sidebar">
       <div className="sidebar-brand"><Logo/></div>
@@ -552,7 +675,7 @@ export default function App() {
       </div>
       <div className="sidebar-label">CONTROLES</div>
       <nav aria-label="Secciones">{sections.map(([Icon, id, label]) => <button key={id} className={tab === id ? 'selected' : ''} aria-current={tab === id ? 'page' : undefined} onClick={() => setTab(id)}><Icon size={17}/><span>{label}</span>{tab === id && <span className="nav-dot"/>}</button>)}</nav>
-      <div className="sidebar-bottom"><button className="floating-launch" onClick={() => native('mode', 'phone')} disabled={!bridge}><ExternalLink size={16}/><span>Ventana flotante</span></button><div className="sidebar-app-info"><span>Mirros</span><span>{state.version?.split('.').slice(0,2).join('.') || '—'} · USB</span></div></div>
+      <div className="sidebar-bottom"><button className="floating-launch" onClick={() => switchMode('phone')}><ExternalLink size={16}/><span>Vista solo teléfono</span></button><div className="sidebar-app-info"><span>Mirros</span><span>{state.version?.split('.').slice(0,2).join('.') || '—'} · USB</span></div></div>
     </aside>
     <div className="workspace">
       <header className="toolbar">
@@ -562,6 +685,7 @@ export default function App() {
           <ChevronRight size={14}/>
           <span>{currentSection[2]}</span>
         </div>
+        {recording && <RecordingBadge duration={recordingDuration} onStop={toggleRecording} />}
         {connected && battery && battery.capacity !== null && (
           <div
             className={`battery-pill ${battery.charging ? 'is-charging' : ''} ${battery.capacity <= 20 ? 'is-low' : ''}`}
@@ -573,6 +697,7 @@ export default function App() {
           </div>
         )}
         <div className="window-actions">
+          <RecordButton recording={recording} disabled={!isDisplaying && !recording} onClick={toggleRecording}/>
           <IconButton icon={Maximize2} label="Pantalla completa · F11" onClick={() => { if (bridge) native('fullscreen'); else if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); }} />
           <IconButton icon={Minus} label="Minimizar" onClick={() => native('minimize')}/>
           <IconButton icon={Maximize2} label="Maximizar o restaurar" onClick={() => native('maximize')}/>
@@ -583,7 +708,7 @@ export default function App() {
         <section className="viewer" aria-label="Vista del iPhone"><div className="viewer-heading"><span className={`connection-pill ${connected ? 'connected' : ''}`}><i/>{connected ? 'USB conectado' : statusLabel}</span><span className="stream-info">{live ? <>{videoMode && <span className={`engine-badge ${videoMode}`} title={videoMode === 'software' ? 'Decodificación compatible por software' : 'Decodificación nativa HEVC'}>{videoMode === 'software' ? `Compatible (${{economy: 'Ahorro', balanced: 'Equilibrado', detail: 'Detalle'}[videoQuality] || 'Soft'})` : 'HEVC'}</span>}<FrameRate frames={frames}/> · {dimensions.width} × {dimensions.height}</> : cameraLive ? <><span className="engine-badge detail" title="Visor en directo vía DVT Instruments">Cámara</span> · Directo DVT</> : 'Vista en directo'}</span></div>{preview}<div className="viewer-hints"><span><Mouse size={13}/>Clic y arrastrar</span><span><Scan size={13}/>Rueda para desplazar</span><span><Keyboard size={13}/>{keyboard ? 'Teclado activo' : 'Clic para escribir'}</span></div></section>
         <aside className="inspector" aria-label={currentSection[2]}><div className="inspector-heading"><span className="section-symbol"><SectionIcon size={20}/></span><div><h1>{currentSection[2]}</h1><p>{{phone: 'Dispositivo y ventana', audio: 'Salidas y volumen', clipboard: 'Copiar y enviar contenido', appearance: 'Tema, tamaño y gestos', help: 'Conexión y atajos'}[tab]}</p></div></div>
           <InspectorContent
-            tab={tab} state={state} connected={connected} live={live} bridge={bridge} native={native}
+            tab={tab} state={state} connected={connected} live={live} bridge={bridge} native={native} switchMode={switchMode} disconnectSession={disconnectSession}
             videoMode={videoMode} videoQuality={videoQuality} setVideoQuality={setVideoQuality} forceSoftware={forceSoftware} setForceSoftware={setForceSoftware}
             mediaPaused={mediaPaused} mediaPauseReason={mediaPauseReason} mediaBusy={mediaBusy} toggleMediaPause={toggleMediaPause} iosStyle={iosStyle} changeIosStyle={changeIosStyle}
             accessibility={accessibility} accessibilityBusy={accessibilityBusy} toggleAccessibility={toggleAccessibility}

@@ -1,7 +1,41 @@
 import React, {useEffect, useRef} from 'react';
 import {native} from '../bridge.js';
+import {Video, Square} from 'lucide-react';
+import {formatDuration} from '../recorder.mjs';
 export function IconButton({icon: Icon, label, onClick, active, className = '', disabled = false}) {
   return <button className={`icon-button ${active ? 'active' : ''} ${className}`} title={label} aria-label={label} onClick={onClick} disabled={disabled}><Icon size={17}/></button>;
+}
+export function RecordButton({recording, onClick, disabled = false, className = ''}) {
+  return (
+    <IconButton
+      icon={recording ? Square : Video}
+      label={recording ? 'Detener grabación · Ctrl+Shift+R' : 'Iniciar grabación de pantalla y audio · Ctrl+Shift+R'}
+      active={recording}
+      className={`record-button ${recording ? 'recording-active' : ''} ${className}`}
+      disabled={disabled}
+      onClick={onClick}
+    />
+  );
+}
+export function RecordingBadge({duration = 0, onStop, className = ''}) {
+  return (
+    <div className={`recording-badge ${className}`} title="Grabación en curso (Ctrl+Shift+R para detener)">
+      <span className="recording-pulse" aria-hidden="true" />
+      <span>REC {formatDuration(duration)}</span>
+      {onStop && (
+        <button
+          type="button"
+          className="recording-stop-btn"
+          onClick={onStop}
+          title="Detener grabación"
+          aria-label="Detener grabación"
+        >
+          <Square size={10} fill="currentColor" />
+          <span>Detener</span>
+        </button>
+      )}
+    </div>
+  );
 }
 export function Toggle({label, detail, value, onClick, disabled}) {
   return <button className="setting-row" role="switch" aria-checked={value} aria-label={label} onClick={onClick} disabled={disabled}><span><strong>{label}</strong>{detail && <small>{detail}</small>}</span><span className={`toggle ${value ? 'on' : ''}`}><i/></span></button>;

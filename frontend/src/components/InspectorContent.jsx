@@ -5,7 +5,7 @@ import {Toggle} from './Controls.jsx';
 const themes = [['claro', 'Claro'], ['oscuro', 'Oscuro'], ['lavanda', 'Lavanda'], ['oceano', 'Océano']];
 
 export function InspectorContent({
-  tab, state, connected, live, bridge, native,
+  tab, state, connected, live, bridge, native, switchMode, disconnectSession,
   videoMode, videoQuality, setVideoQuality, forceSoftware, setForceSoftware,
   mediaPaused, mediaPauseReason, mediaBusy, toggleMediaPause, iosStyle, changeIosStyle,
   accessibility = {}, accessibilityBusy = false, toggleAccessibility,
@@ -100,8 +100,8 @@ export function InspectorContent({
               : 'Pantalla Dual: mantiene la pantalla del iPhone encendida simultáneamente con la ventana en tu PC.'}
           </p>
         </section>
-        <section className="settings-group"><h2>Ventana</h2><div className="settings-box"><Toggle label="Siempre encima" detail="Mantener visible sobre otras ventanas" value={state.alwaysOnTop} onClick={() => native('pin', !state.alwaysOnTop)} disabled={!bridge}/><button className="row-button" onClick={() => native('mode', 'phone')} disabled={!bridge}><ExternalLink size={15}/>Abrir teléfono flotante<ChevronRight size={14}/></button></div></section>
-        <section className="settings-group"><h2>Sesión</h2><div className="settings-box"><button className="row-button" disabled={!connected} onClick={() => native('disconnect')}><LogOut size={16}/>Desconectar de forma segura<ChevronRight size={14}/></button></div><p className="group-description">Libera teclado y toques antes de retirar el cable. Cerrar Mirros también termina la sesión.</p></section>
+        <section className="settings-group"><h2>Ventana</h2><div className="settings-box">{bridge && <Toggle label="Siempre encima" detail="Mantener visible sobre otras ventanas" value={state.alwaysOnTop} onClick={() => native('pin', !state.alwaysOnTop)}/>}<button className="row-button" onClick={() => switchMode ? switchMode('phone') : native('mode', 'phone')}><ExternalLink size={15}/>Cambiar a vista solo teléfono<ChevronRight size={14}/></button></div></section>
+        <section className="settings-group"><h2>Sesión</h2><div className="settings-box"><button className="row-button" disabled={!connected} onClick={() => disconnectSession ? disconnectSession() : native('disconnect')}><LogOut size={16}/>Desconectar de forma segura<ChevronRight size={14}/></button></div><p className="group-description">Libera teclado y toques antes de retirar el cable. Cerrar Mirros también termina la sesión.</p></section>
         <section className="settings-group"><h2>Orientación</h2><div className="settings-box"><button className="row-button" disabled={!connected || rotating} onClick={rotatePhone}><RotateCw size={16}/>Girar vista 90°<ChevronRight size={14}/></button></div><p className="group-description">La vista sigue la orientación de iOS. El botón también gira la imagen si la aplicación permanece vertical.</p></section>
         <section className="settings-group"><h2>Acciones</h2><div className="action-grid">{[[Home,'Inicio','home'],[LockKeyhole,'Bloquear','lock'],[Camera,'Captura','capture']].map(([Icon,label,command]) => <button key={command} disabled={command === 'capture' ? !live : !connected} onClick={() => command === 'capture' ? capture() : button(command)}><Icon size={20}/><span>{label}</span></button>)}</div><p className="group-description">Mantén el iPhone despierto para una captura continua. Despertar no sustituye Face ID ni el código de iOS.</p></section>
         <div className="note"><Mouse size={16}/><p>Haz clic para tocar y arrastra para deslizar. El clic derecho vuelve a Inicio.</p></div>

@@ -148,7 +148,8 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                userspace: bool = True, udid: Optional[str] = None,
                browser_bin: Optional[str] = None, diagnose: bool = False,
                display_mode: str = "dual", force_software: bool = False,
-               video_quality: Optional[str] = None) -> int:
+               video_quality: Optional[str] = None,
+               ui_mode: str = "phone") -> int:
     if port is not None and not 1 <= port <= 65535:
         print("[!] El puerto debe estar entre 1 y 65535.")
         return 1
@@ -210,7 +211,7 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
         if port is not None and get_available_port(port) != port:
             print(f"[!] El puerto {port} está ocupado. Elige otro con --port.")
             return 1
-        query_params = []
+        query_params = [f"mode={'studio' if ui_mode == 'studio' else 'phone'}"]
         if force_software:
             query_params.append("software=1")
         if video_quality:
@@ -244,10 +245,11 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                     pass
             if browser:
                 # Perfil propio: Edge no reutiliza una instancia ajena.
+                win_size = "1120,800" if ui_mode == "studio" else "410,860"
                 with tempfile.TemporaryDirectory(prefix="mirros-browser-", ignore_cleanup_errors=True) as profile:
                     browser_command = [
                         browser, f"--app={url}", f"--user-data-dir={profile}",
-                        "--window-size=480,960", "--no-first-run", "--no-default-browser-check",
+                        f"--window-size={win_size}", "--no-first-run", "--no-default-browser-check",
                         "--disable-background-networking", "--log-level=3",
                         *hevc_browser_flags(),
                     ]
