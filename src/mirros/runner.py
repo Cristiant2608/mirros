@@ -1,4 +1,4 @@
-"""Arranque nativo en Windows y Linux y gestión del servidor de pantalla."""
+"""Native launcher for Windows and Linux and iPhone screen server lifecycle."""
 
 import asyncio
 import json
@@ -32,7 +32,7 @@ def hevc_browser_flags() -> list[str]:
 
 def get_available_port(start_port: int = 8080) -> int:
     if not 1 <= start_port <= 65535:
-        raise ValueError("El puerto debe estar entre 1 y 65535.")
+        raise ValueError("Port must be between 1 and 65535.")
     for port in range(start_port, 65536):
         try:
             with socket.socket() as sock:
@@ -40,7 +40,7 @@ def get_available_port(start_port: int = 8080) -> int:
             return port
         except OSError:
             continue
-    raise OSError("No hay puertos locales disponibles.")
+    raise OSError("No local ports available.")
 
 
 def find_browser() -> Optional[str]:
@@ -87,7 +87,7 @@ def wait_for_server(process: subprocess.Popen, port: int, timeout: float = 90) -
 
 
 def prepare_device(udid: str, userspace: bool, log_path: Path) -> bool:
-    """Monta DDI antes de abrir RSD: sin DDI el HTML funciona, pero no el video/HID."""
+    """Mount DDI before opening RSD: without DDI HTML loads, but video/HID will not."""
     _LAST_INSPECTED_DEVICE.clear()
     try:
         from mirros.device import inspect_device
@@ -97,13 +97,13 @@ def prepare_device(udid: str, userspace: bool, log_path: Path) -> bool:
     except Exception:
         info = {}
     if info.get("paired") is False:
-        print("[!] El iPhone no confía aún en este equipo. Desbloquéalo y pulsa 'Confiar'.", flush=True)
+        print("[!] This iPhone does not trust this computer yet. Unlock it and tap 'Trust'.", flush=True)
         return False
     if info.get("developer_mode") is False:
         if info.get("developer_mode_revealed"):
-            print("[!] Modo Desarrollador desactivado. Ya es visible en Ajustes > Privacidad y seguridad > Modo Desarrollador.", flush=True)
+            print("[!] Developer Mode is off. It is now visible in Settings > Privacy & Security > Developer Mode.", flush=True)
         else:
-            print("[!] Modo Desarrollador desactivado. Actívalo en Ajustes > Privacidad y seguridad.", flush=True)
+            print("[!] Developer Mode is off. Enable it in Settings > Privacy & Security.", flush=True)
         return False
     if userspace and info.get("userspace_supported") is False:
         userspace = False
@@ -113,7 +113,7 @@ def prepare_device(udid: str, userspace: bool, log_path: Path) -> bool:
     else:
         command.extend(["--tunnel", udid])
     env = {**os.environ, "PYTHONUTF8": "1", "PYTHONUNBUFFERED": "1", "PYMOBILEDEVICE3_UDID": udid}
-    print("[*] Preparando servicios del iPhone (la primera vez descarga la imagen de desarrollo)...", flush=True)
+    print("[*] Preparing iPhone services (first run downloads the developer disk image)...", flush=True)
     process = None
     try:
         with log_path.open("w", encoding="utf-8") as log:
@@ -121,10 +121,10 @@ def prepare_device(udid: str, userspace: bool, log_path: Path) -> bool:
             try:
                 result = process.wait(timeout=600)
             except subprocess.TimeoutExpired:
-                print("[!] La preparación del iPhone superó 10 minutos.", flush=True)
+                print("[!] iPhone preparation timed out after 10 minutes.", flush=True)
                 return False
         if result != 0:
-            print("[!] No se pudieron habilitar los servicios de pantalla. Revisa Modo Desarrollador y conexión.")
+            print("[!] Could not enable screen services. Check Developer Mode and USB connection.")
             print(log_path.read_text(encoding="utf-8", errors="replace")[-6000:])
             return False
         return True
@@ -135,12 +135,12 @@ def prepare_device(udid: str, userspace: bool, log_path: Path) -> bool:
 def device_instructions() -> None:
     if not check_usbmuxd_socket():
         if os.name == "nt":
-            print("[!] Falta Apple Mobile Device Service o está detenido.")
-            print("    Instala iTunes de Apple o Dispositivos Apple y comprueba el servicio USB.")
+            print("[!] Apple Mobile Device Service is missing or stopped.")
+            print("    Install Apple Devices or iTunes and verify the USB service.")
         else:
-            print("[!] Inicia usbmuxd (en Arch: sudo systemctl enable --now usbmuxd).")
-    print("    Conecta el iPhone por USB, desbloquéalo y pulsa 'Confiar'.")
-    print("    Activa Modo Desarrollador en Ajustes > Privacidad y seguridad.")
+            print("[!] Start usbmuxd (on Arch Linux: sudo systemctl enable --now usbmuxd).")
+    print("    Connect your iPhone via USB, unlock it, and tap 'Trust'.")
+    print("    Enable Developer Mode in Settings > Privacy & Security.")
 
 
 @shutdown_signals
@@ -149,42 +149,43 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                browser_bin: Optional[str] = None, diagnose: bool = False,
                display_mode: str = "dual", force_software: bool = False,
                video_quality: Optional[str] = None,
-               ui_mode: str = "phone") -> int:
+               ui_mode: str = "phone",
+               lang: Optional[str] = None) -> int:
     if port is not None and not 1 <= port <= 65535:
-        print("[!] El puerto debe estar entre 1 y 65535.")
+        print("[!] Port must be between 1 and 65535.")
         return 1
     browser = browser_bin or find_browser()
     if diagnose:
         from importlib.metadata import version
         print(f"Python: {sys.version.split()[0]} ({sys.platform})")
         print(f"pymobiledevice3: {version('pymobiledevice3')}")
-        print(f"Navegador: {'disponible' if browser and shutil.which(browser) else 'no encontrado'}")
-        print(f"Servicio USB: {'disponible' if check_usbmuxd_socket() else 'no disponible'}")
+        print(f"Browser: {'available' if browser and shutil.which(browser) else 'not found'}")
+        print(f"USB Service: {'available' if check_usbmuxd_socket() else 'unavailable'}")
         try:
             import av
             print(f"PyAV: {av.__version__}")
         except Exception:
-            print("PyAV: no disponible")
+            print("PyAV: unavailable")
         try:
             devices = list_connected_devices()
-            print(f"Dispositivos USB: {len(devices)}")
+            print(f"USB Devices: {len(devices)}")
         except Exception as error:
-            print(f"Detección USB: no disponible ({type(error).__name__})")
+            print(f"USB Detection: unavailable ({type(error).__name__})")
             return 1
         return 0
 
     if browser_bin:
         browser = shutil.which(browser_bin)
         if not browser:
-            print(f"[!] Navegador no encontrado: {browser_bin}")
+            print(f"[!] Browser not found: {browser_bin}")
             return 1
     server = None
     target_port = None
     log_path = Path(tempfile.mkdtemp(prefix="mirros-")) / "backend.log"
     try:
-        print("[*] Buscando iPhone por USB...", flush=True)
+        print("[*] Looking for iPhone over USB...", flush=True)
         device_instructions()
-        print("[*] Esperando dispositivo (Ctrl+C para cancelar)...", flush=True)
+        print("[*] Waiting for device (Ctrl+C to cancel)...", flush=True)
         last_error = None
         while True:
             try:
@@ -203,35 +204,38 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                 target = devices[0]
                 break
             if not udid and len(devices) > 1:
-                print("[!] Hay varios dispositivos. Usa --udid con uno de: " + ", ".join(devices))
+                print("[!] Multiple devices found. Use --udid with one of: " + ", ".join(devices))
                 return 1
             time.sleep(1.5)
 
         target_port = port if port is not None else get_available_port()
         if port is not None and get_available_port(port) != port:
-            print(f"[!] El puerto {port} está ocupado. Elige otro con --port.")
+            print(f"[!] Port {port} is already in use. Choose another with --port.")
             return 1
         query_params = [f"mode={'studio' if ui_mode == 'studio' else 'phone'}"]
         if force_software:
             query_params.append("software=1")
         if video_quality:
             query_params.append(f"quality={video_quality}")
+        resolved_lang = lang or os.environ.get("MIRROS_LANG")
+        if resolved_lang in ("en", "es"):
+            query_params.append(f"lang={resolved_lang}")
         query_str = f"?{'&'.join(query_params)}" if query_params else ""
         url = f"http://127.0.0.1:{target_port}/{query_str}"
-        print(f"[+] iPhone detectado: {target}", flush=True)
+        print(f"[+] iPhone detected: {target}", flush=True)
         preparation_log = log_path.with_name(log_path.stem + "-prepare.log")
         if not prepare_device(target, userspace, preparation_log):
             return 1
         if userspace and _LAST_INSPECTED_DEVICE.get("udid") == target and _LAST_INSPECTED_DEVICE.get("userspace_supported") is False:
             userspace = False
-        print(f"[*] Iniciando pantalla en {url} (registro: {log_path})", flush=True)
+        print(f"[*] Starting screen at {url} (log: {log_path})", flush=True)
         with log_path.open("w", encoding="utf-8") as log:
             env = {**os.environ, "PYTHONUTF8": "1", "PYTHONUNBUFFERED": "1",
                    "PYMOBILEDEVICE3_UDID": target}
             server = start_process(build_server_command(target_port, no_audio, userspace, target),
                                       stdout=log, stderr=subprocess.STDOUT, env=env)
             if not wait_for_server(server, target_port):
-                print("[!] El servidor no pudo iniciar. Revisa confianza, Modo Desarrollador y versión de iOS.")
+                print("[!] Server could not start. Check device trust, Developer Mode, and iOS version.")
                 print(log_path.read_text(encoding="utf-8", errors="replace")[-6000:])
                 return 1
             if display_mode == "aod":
@@ -244,7 +248,7 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                 except Exception:
                     pass
             if browser:
-                # Perfil propio: Edge no reutiliza una instancia ajena.
+                # Dedicated profile: prevents Edge from reusing an existing window.
                 win_size = "1120,800" if ui_mode == "studio" else "410,860"
                 with tempfile.TemporaryDirectory(prefix="mirros-browser-", ignore_cleanup_errors=True) as profile:
                     browser_command = [
@@ -260,13 +264,13 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
                         return monitor(server, browser_process, log_path)
                     finally:
                         stop_process(browser_process)
-            print(f"[+] Abre {url} en Edge o Chrome.", flush=True)
+            print(f"[+] Open {url} in Edge or Chrome.", flush=True)
             return monitor(server, None, log_path)
     except TerminationRequested as error:
-        print("\n[*] Cerrando MirrOS por señal.")
+        print("\n[*] Stopping MirrOS on signal.")
         return 128 + error.signum
     except KeyboardInterrupt:
-        print("\n[*] Cerrando MirrOS.")
+        print("\n[*] Stopping MirrOS.")
         return 0
     except (OSError, RuntimeError) as error:
         print(f"[!] {error}")
@@ -276,11 +280,11 @@ def run_mirros(port: Optional[int] = None, no_audio: bool = True,
 
 
 def monitor(server: subprocess.Popen, browser: Optional[subprocess.Popen], log_path: Path) -> int:
-    print("[+] MirrOS activo. Cierra la ventana o pulsa Ctrl+C para detener.", flush=True)
+    print("[+] MirrOS active. Close the window or press Ctrl+C to stop.", flush=True)
     while server.poll() is None:
         if browser is not None and browser.poll() is not None:
             return 0
         time.sleep(0.5)
-    print("[!] El servidor se detuvo.")
+    print("[!] Server stopped.")
     print(log_path.read_text(encoding="utf-8", errors="replace")[-6000:])
     return server.returncode or 1

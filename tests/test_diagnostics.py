@@ -72,7 +72,7 @@ class LegacyDiagnosticTests(unittest.TestCase):
     def test_legacy_diagnose_reports_count_without_serial_or_browser_path(self):
         code, text = self.run_diagnostic(return_value=['private-serial'])
         self.assertEqual(code, 0)
-        self.assertIn('Dispositivos USB: 1', text)
+        self.assertIn('USB Devices: 1', text)
         self.assertNotIn('private-serial', text)
         self.assertNotIn('private-user', text)
 

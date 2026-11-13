@@ -12,6 +12,6 @@ test('canceling capture does not write a file; invalid input is rejected before 
   let dialogs=0,writes=0;
   const deps={dialog:{showSaveDialog:async()=>{dialogs++;return{canceled:true};}},writeFile:async()=>writes++};
   assert.equal(await saveCapture(deps,png),false); assert.equal(writes,0);
-  for(const input of ['data:image/png;base64,AAAA',new Uint8Array(5),new Uint8Array(64*1024*1024+1)]) await assert.rejects(saveCapture(deps,input),/Captura no válida/);
+  for(const input of ['data:image/png;base64,AAAA',new Uint8Array(5),new Uint8Array(64*1024*1024+1)]) await assert.rejects(saveCapture(deps,input),/Invalid screenshot/i);
   assert.equal(dialogs,1);
 });

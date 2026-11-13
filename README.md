@@ -128,6 +128,7 @@ To build standalone distributables locally:
 | `--app-switcher` | Triggers the iOS App Switcher (background multitasking) on an active session. |
 | `--list-apps` | Lists user-installed applications on the USB-connected iPhone in the terminal. |
 | `--floating` / `--studio` | Opens the compact floating phone view (default) or the full Studio panel (`--studio`). |
+| `--lang {en,es}` | Sets initial UI language (`en` English default, or `es` Spanish). |
 | `--no-userspace` | Uses an external tunnel instead of the built-in userspace tunnel. |
 
 ---
@@ -167,11 +168,11 @@ MirrOS starts in **English (`EN`)** by default. Click the **`🇺🇸 EN` / `�
 ## Documentation & Project Links
 
 - [🇪🇸 Documentación principal en Español (README.es.md)](README.es.md)
-- [Usage Guide](docs/USO.md)
-- [Architecture & Process Model](docs/ARQUITECTURA.md)
-- [Compatibility Matrix & Physical Validation Checklist](docs/COMPATIBILIDAD.md)
-- [Performance & Optimization Notes](docs/OPTIMIZACION.md)
-- [Release & Update Verification Workflow](docs/ACTUALIZACIONES.md)
+- [Usage Guide](docs/USAGE.md) ([Español](docs/USO.md))
+- [Architecture Overview](docs/ARCHITECTURE.md) ([Español](docs/ARQUITECTURA.md))
+- [Compatibility & Troubleshooting](docs/COMPATIBILITY.md) ([Español](docs/COMPATIBILIDAD.md))
+- [Releases & Update Security](docs/RELEASES.md) ([Español](docs/ACTUALIZACIONES.md))
+- [Performance & Linux Hardware Decode Notes](docs/OPTIMIZACION.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)

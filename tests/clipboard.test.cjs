@@ -36,7 +36,7 @@ test('a rejected clipboard write is never reported as successful', async () => {
 test('disconnected transfer never reads the clipboard', async () => {
   const {deps, calls} = fixture(); deps.backendPort = null;
   deps.clipboard.read = async () => assert.fail('clipboard must not be read');
-  await assert.rejects(shareClipboard(deps, 'toPhone'), /Conecta/); assert.equal(calls.length, 0);
+  await assert.rejects(shareClipboard(deps, 'toPhone'), /Connect/); assert.equal(calls.length, 0);
 });
 test('failed device read preserves host clipboard and includes HTTP status', async () => {
   const {deps, writes} = fixture(); deps.fetch = async () => ({ok:false, status:503});
@@ -50,7 +50,7 @@ test('PNG ClipboardItem is sent through the image endpoint', async () => {
 });
 test('empty or excessive text is rejected before HTTP', async () => {
   const {deps, calls} = fixture(); deps.clipboard.read = async () => [];
-  await assert.rejects(shareClipboard(deps, 'toPhone'), /Copia/);
+  await assert.rejects(shareClipboard(deps, 'toPhone'), /Copy/);
   deps.clipboard.readText = async () => 'a'.repeat(1024 * 1024 + 1);
   await assert.rejects(shareClipboard(deps, 'toPhone'), /1 MB/); assert.equal(calls.length, 0);
 });
@@ -97,7 +97,7 @@ test('copy waits for a changed device clipboard before replacing the PC clipboar
 test('an empty device clipboard preserves the PC clipboard', async () => {
   const {deps, writes} = fixture();
   deps.fetch = async url => ({ok:true, json:async () => ({revision:'unchanged'})});
-  await assert.rejects(clipboardShortcut(deps, 'copy', {pause:async () => {}}), /Copia un texto/);
+  await assert.rejects(clipboardShortcut(deps, 'copy', {pause:async () => {}}), /Copy text or an image on your iPhone first/i);
   assert.equal(writes.length, 0);
 });
 
@@ -122,6 +122,6 @@ test('a failed shortcut press still attempts to release all device keys', async 
     const usages = JSON.parse(options.body).usages; keys.push(usages);
     return {ok:usages.length === 0};
   };
-  await assert.rejects(clipboardShortcut(deps, 'paste', {pause:async () => {}}), /atajo/);
+  await assert.rejects(clipboardShortcut(deps, 'paste', {pause:async () => {}}), /shortcut/i);
   assert.deepEqual(keys, [[227], []]);
 });

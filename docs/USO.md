@@ -1,17 +1,19 @@
-# Guía de uso — Mirros 1.2.0
+# Guía de uso — MirrOS 1.3.0
+
+[English Version (USAGE.md)](USAGE.md)
 
 ## Instalar y conectar
 
-En Windows, descarga `Mirros-1.2.0-Windows.exe` de [Releases](https://github.com/Cristiant2608/mirros/releases). Necesita el servicio USB de Apple, incluido en Dispositivos Apple o iTunes. El EXE incluye Python y Electron.
+En Windows, descarga `MirrOS-1.3.0-Windows.exe` de [Releases](https://github.com/Cristiant2608/mirros/releases). Necesita el servicio USB de Apple, incluido en Dispositivos Apple o iTunes. El EXE incluye Python y Electron.
 
-En Linux, descarga `Mirros-1.2.0-Linux-x64.AppImage`, dale permiso de ejecución y ábrelo:
+En Linux, descarga `MirrOS-1.3.0-Linux-x64.AppImage`, dale permiso de ejecución y ábrelo:
 
 ```bash
-chmod +x Mirros-1.2.0-Linux-x64.AppImage
-./Mirros-1.2.0-Linux-x64.AppImage
+chmod +x MirrOS-1.3.0-Linux-x64.AppImage
+./MirrOS-1.3.0-Linux-x64.AppImage
 ```
 
-Instala `usbmuxd` mediante el gestor de paquetes y comprueba que pueda detectar el iPhone. En Ubuntu: `sudo apt install usbmuxd`; en Arch: `sudo pacman -S usbmuxd`. Para AppImage puede hacer falta FUSE 2 (`libfuse2` en Ubuntu 22.04 o `libfuse2t64` en 24.04). Si FUSE no está disponible, prueba `APPIMAGE_EXTRACT_AND_RUN=1 ./Mirros-1.1.7-Linux-x64.AppImage`.
+Instala `usbmuxd` mediante el gestor de paquetes y comprueba que pueda detectar el iPhone. En Ubuntu: `sudo apt install usbmuxd`; en Arch: `sudo pacman -S usbmuxd`. Para AppImage puede hacer falta FUSE 2 (`libfuse2` en Ubuntu 22.04 o `libfuse2t64` en 24.04). Si FUSE no está disponible, prueba `APPIMAGE_EXTRACT_AND_RUN=1 ./MirrOS-1.3.0-Linux-x64.AppImage`.
 
 Guarda el ejecutable en una carpeta donde tu usuario tenga permiso de escritura para poder actualizarlo.
 
