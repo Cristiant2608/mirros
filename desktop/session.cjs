@@ -28,13 +28,13 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
       const child = spawnWorker(args);
       workers.add(child); child.once('exit', () => workers.delete(child));
       let output = '';
-      const deadline = setTimeout(() => { stopWorker(child).catch(error => writeLog(String(error))); reject(new Error('Tiempo de espera agotado')); }, timeout);
+      const deadline = setTimeout(() => { stopWorker(child).catch(error => writeLog(String(error))); reject(new Error('Request timed out')); }, timeout);
       child.stdout.on('data', data => { output += data; });
       child.on('error', error => { clearTimeout(deadline); reject(error); });
       child.on('exit', code => {
         clearTimeout(deadline);
-        if (code !== 0) return reject(new Error('No se pudo consultar el iPhone'));
-        try { resolve(JSON.parse(output.trim())); } catch { reject(new Error('Respuesta USB no válida')); }
+        if (code !== 0) return reject(new Error('Could not query the iPhone'));
+        try { resolve(JSON.parse(output.trim())); } catch { reject(new Error('Invalid USB response')); }
       });
     });
   }
@@ -43,30 +43,30 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
   }
   async function connectDevice(device) {
     if (device?.paired === false) {
-      publish({phase: 'buscando', device, message: 'Desbloquea tu iPhone y pulsa «Confiar» para autorizar este equipo.'});
+      publish({phase: 'buscando', device, message: 'Unlock your iPhone and tap "Trust" to authorize this computer.'});
       return;
     }
     if (device?.developer_mode === false) {
-      const suffix = device.developer_mode_revealed ? ' (opción ya visible en tu iPhone).' : '.';
-      publish({phase: 'buscando', device, message: 'Activa Modo Desarrollador en Ajustes > Privacidad y seguridad' + suffix});
+      const suffix = device.developer_mode_revealed ? ' (option is now visible on your iPhone).' : '.';
+      publish({phase: 'buscando', device, message: 'Enable Developer Mode in Settings > Privacy & Security' + suffix});
       return;
     }
     const tunnelArgs = device?.userspace_supported === false ? ['--tunnel', device.udid] : ['--userspace'];
     connecting = true;
     const token = ++generation;
-    publish({phase: 'preparando', message: 'Preparando tu iPhone. La primera conexión puede tardar unos minutos.', device});
+    publish({phase: 'preparando', message: 'Preparing your iPhone. The first connection may take a few minutes.', device});
     try {
       preparing = spawnWorker(['prepare', ...tunnelArgs], device.udid);
       preparing.stdout.on('data', data => writeLog(data));
       const child = preparing;
       const code = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => { stopWorker(child).catch(error => writeLog(String(error))); reject(new Error('La preparación tardó demasiado. Revisa la conexión y vuelve a intentarlo.')); }, 600000);
+        const timeout = setTimeout(() => { stopWorker(child).catch(error => writeLog(String(error))); reject(new Error('Preparation took too long. Check the USB cable and try again.')); }, 600000);
         child.once('exit', code => { clearTimeout(timeout); resolve(code); });
         child.once('error', error => { clearTimeout(timeout); reject(error); });
       });
       if (preparing === child) preparing = null;
       if (quitting || token !== generation) return;
-      if (code !== 0) throw new Error('No se pudo preparar el iPhone. Desbloquéalo, acepta «Confiar» y verifica el Modo Desarrollador.');
+      if (code !== 0) throw new Error('Could not prepare iPhone. Unlock it, tap "Trust", and verify Developer Mode.');
       const port = await freePort();
       if (quitting || token !== generation) return;
       backendPort = port;
@@ -76,15 +76,15 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
       server.stdout.on('data', data => { serverOutput += data; writeLog(data); });
       server.stderr.on('data', data => { serverOutput += data; });
       server.once('exit', () => {
-        if (backend === server) { backend = null; backendPort = null; if (!quitting) publish({phase: 'buscando', message: 'La conexión se interrumpió. Esperando tu iPhone…'}); }
+        if (backend === server) { backend = null; backendPort = null; if (!quitting) publish({phase: 'buscando', message: 'Connection interrupted. Waiting for your iPhone…'}); }
       });
       const deadline = Date.now() + 90000;
       while (Date.now() < deadline && token === generation && !quitting) {
         if (server.exitCode !== null) {
           if (/camera or microphone is in use|9022/i.test(serverOutput)) {
-            throw new Error('La cámara o el micrófono del iPhone están en uso. Cierra Cámara o Notas de Voz en el iPhone y pulsa Reintentar.');
+            throw new Error('iPhone camera or microphone is in use. Close Camera or Voice Memos and click Retry.');
           }
-          throw new Error('No se pudo iniciar la pantalla del iPhone.');
+          throw new Error('Could not start iPhone screen stream.');
         }
         try {
           const response = await fetchRequest(`http://127.0.0.1:${backendPort}/codec`, {signal: AbortSignal.timeout(8000)});
@@ -96,19 +96,19 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
                 try {
                   await deviceRequest(fetchRequest, backendPort, '/display-mode', {mode:'aod'});
                 } catch {
-                  displayWarning = ' No se pudo aplicar el reposo solicitado.';
-                  writeLog('No se pudo aplicar el modo de reposo al conectar.\n');
+                  displayWarning = ' Could not enable AOD standby mode.';
+                  writeLog('Failed to apply AOD standby mode on connect.\n');
                 }
               }
               if (token !== generation || quitting) return;
-              publish({phase: 'conectado', message: 'iPhone conectado por USB.' + displayWarning});
+              publish({phase: 'conectado', message: 'iPhone connected via USB.' + displayWarning});
               return;
             }
           }
         } catch {}
         await new Promise(resolve => setTimeout(resolve, 500));
       }
-      throw new Error('Todavía no llega video. Mantén el iPhone desbloqueado y cierra Cámara antes de reintentar.');
+      throw new Error('No video stream arrived yet. Keep the iPhone unlocked and close Camera before retrying.');
     } catch (error) {
       if (token === generation && !quitting) { await stopBackend(); backend = null; backendPort = null; publish({phase: 'error', message: error.message}); }
     } finally { if (token === generation) connecting = false; }
@@ -136,34 +136,34 @@ function createSession({workerArgs, publish, getState, writeLog, fetchRequest = 
         if (!device || result.usb_error || !healthy) {
           const reset = ++generation;
           connecting = true;
-          publish({phase:'buscando', message:'La sesión USB se interrumpió. Reconectando…'});
+          publish({phase:'buscando', message:'USB session interrupted. Reconnecting…'});
           try { await stopBackend(); }
           finally { if (reset === generation) connecting = false; }
           if (quitting || reset !== generation) return;
           if (device && !result.usb_error) await connectDevice(device);
-          else publish({phase:'buscando', device:null, message:'Conecta el iPhone por USB y desbloquéalo.'});
+          else publish({phase:'buscando', device:null, message:'Connect your iPhone via USB and unlock it.'});
         }
       } else if (result.usb_error) {
-        publish({phase:'buscando', message:process.platform === 'win32' ? 'Revisa el servicio USB de Apple en Dispositivos Apple o iTunes.' : 'No responde usbmuxd. Comprueba el servicio USB.'});
+        publish({phase:'buscando', message:process.platform === 'win32' ? 'Check Apple Mobile Device Service via Apple Devices or iTunes.' : 'usbmuxd is not responding. Check the USB service.'});
       } else if (result.devices.length === 1) await connectDevice(result.devices[0]);
-      else if (result.devices.length > 1) publish({phase: 'seleccion', devices: result.devices, message: 'Elige el iPhone que quieres usar.'});
-      else publish({phase: 'buscando', device: null, message: result.usb_error ? 'No responde el servicio USB de Apple. Abre Dispositivos Apple o iTunes y vuelve a intentar.' : 'Conecta tu iPhone por USB y desbloquéalo.'});
-    } catch { if (!quitting && token === generation) publish({phase: 'buscando', message: 'Buscando tu iPhone por USB…'}); }
+      else if (result.devices.length > 1) publish({phase: 'seleccion', devices: result.devices, message: 'Select the iPhone you want to use.'});
+      else publish({phase: 'buscando', device: null, message: result.usb_error ? 'Apple USB service is not responding. Open Apple Devices or iTunes and retry.' : 'Connect your iPhone via USB and unlock it.'});
+    } catch { if (!quitting && token === generation) publish({phase: 'buscando', message: 'Searching for your iPhone via USB…'}); }
     finally { scanning = false; }
   }
 
   async function disconnect() {
     paused = true; ++generation; connecting = true;
-    publish({phase:'cerrando', message:'Liberando teclado y terminando la sesión…'});
+    publish({phase:'cerrando', message:'Releasing keyboard and ending session…'});
     try { await stopWorker(preparing); preparing = null; await stopBackend(); }
     finally { connecting = false; }
-    publish({phase:'pausado', message:'Sesión terminada. Ya puedes retirar el cable; pulsa Reconectar para volver.'});
+    publish({phase:'pausado', message:'Session ended. You may unplug the cable or click Retry to reconnect.'});
   }
   async function retry() {
     await disconnect();
     if (quitting) return;
     paused = false;
-    publish({phase:'buscando', message:'Volviendo a conectar…'});
+    publish({phase:'buscando', message:'Reconnecting…'});
     await scan();
   }
   async function select(udid) {

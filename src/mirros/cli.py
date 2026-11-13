@@ -1,4 +1,4 @@
-"""Interfaz de línea de comandos para MirrOS."""
+"""Command-line interface for MirrOS."""
 
 import argparse
 import sys
@@ -10,60 +10,60 @@ from mirros.runner import run_mirros
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="mirros",
-        description="Visualiza y controla tu iPhone desde Windows o Linux con MirrOS.",
+        description="Mirror and control your iPhone over USB from Windows or Linux with MirrOS.",
     )
 
-    # Dispositivo y conexión
-    device_group = parser.add_argument_group("Dispositivo y conexión")
+    # Device & connection
+    device_group = parser.add_argument_group("Device and connection")
     device_group.add_argument(
         "-u",
         "--udid",
         type=str,
         default=None,
-        help="UDID específico del iPhone si hay más de uno conectado.",
+        help="Target iPhone UDID when multiple devices are connected.",
     )
     device_group.add_argument(
         "--no-userspace",
         action="store_true",
-        help="No usar el túnel en espacio de usuario (requiere privilegios de root/túnel de kernel).",
+        help="Disable userspace tunnel (requires root privileges / kernel tunnel).",
     )
     device_group.add_argument(
         "--display-mode",
         choices=["dual", "aod"],
         default="dual",
-        help="Modo de pantalla física: 'dual' (evitar reposo) o 'aod' (solicitar reposo experimental; la captura puede detenerse).",
+        help="Physical display mode: 'dual' (prevent sleep) or 'aod' (experimental standby; capture may pause).",
     )
     device_group.add_argument(
         "--list-apps",
         action="store_true",
-        help="Lista las aplicaciones de usuario instaladas en el iPhone y termina.",
+        help="List user-installed iPhone applications and exit.",
     )
     device_group.add_argument(
         "--app-switcher",
         action="store_true",
-        help="Envía la señal/gesto para abrir el selector de aplicaciones (multitarea) en MirrOS.",
+        help="Trigger the iOS App Switcher (multitasking) on an active MirrOS session.",
     )
     device_group.add_argument(
         "--launch-app",
         type=str,
         default=None,
         metavar="BUNDLE_ID",
-        help="Abre una aplicación de usuario por su identificador (ej. com.apple.Preferences) en la sesión activa.",
+        help="Open a user application by bundle identifier (e.g. com.apple.Preferences) in the active session.",
     )
 
-    # Transmisión y video
-    video_group = parser.add_argument_group("Transmisión y video")
+    # Streaming & video
+    video_group = parser.add_argument_group("Streaming and video")
     video_group.add_argument(
         "--force-software",
         action="store_true",
         default=False,
-        help="Fuerza la decodificación de video compatible por software (recomendado en Linux sin aceleración de hardware HEVC).",
+        help="Force software video decoding fallback (recommended on Linux without HEVC hardware decode).",
     )
     video_group.add_argument(
         "--video-quality",
         choices=["economy", "balanced", "detail"],
         default=None,
-        help="Perfil de calidad para el modo compatible por software: economy (960p, 20 FPS), balanced (1568p, 30 FPS, por defecto), detail (2160p, 30 FPS).",
+        help="Software fallback quality profile: economy (960p, 20 FPS), balanced (1568p, 30 FPS, default), detail (2160p, 30 FPS).",
     )
 
     # Audio
@@ -72,57 +72,63 @@ def main() -> None:
         "--audio",
         action="store_true",
         default=False,
-        help="Habilita la transmisión de audio (desactivada por defecto).",
+        help="Enable PCM audio streaming (disabled by default).",
     )
     audio_group.add_argument(
         "--no-audio",
         dest="audio",
         action="store_false",
-        help="Desactiva el audio (por defecto).",
+        help="Disable audio streaming (default).",
     )
 
-    # Interfaz y servidor
-    server_group = parser.add_argument_group("Interfaz y servidor")
+    # UI & server
+    server_group = parser.add_argument_group("Interface and server")
     server_group.add_argument(
         "-p",
         "--port",
         type=int,
         default=None,
-        help="Puerto TCP para el servidor local (por defecto: 8080 o el primer puerto libre).",
+        help="TCP port for the local server (default: 8080 or next available port).",
     )
     server_group.add_argument(
         "-b",
         "--browser",
         type=str,
         default=None,
-        help="Ejecutable de navegador específico a utilizar (ej. chromium, brave-browser, msedge).",
+        help="Specific browser binary to launch (e.g. chromium, brave-browser, msedge).",
     )
     server_group.add_argument(
         "--studio",
         action="store_true",
         default=False,
-        help="Abre el panel completo (Studio) en lugar de la vista compacta de solo teléfono.",
+        help="Open the full Studio panel instead of the compact phone-only floating view.",
     )
     server_group.add_argument(
         "--floating",
         action="store_true",
         default=False,
-        help="Abre únicamente la vista compacta del iPhone con su barra lateral de controles (por defecto).",
+        help="Open only the compact floating phone view with its docked controls rail (default).",
+    )
+    server_group.add_argument(
+        "--lang",
+        choices=["en", "es"],
+        default=None,
+        help="UI language override: 'en' (English, default) or 'es' (Spanish).",
     )
 
-    # Diagnóstico e información
-    diag_group = parser.add_argument_group("Diagnóstico e información")
+    # Diagnostics & info
+    diag_group = parser.add_argument_group("Diagnostics and information")
     diag_group.add_argument(
         "-v",
         "--version",
         action="version",
         version=f"mirros {__version__}",
-        help="Muestra la versión de MirrOS y termina.",
+        help="Show MirrOS version and exit.",
     )
     diag_group.add_argument(
         "--diagnose",
         action="store_true",
-        help="Comprueba Python, navegador y USB sin iniciar la transmisión.",
+        help="Check Python, browser, and USB availability without starting a stream.",
     )
 
     args = parser.parse_args()
@@ -143,7 +149,7 @@ def main() -> None:
         return
 
     if args.port is not None and not 1 <= args.port <= 65535:
-        parser.error("El puerto debe estar entre 1 y 65535.")
+        parser.error("Port must be between 1 and 65535.")
 
     exit_code = run_mirros(
         port=args.port,
@@ -156,6 +162,7 @@ def main() -> None:
         force_software=args.force_software,
         video_quality=args.video_quality,
         ui_mode="studio" if args.studio and not args.floating else "phone",
+        lang=args.lang,
     )
     sys.exit(exit_code)
 

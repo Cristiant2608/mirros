@@ -1,0 +1,21 @@
+{
+  "name": "MirrOS — iPhone Mirroring & USB Control for Windows and Linux",
+  "short_name": "MirrOS",
+  "description": "Open-source iPhone screen mirroring, audio streaming, screen recording, and USB HID control for Windows and Linux.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b1120",
+  "theme_color": "#0b1120",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "favicon.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ]
+}

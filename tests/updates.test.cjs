@@ -28,7 +28,7 @@ test('download verifies complete bytes and removes corrupt files',async()=>{
   try {
     const response=async()=>({ok:true,body:(async function*(){yield bytes.subarray(0,5);yield bytes.subarray(5);})()});
     const file=await downloadUpdate({...asset,hash},directory,{fetchRequest:response});assert.deepEqual(await fs.readFile(file),bytes);
-    await assert.rejects(downloadUpdate({...asset,hash:'0'.repeat(64)},directory,{fetchRequest:response}),/verificación/);
+    await assert.rejects(downloadUpdate({...asset,hash:'0'.repeat(64)},directory,{fetchRequest:response}),/checksum verification failed/i);
     await assert.rejects(fs.access(file));
   }finally{await fs.rm(directory,{recursive:true,force:true});}
 });

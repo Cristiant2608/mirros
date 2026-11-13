@@ -25,7 +25,7 @@ app.commandLine.appendSwitch('disable-background-timer-throttling');
 if (process.env.MIRROS_DEBUG_PORT) app.commandLine.appendSwitch('remote-debugging-port', process.env.MIRROS_DEBUG_PORT);
 if (process.env.MIRROS_TEST_PROFILE) app.setPath('userData', process.env.MIRROS_TEST_PROFILE);
 if (!app.requestSingleInstanceLock()) { app.quit(); }
-else { app.whenReady().then(start).catch(error => { exitCode = 1; dialog.showErrorBox('No se pudo abrir Mirros', error.message); app.quit(); }); }
+else { app.whenReady().then(start).catch(error => { exitCode = 1; dialog.showErrorBox('Could not open MirrOS', error.message); app.quit(); }); }
 
 let window, proxyServer, guiPort, logStream, timer, session;
 let quitting = false, switching = false;
@@ -35,12 +35,12 @@ let resizing = null, updateAsset = null, updateBusy = false, installUpdate = nul
 const version = app.getVersion();
 async function checkForUpdates() {
   if (updateBusy) return; updateBusy = true;
-  publish({update:{phase:'comprobando',message:'Comprobando GitHub…'}});
+  publish({update:{phase:'comprobando',message:'Checking GitHub…'}});
   try { const result = await updates.checkUpdates({version}); updateAsset = result.asset || null; const {asset, ...status} = result; publish({update:status}); }
   catch(error) { publish({update:{phase:'error',message:error.message}}); }
   finally { updateBusy = false; }
 }
-let state = {phase: 'buscando', message: 'Conecta tu iPhone por USB', device: null, version:app.getVersion(), update:{phase:'inactivo',message:'Actualizaciones desde GitHub'}, ...preferences};
+let state = {phase: 'buscando', message: 'Connect your iPhone via USB', device: null, version:app.getVersion(), update:{phase:'inactivo',message:'Updates from GitHub'}, ...preferences};
 let aspectRatio = 1264 / 2752;
 const root = path.resolve(__dirname, '..');
 const routes = new Set(['/codec', '/stream.bin', '/frames.bin', '/audio.bin', '/battery', '/info', '/touch', '/key', '/button', '/rotate', '/orientation', '/restart', '/pli', '/clipboard', '/display-mode', '/media-state', '/style', '/accessibility', '/accessibility/set', '/accessibility/reset', '/wake', '/app-switcher', '/apps', '/apps/launch', '/diagnostics', '/camera-frame', '/camera-shutter']);
@@ -111,7 +111,7 @@ async function start() {
     publish, getState: () => state, writeLog: data => logStream.write(data),
   });
   const webRoot = app.isPackaged ? path.join(process.resourcesPath, 'web') : path.join(root, 'src', 'mirros', 'web');
-  if (!fs.existsSync(path.join(webRoot, 'index.html'))) throw new Error('Falta la interfaz. Ejecuta pnpm run build antes de abrir Mirros.');
+  if (!fs.existsSync(path.join(webRoot, 'index.html'))) throw new Error('UI build is missing. Run pnpm run build before opening MirrOS.');
   proxyServer = http.createServer((req, res) => {
     let pathname;
     try { pathname = new URL(req.url, 'http://localhost').pathname; }
@@ -126,7 +126,7 @@ async function start() {
     }
     if (!routes.has(pathname)) { res.writeHead(404); res.end(); return; }
     const backendPort = session.port;
-    if (!backendPort) { res.writeHead(503); res.end('Esperando iPhone'); return; }
+    if (!backendPort) { res.writeHead(503); res.end('Waiting for iPhone'); return; }
     const headers = {...req.headers, host: `127.0.0.1:${backendPort}`}; delete headers.origin;
     const proxy = http.request({hostname: '127.0.0.1', port: backendPort, path: req.url, method: req.method, headers}, upstream => { res.writeHead(upstream.statusCode, upstream.headers); upstream.pipe(res); });
     proxy.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
@@ -139,7 +139,7 @@ async function start() {
   ipcMain.handle('mirros:action', async (event, name, value) => {
     if (event.sender !== window?.webContents) {
       if ((switching && BrowserWindow.fromWebContents(event.sender)) || quitting || !window) return null;
-      throw new Error('Ventana no autorizada');
+      throw new Error('Unauthorized window');
     }
     switch (name) {
       case 'updatesCheck': await checkForUpdates(); return;
@@ -147,18 +147,18 @@ async function start() {
         if (updateBusy || !updateAsset) return; updateBusy = true;
         try {
           const directory = path.join(app.getPath('userData'), 'updates');
-          publish({update:{phase:'descargando',message:'Descargando actualización…',progress:0}});
-          const file = await updates.downloadUpdate(updateAsset, directory, {onProgress:progress=>publish({update:{phase:'descargando',message:'Descargando actualización…',progress}})});
+          publish({update:{phase:'descargando',message:'Downloading update…',progress:0}});
+          const file = await updates.downloadUpdate(updateAsset, directory, {onProgress:progress=>publish({update:{phase:'descargando',message:'Downloading update…',progress}})});
           const target = updates.portableTarget(process.platform);
-          if (!target) throw new Error('Abre el EXE portátil o el AppImage para instalar la actualización.');
+          if (!target) throw new Error('Open the portable EXE or AppImage to install the update.');
           const install = await updates.prepareInstaller({target,download:file,directory,hash:updateAsset.hash});
           installUpdate = install;
-          publish({update:{phase:'lista',message:'Descarga verificada. Lista para instalar al reiniciar.'}});
+          publish({update:{phase:'lista',message:'Download verified. Ready to install on restart.'}});
         } catch(error) { publish({update:{phase:'error',message:error.message}}); }
         finally { updateBusy = false; }
         return;
       }
-      case 'updatesInstall': if (installUpdate) { try { await installUpdate(); app.quit(); } catch(error) { publish({update:{phase:'error',message:'No se pudo iniciar la instalación: '+error.message}}); } } return;
+      case 'updatesInstall': if (installUpdate) { try { await installUpdate(); app.quit(); } catch(error) { publish({update:{phase:'error',message:'Could not start installation: '+error.message}}); } } return;
       case 'pin': preferences.alwaysOnTop = value === true; window.setAlwaysOnTop(preferences.alwaysOnTop, 'floating'); break;
       case 'theme': if (['claro', 'oscuro', 'lavanda', 'oceano', 'sistema'].includes(value)) preferences.theme = value; break;
       case 'mode': preferences.mode = value === 'phone' ? 'phone' : 'studio'; createWindow(); break;
@@ -236,7 +236,7 @@ async function start() {
           savePreferences();
           publish();
         }
-        return 'Despertando iPhone…';
+        return 'Waking iPhone…';
       }
       case 'disconnect': await session.disconnect(); return;
       case 'retry': await session.retry(); return;
@@ -245,13 +245,13 @@ async function start() {
       case 'diagnostics': {
         const report = await session.diagnostics();
         const {canceled, filePath} = await dialog.showSaveDialog(window, {
-          title: 'Exportar diagnóstico', defaultPath: 'diagnostico-mirros.json', filters: [{name: 'JSON', extensions: ['json']}],
+          title: 'Export diagnostics', defaultPath: 'mirros-diagnostics.json', filters: [{name: 'JSON', extensions: ['json']}],
         });
         if (canceled || !filePath) return null;
         fs.writeFileSync(filePath, JSON.stringify(report, null, 2) + '\n', {encoding: 'utf8', mode: 0o600});
-        return 'Diagnóstico exportado.';
+        return 'Diagnostics exported.';
       }
-      default: throw new Error('Acción no válida');
+      default: throw new Error('Invalid action');
     }
     savePreferences(); publish();
   });

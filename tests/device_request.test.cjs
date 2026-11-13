@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 const {deviceRequest} = require('../desktop/device-request.cjs');
 test('display actions reject HTTP failures and backend errors instead of reporting success', async()=>{
   await assert.rejects(deviceRequest(async()=>({ok:false,status:503}),1234,'/wake'), /HTTP 503/);
-  await assert.rejects(deviceRequest(async()=>({ok:true,json:async()=>({status:'error'})}),1234,'/wake'), /no pudo/);
-  await assert.rejects(deviceRequest(()=>assert.fail('No request without a device'),null,'/wake'), /Conecta/);
+  await assert.rejects(deviceRequest(async()=>({ok:true,json:async()=>({status:'error'})}),1234,'/wake'), /could not/i);
+  await assert.rejects(deviceRequest(()=>assert.fail('No request without a device'),null,'/wake'), /Connect/);
 });
 test('display actions send explicit JSON and a bounded request signal', async()=>{
   const result=await deviceRequest(async(url, options)=>{

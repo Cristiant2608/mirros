@@ -175,8 +175,8 @@ test('diagnostics worker returns allowlisted JSON without altering session state
 
 test('unpaired or developer-mode-disabled phones report actionable instructions without spawning prepare', async () => {
   for (const [device, expectedText] of [
-    [{udid: 'unpaired', paired: false}, 'Confiar'],
-    [{udid: 'no-dev', paired: true, developer_mode: false, developer_mode_revealed: true}, 'Modo Desarrollador'],
+    [{udid: 'unpaired', paired: false}, 'Trust'],
+    [{udid: 'no-dev', paired: true, developer_mode: false, developer_mode_revealed: true}, 'Developer Mode'],
   ]) {
     let state = {phase: 'buscando'};
     const spawned = [];
@@ -283,7 +283,7 @@ test('serve exiting with CoreDevice 9022 reports camera or microphone in use', a
   try {
     await session.scan();
     assert.equal(state.phase, 'error');
-    assert.match(state.message, /cámara o el micrófono/i);
+    assert.match(state.message, /camera or microphone/i);
   } finally {
     await session.close();
   }

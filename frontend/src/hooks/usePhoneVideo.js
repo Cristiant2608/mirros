@@ -4,7 +4,7 @@ import {followOrientation} from '../orientation.js';
 import {native} from '../bridge.js';
 export function usePhoneVideo(canvas, connected, floating, quality = 'balanced', forceSoftware = false) {
   const [videoMode, setVideoMode] = useState(null);
-  const [dimensions, setDimensions] = useState({width: 1264, height: 2752}), [live, setLive] = useState(false), [videoStatus, setVideoStatus] = useState('Conectando…'), [rotation, setRotation] = useState(0);
+  const [dimensions, setDimensions] = useState({width: 1264, height: 2752}), [live, setLive] = useState(false), [videoStatus, setVideoStatus] = useState('Connecting…'), [rotation, setRotation] = useState(0);
   const video = useRef(null), frames = useRef(0), lastFrameAt = useRef(0);
   useEffect(() => {
     if (!connected || !canvas.current) { setLive(false); return; }
@@ -15,8 +15,8 @@ export function usePhoneVideo(canvas, connected, floating, quality = 'balanced',
       onDimensions: value => { setDimensions(value); native('dimensions', value); }, onRotation: setRotation, onMode: setVideoMode, quality, forceSoftware});
     video.current = stop;
     const unfollow = followOrientation(value => stop.setOrientation(value));
-    const interval = setInterval(() => { if (lastFrameAt.current && performance.now() - lastFrameAt.current > 4000) { setVideoStatus('Pantalla en reposo · Control activo'); } }, 1000);
+    const interval = setInterval(() => { if (lastFrameAt.current && performance.now() - lastFrameAt.current > 4000) { setVideoStatus('Screen in standby · Control active'); } }, 1000);
     return () => { unfollow(); stop(); video.current = null; clearInterval(interval); };
-  }, [connected, quality, forceSoftware]);
+  }, [connected, floating, quality, forceSoftware]);
   return {dimensions, frames, live, videoStatus, rotation, video, videoMode};
 }

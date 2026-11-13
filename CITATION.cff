@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+title: "MirrOS"
+message: "If you use MirrOS in demos, QA automation, tutorials, or research workflows, please cite it using these details."
+type: software
+authors:
+  - alias: "Cristiant2608"
+repository-code: "https://github.com/Cristiant2608/mirros"
+url: "https://cristiant2608.github.io/mirros/"
+license: MIT
+version: 1.3.0
+keywords:
+  - iphone-mirroring
+  - ios
+  - scrcpy
+  - ios-scrcpy
+  - screen-mirroring
+  - screen-recording
+  - usb-hid
+  - pymobiledevice3
+  - windows
+  - linux

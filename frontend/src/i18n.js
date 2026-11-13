@@ -11,31 +11,88 @@ export function getInitialLang() {
   return 'en';
 }
 
-const BACKEND_MESSAGE_MAP_EN = {
-  'Conectado': 'Connected',
-  'Conectando…': 'Connecting…',
-  'Esperando conexión': 'Waiting for connection',
-  'Audio desactivado': 'Audio muted',
-  'Audio activo': 'Audio active',
-  'Sesión terminada': 'Session ended',
-  'Pantalla en reposo · Control activo': 'Screen in standby · Control active',
-  'Conecta el cable USB y desbloquea el teléfono.': 'Connect the USB cable and unlock your iPhone.',
-  'Desbloquea el iPhone y pulsa «Confiar» en la pantalla del teléfono.': 'Unlock your iPhone and tap "Trust" on the phone screen.',
-  'Activa Modo Desarrollador en el iPhone (Ajustes → Privacidad y seguridad → Modo Desarrollador).': 'Enable Developer Mode on your iPhone (Settings → Privacy & Security → Developer Mode).',
-  'Consulta automáticamente las versiones publicadas en GitHub.': 'Automatically checks for releases published on GitHub.',
-  'Captura guardada.': 'Screenshot saved.',
-  'Diagnóstico exportado.': 'Diagnostics exported.',
-};
+const BACKEND_MESSAGE_PAIRS = [
+  ['Conectado', 'Connected'],
+  ['Conectando…', 'Connecting…'],
+  ['Conectando', 'Connecting'],
+  ['Esperando conexión', 'Waiting for connection'],
+  ['Esperando iPhone', 'Waiting for iPhone'],
+  ['Conecta tu iPhone por USB', 'Connect your iPhone via USB'],
+  ['Audio desactivado', 'Audio muted'],
+  ['Audio activo', 'Audio active'],
+  ['Sesión terminada', 'Session ended'],
+  ['Pantalla en reposo · Control activo', 'Screen in standby · Control active'],
+  ['Conecta el cable USB y desbloquea el teléfono.', 'Connect the USB cable and unlock your iPhone.'],
+  ['Desbloquea el iPhone y pulsa «Confiar» en la pantalla del teléfono.', 'Unlock your iPhone and tap "Trust" on the phone screen.'],
+  ['Desbloquea el iPhone y pulsa «Confiar».', 'Unlock your iPhone and tap "Trust".'],
+  ['Activa Modo Desarrollador en el iPhone (Ajustes → Privacidad y seguridad → Modo Desarrollador).', 'Enable Developer Mode on your iPhone (Settings → Privacy & Security → Developer Mode).'],
+  ['Activa Modo Desarrollador en Ajustes → Privacidad y seguridad.', 'Enable Developer Mode in Settings → Privacy & Security.'],
+  ['Buscando tu iPhone…', 'Searching for your iPhone…'],
+  ['El iPhone no respondió. Prueba de nuevo.', 'The iPhone did not respond. Please try again.'],
+  ['Preparando pantalla e imagen de desarrollo…', 'Preparing screen and developer disk image…'],
+  ['Abriendo túnel USB…', 'Opening USB tunnel…'],
+  ['Abriendo pantalla del iPhone…', 'Opening iPhone screen…'],
+  ['Actualizaciones desde GitHub', 'Updates from GitHub'],
+  ['Actualización', 'Update'],
+  ['Consulta automáticamente las versiones publicadas en GitHub.', 'Automatically checks for releases published on GitHub.'],
+  ['Comprobando GitHub…', 'Checking GitHub…'],
+  ['Todavía no hay una versión publicada en GitHub.', 'No published release was found on GitHub yet.'],
+  ['GitHub no responde ahora mismo.', 'GitHub is not responding right now.'],
+  ['Descargando actualización…', 'Downloading update…'],
+  ['Descarga verificada. Lista para instalar al reiniciar.', 'Download verified. Ready to install on restart.'],
+  ['La verificación de la descarga falló. No se instalará.', 'Download checksum verification failed. Update will not be installed.'],
+  ['Abre el EXE portátil o el AppImage para instalar la actualización.', 'Open the portable EXE or AppImage directly to install updates.'],
+  ['Captura guardada.', 'Screenshot saved.'],
+  ['Diagnóstico exportado.', 'Diagnostics exported.'],
+  ['Despertando iPhone…', 'Waking iPhone…'],
+  ['Pegado en el iPhone.', 'Pasted on iPhone.'],
+  ['La pantalla se detuvo inesperadamente.', 'The screen stopped unexpectedly.'],
+  ['Conecta tu iPhone primero.', 'Connect your iPhone first.'],
+];
+
+const BACKEND_ES_TO_EN = Object.fromEntries(BACKEND_MESSAGE_PAIRS);
+const BACKEND_EN_TO_ES = Object.fromEntries(BACKEND_MESSAGE_PAIRS.map(([es, en]) => [en, es]));
+
+function translateDynamicPattern(text, lang) {
+  if (lang === 'en') {
+    if (text.includes('Confiar')) return 'Unlock your iPhone and tap "Trust" on the phone screen.';
+    if (text.includes('Modo Desarrollador')) return 'Enable Developer Mode on your iPhone (Settings → Privacy & Security → Developer Mode).';
+    if (text.includes('cámara o el micrófono')) return 'Camera or microphone is in use on the iPhone. Live viewfinder active.';
+    if (text.startsWith('Copiado del iPhone')) return 'Copied from iPhone to PC clipboard.';
+    if (text.startsWith('Pegado en el iPhone') || text.startsWith('Enviado al portapapeles del iPhone') || text.startsWith('Copiado al iPhone')) {
+      return 'Sent to iPhone clipboard.';
+    }
+    const upToDateEs = /^Tienes la versión (.+)\.$/.exec(text);
+    if (upToDateEs) return `You are on version ${upToDateEs[1]}.`;
+    const availableEs = /^Mirr?os (.+) disponible\.$/i.exec(text);
+    if (availableEs) return `MirrOS ${availableEs[1]} is available.`;
+    return text;
+  }
+
+  if (lang === 'es') {
+    if (text.includes('"Trust"') || text.includes('Trust on the phone')) return 'Desbloquea el iPhone y pulsa «Confiar» en la pantalla del teléfono.';
+    if (text.includes('Developer Mode')) return 'Activa Modo Desarrollador en el iPhone (Ajustes → Privacidad y seguridad → Modo Desarrollador).';
+    if (text.includes('camera or microphone')) return 'La cámara o el micrófono están en uso en el iPhone. Visor en vivo activo.';
+    if (text.startsWith('Copied to PC')) return 'Copiado del iPhone al portapapeles del PC.';
+    if (text.startsWith('Copied to iPhone')) return 'Enviado al portapapeles del iPhone.';
+    const upToDateEn = /^You are on version (.+)\.$/.exec(text);
+    if (upToDateEn) return `Tienes la versión ${upToDateEn[1]}.`;
+    const availableEn = /^Mirr?OS (.+) is available\.$/i.exec(text);
+    if (availableEn) return `MirrOS ${availableEn[1]} está disponible.`;
+    const installErr = /^Could not start installation: (.+)$/.exec(text);
+    if (installErr) return `No se pudo iniciar la instalación: ${installErr[1]}`;
+    return text;
+  }
+
+  return text;
+}
 
 export function translateBackendText(text, lang = 'en') {
-  if (!text || typeof text !== 'string' || lang === 'es') return text;
-  if (BACKEND_MESSAGE_MAP_EN[text]) return BACKEND_MESSAGE_MAP_EN[text];
-  if (text.includes('Confiar')) return 'Unlock your iPhone and tap "Trust" on the phone screen.';
-  if (text.includes('Modo Desarrollador')) return 'Enable Developer Mode on your iPhone (Settings → Privacy & Security → Developer Mode).';
-  if (text.includes('cámara o el micrófono')) return 'Camera or microphone is in use on the iPhone. Live viewfinder active.';
-  if (text.startsWith('Copiado del iPhone')) return 'Copied from iPhone to PC clipboard.';
-  if (text.startsWith('Pegado en el iPhone') || text.startsWith('Enviado al portapapeles del iPhone')) return 'Sent to iPhone clipboard.';
-  return text;
+  if (!text || typeof text !== 'string') return text;
+  if (lang === 'es') {
+    return BACKEND_EN_TO_ES[text] || translateDynamicPattern(text, 'es');
+  }
+  return BACKEND_ES_TO_EN[text] || translateDynamicPattern(text, 'en');
 }
 
 export const STRINGS = {

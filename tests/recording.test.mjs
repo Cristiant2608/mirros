@@ -208,8 +208,8 @@ test('saveRecording rejects invalid payloads before opening dialog', async () =>
   };
 
   for (const invalid of [null, undefined, {}, {bytes: null}, {bytes: 'not-bytes'}, {bytes: new Uint8Array(0)}, {bytes: []}]) {
-    await assert.rejects(saveRecording(deps, invalid), /Grabación no válida/);
-    await assert.rejects(saveRecordingFromCapture(deps, invalid), /Grabación no válida/);
+    await assert.rejects(saveRecording(deps, invalid), /Invalid recording/i);
+    await assert.rejects(saveRecordingFromCapture(deps, invalid), /Invalid recording/i);
   }
 
   assert.equal(dialogCount, 0, 'Save dialog must never be opened for invalid data');
@@ -263,7 +263,7 @@ test('saveRecording successfully saves WebM and MP4 recordings with appropriate 
   const webmBytes = new Uint8Array([10, 20, 30, 40]);
   const resWebm = await saveRecording(deps, {bytes: webmBytes, extension: 'webm'});
   assert.equal(resWebm, true);
-  assert.equal(dialogOptionsSeen[0].defaultPath, 'Mirros-Grabacion.webm');
+  assert.equal(dialogOptionsSeen[0].defaultPath, 'MirrOS-Recording.webm');
   assert.equal(dialogOptionsSeen[0].filters[0].extensions[0], 'webm');
   assert.deepEqual(savedFiles[0].bytes, Buffer.from(webmBytes));
 
@@ -271,7 +271,7 @@ test('saveRecording successfully saves WebM and MP4 recordings with appropriate 
   const mp4Bytes = new Uint8Array([50, 60, 70, 80]);
   const resMp4 = await saveRecording(deps, {bytes: mp4Bytes, extension: 'mp4'});
   assert.equal(resMp4, true);
-  assert.equal(dialogOptionsSeen[1].defaultPath, 'Mirros-Grabacion.mp4');
+  assert.equal(dialogOptionsSeen[1].defaultPath, 'MirrOS-Recording.mp4');
   assert.equal(dialogOptionsSeen[1].filters[0].extensions[0], 'mp4');
   assert.deepEqual(savedFiles[1].bytes, Buffer.from(mp4Bytes));
 });

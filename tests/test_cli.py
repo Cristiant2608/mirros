@@ -116,7 +116,7 @@ class RunnerUrlTests(unittest.TestCase):
              patch("mirros.runner.start_process", side_effect=fake_start_process), \
              patch("mirros.runner.stop_server"), \
              patch("builtins.print") as mock_print:
-            code = run_mirros(port=8080, force_software=True, video_quality="economy")
+            code = run_mirros(port=8080, force_software=True, video_quality="economy", lang="es")
             self.assertEqual(code, 1)
             # Find the print statement containing url
             print_calls = [c.args[0] for c in mock_print.call_args_list if c.args]
@@ -125,6 +125,16 @@ class RunnerUrlTests(unittest.TestCase):
             self.assertIn("mode=phone", url_line)
             self.assertIn("software=1", url_line)
             self.assertIn("quality=economy", url_line)
+            self.assertIn("lang=es", url_line)
+
+    def test_cli_passes_lang_flag_to_runner(self):
+        with patch.object(sys, "argv", ["mirros", "--lang", "es"]), \
+             patch("mirros.cli.run_mirros", return_value=0) as mock_runner, \
+             patch("sys.exit") as mock_exit:
+            main()
+            mock_runner.assert_called_once()
+            self.assertEqual(mock_runner.call_args.kwargs["lang"], "es")
+            mock_exit.assert_called_once_with(0)
 
 
 if __name__ == "__main__":

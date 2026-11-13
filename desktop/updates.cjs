@@ -29,28 +29,28 @@ function releaseAsset(release, platform, arch = process.arch) {
 }
 async function checkUpdates({version, platform = process.platform, arch = process.arch, fetchRequest = fetch}) {
   const response = await fetchRequest(`${api}/releases/latest`, {headers, signal:AbortSignal.timeout(15000)});
-  if (response.status === 404) return {phase:'sin-publicacion',message:'Todavía no hay una versión publicada para descargar.'};
-  if (!response.ok) throw new Error(response.status === 403 ? 'GitHub limitó temporalmente las consultas. Inténtalo más tarde.' : 'No se pudieron consultar las actualizaciones.');
+  if (response.status === 404) return {phase:'sin-publicacion',message:'No published release is available for download yet.'};
+  if (!response.ok) throw new Error(response.status === 403 ? 'GitHub temporarily rate-limited update checks. Try again later.' : 'Could not check for updates.');
   const release = await response.json();
-  if (!newer(release.tag_name, version)) return {phase:'actualizado',message:`Tienes la versión ${version}.`,version};
+  if (!newer(release.tag_name, version)) return {phase:'actualizado',message:`You are on version ${version}.`,version};
   const asset = releaseAsset(release, platform, arch);
-  if (!asset) return {phase:'pendiente',message:'Hay una versión nueva, pero falta un paquete verificable para este sistema.',version:release.tag_name};
-  return {phase:'disponible',message:`Disponible Mirros ${asset.version}.`,version:asset.version,asset,notes:typeof release.body === 'string' ? release.body.slice(0,12000) : ''};
+  if (!asset) return {phase:'pendiente',message:'A newer version exists, but no verifiable package was found for this OS.',version:release.tag_name};
+  return {phase:'disponible',message:`MirrOS ${asset.version} is available.`,version:asset.version,asset,notes:typeof release.body === 'string' ? release.body.slice(0,12000) : ''};
 }
 async function downloadUpdate(asset, directory, {fetchRequest = fetch, onProgress = () => {}} = {}) {
   await fs.mkdir(directory,{recursive:true});
   const file = path.join(directory,'mirros-update.download');
   const response = await fetchRequest(asset.browser_download_url,{headers,signal:AbortSignal.timeout(30*60*1000)});
-  if (!response.ok || !response.body) throw new Error('No se pudo descargar la actualización.');
+  if (!response.ok || !response.body) throw new Error('Could not download the update.');
   const digest = createHash('sha256');let size = 0, lastProgress = -1;
   const handle = await fs.open(file,'w');
   try {
     for await (const chunk of response.body) {
       size += chunk.length;
-      if (size > asset.size || size > 1024*1024*1024) throw new Error('La descarga tiene un tamaño inesperado.');
+      if (size > asset.size || size > 1024*1024*1024) throw new Error('Downloaded file size does not match expected size.');
       digest.update(chunk); await handle.writeFile(chunk);const progress = Math.floor(size / asset.size * 100);if(progress !== lastProgress){lastProgress=progress;onProgress(progress);}
     }
-    if (size !== asset.size || digest.digest('hex') !== asset.hash) throw new Error('La verificación de la descarga falló. No se instalará.');
+    if (size !== asset.size || digest.digest('hex') !== asset.hash) throw new Error('Download checksum verification failed. Update will not be installed.');
   } catch(error) { await handle.close();await fs.rm(file,{force:true});throw error; }
   await handle.close();return file;
 }
@@ -63,7 +63,7 @@ function portableTarget(platform, env = process.env) {
 const psQuote = value => "'" + value.replaceAll("'","''") + "'";
 const shQuote = value => "'" + value.replaceAll("'","'\\''") + "'";
 function installerScript({platform,target,download,pid,log,hash}) {
-  if (!Number.isInteger(pid) || pid <= 0) throw new Error('Proceso de actualización no válido.');
+  if (!Number.isInteger(pid) || pid <= 0) throw new Error('Invalid update process ID.');
   if (platform === 'win32') return `$ErrorActionPreference='Stop'
 $target=${psQuote(target)}
 $download=${psQuote(download)}
@@ -83,7 +83,7 @@ try {
   catch {if(Test-Path -LiteralPath $target){Remove-Item -LiteralPath $target -Force};Move-Item -LiteralPath $backup -Destination $target;throw}
 } catch {$_ | Out-File -LiteralPath ${psQuote(log)} -Encoding utf8}
 `;
-  if (platform !== 'linux') throw new Error('Actualización no disponible en este sistema.');
+  if (platform !== 'linux') throw new Error('Automatic updates are not available on this OS.');
   return `#!/bin/sh
 target=${shQuote(target)}
 download=${shQuote(download)}
@@ -100,11 +100,11 @@ else mv -- "$backup" "$target"; exit 1; fi
 `;
 }
 async function prepareInstaller({platform = process.platform, target, download, directory, pid = process.pid, hash}) {
-  if (!/^[a-f\d]{64}$/i.test(hash || '')) throw new Error('Falta la verificación de la actualización.');
+  if (!/^[a-f\d]{64}$/i.test(hash || '')) throw new Error('Missing update checksum.');
   hash = hash.toLowerCase();
-  if (portableTarget(platform,platform === 'win32' ? {PORTABLE_EXECUTABLE_FILE:target} : {APPIMAGE:target}) !== target) throw new Error('Abre el EXE portátil o el AppImage para actualizar esta copia.');
+  if (portableTarget(platform,platform === 'win32' ? {PORTABLE_EXECUTABLE_FILE:target} : {APPIMAGE:target}) !== target) throw new Error('Open the portable EXE or AppImage directly to update this copy.');
   const stat = await fs.lstat(target);
-  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('El ejecutable debe ser un archivo normal.');
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('The executable target must be a regular file.');
   await fs.access(target,fs.constants.W_OK);
   await fs.access(path.dirname(target),fs.constants.W_OK);
   const file = path.join(directory,platform === 'win32' ? 'install-update.ps1' : 'install-update.sh');
