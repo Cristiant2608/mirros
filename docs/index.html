@@ -305,9 +305,9 @@
     }
     .gallery {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 18px;
-      align-items: start;
+      align-items: stretch;
     }
     .gallery figure {
       margin: 0;
@@ -316,9 +316,14 @@
       border-radius: 14px;
       overflow: hidden;
       padding: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
     .gallery img {
       width: 100%;
+      max-height: 280px;
+      object-fit: contain;
       height: auto;
       border-radius: 8px;
       display: block;
@@ -409,7 +414,7 @@
       </div>
 
       <div class="showcase">
-        <img src="screenshots/pantalla.png" alt="MirrOS Desktop Studio showing iPhone screen mirroring and USB controls on Windows and Linux" width="1980" height="1350" fetchpriority="high" decoding="async" />
+        <img src="screenshots/mirros-demo.gif" alt="MirrOS Desktop Studio animated demo showing simulated iPhone mirroring, typing, audio, clipboard, EN/ES switch, and themes" width="900" height="585" fetchpriority="high" decoding="async" />
       </div>
     </section>
 
@@ -446,21 +451,41 @@
     </section>
 
     <section id="screenshots">
-      <h2 data-en="Adaptive Themes &amp; Floating Phone Mode" data-es="Interfaz adaptable y modo flotante">Adaptive Themes &amp; Floating Phone Mode</h2>
-      <p class="section-lead" data-en="Four built-in themes (Light, Dark, Lavender, and Ocean), collapsible side controls, and instant EN/ES language switching." data-es="Cuatro temas visuales (Claro, Oscuro, Lavanda y Océano), controles laterales plegables y cambio instantáneo de idioma EN/ES.">Four built-in themes (Light, Dark, Lavender, and Ocean), collapsible side controls, and instant EN/ES language switching.</p>
+      <h2 data-en="Live Workflows, Themes &amp; Floating Phone Mode" data-es="Flujos reales, temas y modo flotante">Live Workflows, Themes &amp; Floating Phone Mode</h2>
+      <p class="section-lead" data-en="Interactive desktop multitasking, four built-in themes (Light, Dark, Lavender, and Ocean), collapsible side controls, and instant EN/ES language switching." data-es="Multitarea interactiva en escritorio, cuatro temas integrados (Claro, Oscuro, Lavanda y Océano), controles laterales plegables y cambio instantáneo de idioma EN/ES.">Interactive desktop multitasking, four built-in themes (Light, Dark, Lavender, and Ocean), collapsible side controls, and instant EN/ES language switching.</p>
 
       <div class="gallery">
+        <figure>
+          <img src="screenshots/floating-usage.gif" alt="MirrOS floating phone mirroring over VS Code and terminal with landscape rotation" width="880" height="548" loading="lazy" decoding="async" />
+          <figcaption data-en="Floating phone workflow over VS Code + terminal with 90° rotation" data-es="Modo flotante sobre editor de código y terminal con giro a 90°">Floating phone workflow over VS Code + terminal with 90° rotation</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/desktop-workflow.png" alt="MirrOS floating phone pinned beside IDE and terminal" width="1220" height="760" loading="lazy" decoding="async" />
+          <figcaption data-en="Always-on-top borderless phone pinned beside your IDE" data-es="Teléfono sin bordes fijado junto a tu editor de código">Always-on-top borderless phone pinned beside your IDE</figcaption>
+        </figure>
         <figure>
           <img src="screenshots/oscuro.png" alt="MirrOS Dark Theme Studio" width="1980" height="1350" loading="lazy" decoding="async" />
           <figcaption data-en="Full Studio workspace in Dark theme" data-es="Estudio completo en tema Oscuro">Full Studio workspace in Dark theme</figcaption>
         </figure>
         <figure>
           <img src="screenshots/apariencia.png" alt="MirrOS theme and pointer customization" width="1980" height="1350" loading="lazy" decoding="async" />
-          <figcaption data-en="Themes, language selector, phone scale, and custom pointer" data-es="Temas, selector de idioma, escala del teléfono y puntero configurable">Themes, language selector, phone scale, and custom pointer</figcaption>
+          <figcaption data-en="Themes, EN/ES language selector, scale, and custom pointer" data-es="Temas, selector de idioma EN/ES, escala y puntero configurable">Themes, EN/ES language selector, scale, and custom pointer</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/audio.png" alt="MirrOS real-time AAC-ELD USB audio panel" width="1980" height="1350" loading="lazy" decoding="async" />
+          <figcaption data-en="Real-time AAC-ELD PCM USB audio routing &amp; mute controls" data-es="Audio AAC-ELD PCM por USB en tiempo real y controles de silencio">Real-time AAC-ELD PCM USB audio routing &amp; mute controls</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/portapapeles.png" alt="MirrOS bidirectional PC to iPhone clipboard panel" width="1980" height="1350" loading="lazy" decoding="async" />
+          <figcaption data-en="Bidirectional text &amp; PNG image clipboard transfer" data-es="Portapapeles bidireccional para texto e imágenes PNG">Bidirectional text &amp; PNG image clipboard transfer</figcaption>
+        </figure>
+        <figure>
+          <img src="screenshots/telefono-horizontal.png" alt="MirrOS floating phone rotated to horizontal landscape orientation" width="1500" height="750" loading="lazy" decoding="async" />
+          <figcaption data-en="Horizontal landscape mode with adaptive frame &amp; coordinates" data-es="Modo apaisado horizontal con giro de marco y coordenadas">Horizontal landscape mode with adaptive frame &amp; coordinates</figcaption>
         </figure>
         <figure>
           <img src="screenshots/telefono-flotante.png" alt="MirrOS borderless floating phone mode" width="735" height="1320" loading="lazy" decoding="async" />
-          <figcaption data-en="Borderless floating phone mode with collapsible side controls" data-es="Modo flotante sin bordes con controles desplegados">Borderless floating phone mode with collapsible side controls</figcaption>
+          <figcaption data-en="Borderless floating phone mode with expanded side controls" data-es="Modo flotante sin bordes con controles laterales desplegados">Borderless floating phone mode with expanded side controls</figcaption>
         </figure>
       </div>
     </section>

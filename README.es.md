@@ -15,9 +15,72 @@
 
 **MirrOS** permite ver la pantalla, escuchar el audio, grabar vídeo y controlar tu **iPhone por USB desde Windows y Linux** con baja latencia (alternativa de código abierto estilo `scrcpy` para iOS 17.4+ e iOS 18). Incluye una aplicación de escritorio lista para usar (**React + Electron**) y una herramienta de línea de comandos (`mirros` / `ios-scrcpy`) con selector de idioma integrado (**Inglés `EN` / Español `ES`**).
 
-![Interfaz con contenido simulado](docs/screenshots/pantalla.png)
+![Demo interactiva de MirrOS mostrando la pantalla simulada del iPhone, escritura en Notas, audio, portapapeles, cambio de idioma EN/ES y temas](docs/screenshots/mirros-demo.gif)
 
-Las capturas del repositorio son simuladas. Las pruebas automáticas y las pruebas con un teléfono se registran por separado en [Compatibilidad](docs/COMPATIBILIDAD.md).
+Todas las capturas y vistas animadas del repositorio muestran una pantalla simulada sin datos personales. Las pruebas automáticas y las pruebas con un teléfono físico se registran por separado en [Compatibilidad](docs/COMPATIBILIDAD.md) ([English](docs/COMPATIBILITY.md)).
+
+### MirrOS en acción
+
+<table>
+  <tr>
+    <td width="56%" align="center">
+      <img src="docs/screenshots/floating-usage.gif" alt="Teléfono flotante sin bordes sobre el editor de código y terminal, con barra plegable, modo oscuro y rotación horizontal" /><br />
+      <sub><strong>Flujo flotante Always-on-Top</strong> — iPhone compacto junto al editor y la terminal, controles plegables y giro instantáneo de 90°.</sub>
+    </td>
+    <td width="44%" align="center">
+      <img src="docs/screenshots/desktop-workflow.png" alt="Modo flotante de MirrOS junto al editor de código y terminal" /><br />
+      <sub><strong>Espacio de trabajo lado a lado</strong> — Mantén tu iPhone visible mientras programas o pruebas apps.</sub>
+    </td>
+  </tr>
+</table>
+
+<details open>
+<summary><strong>Explorar todas las vistas y modos de la interfaz</strong></summary>
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/pantalla.png" alt="MirrOS Studio en tema Claro" /><br />
+      <sub><strong>Studio (Claro)</strong> — Consola completa con métricas y atajos en vivo</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/oscuro.png" alt="MirrOS Studio en tema Oscuro" /><br />
+      <sub><strong>Studio (Oscuro)</strong> — Tema de bajo brillo para trabajar</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/audio.png" alt="Controles de audio en tiempo real por USB en MirrOS" /><br />
+      <sub><strong>Audio y vídeo en tiempo real</strong> — Activa audio USB AAC-ELD y estado del flujo</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/portapapeles.png" alt="Sincronización bidireccional de portapapeles en MirrOS" /><br />
+      <sub><strong>Portapapeles y texto</strong> — Envía texto directo del PC al iPhone</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/apariencia.png" alt="Personalización de temas, puntero e idioma EN/ES en MirrOS" /><br />
+      <sub><strong>Temas, escala e idioma EN/ES</strong> — 4 temas integrados y traducción instantánea</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/telefono-horizontal.png" alt="Modo flotante horizontal de MirrOS tras girar 90 grados" /><br />
+      <sub><strong>Modo flotante horizontal</strong> — Vídeo y marco girados 90° sin bordes</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/telefono-flotante.png" width="230" alt="Modo flotante con controles laterales desplegados" /><br />
+      <sub><strong>Controles flotantes desplegados</strong> — Botones rápidos junto a la pantalla</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/telefono-guardado.png" width="215" alt="Modo flotante con barra lateral plegada" /><br />
+      <sub><strong>Controles flotantes plegados</strong> — Vista minimalista de solo pantalla</sub>
+    </td>
+  </tr>
+</table>
+
+</details>
 
 ---
 
@@ -109,6 +172,7 @@ pnpm start
 | `--app-switcher` | Abre el selector de aplicaciones en segundo plano (multitarea) en una sesión activa. |
 | `--list-apps` | Lista en la terminal las aplicaciones de usuario instaladas en el iPhone. |
 | `--floating` / `--studio` | Abre la vista compacta de solo teléfono flotante (por defecto) o el panel completo Studio (`--studio`). |
+| `--lang {en,es}` | Define el idioma inicial de la interfaz (`en` para inglés, `es` para español; también conmutable en la ventana). |
 | `--no-userspace` | Usa un túnel externo para el dispositivo. |
 
 ---
