@@ -101,7 +101,7 @@ jobs:
           Copy-Item dist/windows/Mirros-*-Windows.exe artifacts/
       - name: Stage Linux artifact
         if: runner.os == 'Linux'
-        run: mkdir -p artifacts && cp dist/linux/*.AppImage artifacts/
+        run: mkdir -p artifacts && cp dist/linux/*.AppImage dist/linux/*.deb artifacts/
       - name: Upload Windows package
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
@@ -115,7 +115,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Mirros-Linux
-          path: artifacts/*.AppImage
+          path: |
+            artifacts/*.AppImage
+            artifacts/*.deb
           if-no-files-found: error
           compression-level: 0
   release:
@@ -142,6 +144,7 @@ jobs:
           fi
           test -s "release/Mirros-$version-Windows.exe"
           test -s "release/Mirros-$version-Linux-x64.AppImage"
+          test -s "release/Mirros-$version-Linux-x64.deb"
           git archive --format=zip --prefix="mirros-$version/" -o "release/Mirros-$version-Source.zip" HEAD
-          (cd release && sha256sum "Mirros-$version-Windows.exe" "Mirros-$version-Linux-x64.AppImage" "Mirros-$version-Source.zip" > SHA256SUMS.txt)
+          (cd release && sha256sum "Mirros-$version-Windows.exe" "Mirros-$version-Linux-x64.AppImage" "Mirros-$version-Linux-x64.deb" "Mirros-$version-Source.zip" > SHA256SUMS.txt)
           gh release create "v$version" --verify-tag release/* --target "$GITHUB_SHA" --title "Mirros $version" --notes-file RELEASE_NOTES.md

@@ -23,7 +23,7 @@ test('rotate asks iOS to rotate, and does not pretend success on failure', async
   try {
     globalThis.fetch=async(url,options)=>{assert.equal(url,'/rotate');assert.deepEqual(JSON.parse(options.body),{direction:'right'});return {ok:true,json:async()=>({currentDeviceOrientation:'landscapeRight'})};};
     assert.equal((await rotateDevice()).currentDeviceOrientation,'landscapeRight');
-    globalThis.fetch=async()=>({ok:false});await assert.rejects(rotateDevice(),/No se pudo girar/);
+    globalThis.fetch=async()=>({ok:false});await assert.rejects(rotateDevice(),/Could not rotate/);
   }finally{globalThis.fetch=original;}
 });
 test('orientation polling stops cleanly when the view closes', async()=>{

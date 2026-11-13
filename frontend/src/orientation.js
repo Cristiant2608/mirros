@@ -16,7 +16,7 @@ export function devicePoint(point, rotation = 0) {
 }
 export async function rotateDevice(direction = 'right', signal) {
   const response = await fetch('/rotate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({direction}), signal: signal || AbortSignal.timeout(6000)});
-  if (!response.ok) throw new Error('No se pudo girar el iPhone. Revisa la conexión.');
+  if (!response.ok) throw new Error('Could not rotate the iPhone. Check connection.');
   return response.json();
 }
 export function followOrientation(onOrientation) {

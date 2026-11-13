@@ -75,7 +75,7 @@ una comparación de latencia HTTP/WebSocket siguen pendientes. No se anuncia tod
 ### Cámara y micrófono: objetivo separado
 
 Optimizar transporte o códecs no elimina la observación remota que restringe
-sensores. La investigación está en `INVESTIGACION-CAMARA-REA.md`. Una alternativa
+sensores. La investigación está en [`notes/INVESTIGACION-CAMARA-REA.md`](notes/INVESTIGACION-CAMARA-REA.md). Una alternativa
 con capturas y WDA por USB exige un runner firmado y probar simultáneamente
 imagen, controles, cámara y micrófono; todavía no es una solución validada.
 

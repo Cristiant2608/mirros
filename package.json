@@ -15,6 +15,7 @@
     "pretest": "node scripts/version.mjs",
     "prebuild": "node scripts/version.mjs",
     "verify:build-proxy": "node scripts/check-build-proxy.mjs",
+    "verify:repo": "node scripts/check-repo.mjs",
     "audit": "pnpm audit --audit-level=moderate",
     "verify:clipboard": "electron scripts/check-clipboard.cjs"
   },

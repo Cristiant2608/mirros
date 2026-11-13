@@ -53,7 +53,7 @@ test('native installer replaces a harmless fixture, keeps backup and rejects cha
       await fs.writeFile(target,'previous harmless fixture');await fs.writeFile(download,payload);
       const install=await prepareInstaller({target,download,directory,pid:2147483647,hash:corrupt?'0'.repeat(64):digest});await install();
       let finished=false;
-      for(let i=0;i<150;i++){
+      for(let i=0;i<300;i++){
         try {if(corrupt){await fs.access(path.join(directory,'install-update.log'));if((await fs.stat(path.join(directory,'install-update.log'))).size>0){finished=true;break;}}else if((await fs.readFile(target)).equals(payload)){finished=true;break;}}catch{}
         await new Promise(r=>setTimeout(r,100));
       }

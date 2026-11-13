@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 from wsproto import WSConnection, ConnectionType
 from wsproto.events import Request, AcceptConnection, BytesMessage, CloseConnection
-from mirros.control import decode_request, serve_control, PROTOCOL
+from mirros.control import decode_request, PROTOCOL
 from mirros.adapter import orientation_connection
 
 

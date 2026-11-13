@@ -236,6 +236,7 @@ MirrOS starts in **English (`EN`)** by default. Click the **`🇺🇸 EN` / `�
 - [Compatibility & Troubleshooting](docs/COMPATIBILITY.md) ([Español](docs/COMPATIBILIDAD.md))
 - [Releases & Update Security](docs/RELEASES.md) ([Español](docs/ACTUALIZACIONES.md))
 - [Performance & Linux Hardware Decode Notes](docs/OPTIMIZACION.md)
+- [Product & Engineering Roadmap](docs/ROADMAP.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)

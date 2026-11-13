@@ -27,8 +27,11 @@ win:
   icon: desktop/icon.ico
   signAndEditExecutable: false
 linux:
+  maintainer: Cristiant2608 <39715540+Cristiant2608@users.noreply.github.com>
   target:
     - target: AppImage
+      arch: [x64]
+    - target: deb
       arch: [x64]
   icon: desktop/icon.png
   category: Utility
