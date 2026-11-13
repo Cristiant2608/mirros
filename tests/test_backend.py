@@ -293,7 +293,6 @@ class TapReadinessTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(server._mirros_contact_at)
 
     async def test_moves_do_not_restart_the_minimum_contact_timer(self):
-        import asyncio
         from mirros.adapter import touch_request
         server = SimpleNamespace()
         original = AsyncMock(return_value=(200, b'ok'))
