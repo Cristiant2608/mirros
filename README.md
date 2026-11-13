@@ -17,9 +17,72 @@
 
 Powered by `pymobiledevice3` and Apple CoreDevice services, MirrOS provides a unified **React + Electron desktop application** and command-line interface (`mirros` / `ios-scrcpy`) with built-in **English (`EN`) and Spanish (`ES`)** language switching.
 
-![MirrOS Desktop Studio with simulated screen](docs/screenshots/pantalla.png)
+![MirrOS Desktop Studio interactive demo showing simulated iPhone mirroring, Notes typing, audio, clipboard sync, language switching, and themes](docs/screenshots/mirros-demo.gif)
 
-> *All repository screenshots use a generated simulated iPhone display and contain no personal device data. Automated CI checks and physical device validations are tracked in [Compatibility](docs/COMPATIBILIDAD.md).*
+> *All repository screenshots and animated previews use a generated simulated iPhone display and contain no personal device data. Automated CI checks and physical device validations are tracked in [Compatibility](docs/COMPATIBILITY.md) ([Español](docs/COMPATIBILIDAD.md)).*
+
+### MirrOS in Action
+
+<table>
+  <tr>
+    <td width="56%" align="center">
+      <img src="docs/screenshots/floating-usage.gif" alt="Floating borderless iPhone mirroring over VS Code and terminal, with collapsible sidebar, dark mode, and landscape rotation" /><br />
+      <sub><strong>Floating Always-on-Top Workflow</strong> — Compact borderless phone over IDE + terminal, collapsible controls, and instant 90° rotation.</sub>
+    </td>
+    <td width="44%" align="center">
+      <img src="docs/screenshots/desktop-workflow.png" alt="MirrOS Floating Phone next to code editor and terminal" /><br />
+      <sub><strong>Live Side-by-Side Workspace</strong> — Keep your iPhone pinned while coding or testing apps.</sub>
+    </td>
+  </tr>
+</table>
+
+<details open>
+<summary><strong>Explore All Interface Views &amp; Modes</strong></summary>
+
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/pantalla.png" alt="MirrOS Desktop Studio in Light theme" /><br />
+      <sub><strong>Studio (Light)</strong> — Full mirroring console with live metrics and shortcuts</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/oscuro.png" alt="MirrOS Desktop Studio in Dark theme" /><br />
+      <sub><strong>Studio (Dark)</strong> — Low-glare workspace theme</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/audio.png" alt="MirrOS Audio controls and AAC-ELD PCM streaming" /><br />
+      <sub><strong>Real-Time Audio &amp; Video</strong> — Toggle iPhone USB audio &amp; inspect stream state</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/portapapeles.png" alt="MirrOS bidirectional clipboard sync tab" /><br />
+      <sub><strong>Clipboard &amp; Text Entry</strong> — Paste desktop text straight to iPhone</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/apariencia.png" alt="MirrOS Appearance themes, pointer, and EN/ES language controls" /><br />
+      <sub><strong>Themes, Scale &amp; EN/ES Switcher</strong> — 4 built-in themes + instant UI translation</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/telefono-horizontal.png" alt="MirrOS Floating Phone rotated to horizontal landscape mode" /><br />
+      <sub><strong>Landscape Floating Mode</strong> — 90° rotated video &amp; borderless frame</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/telefono-flotante.png" width="230" alt="MirrOS Floating Phone with expanded side control rail" /><br />
+      <sub><strong>Floating Controls Expanded</strong> — One-click shortcuts beside the screen</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/screenshots/telefono-guardado.png" width="215" alt="MirrOS Floating Phone with collapsed side rail" /><br />
+      <sub><strong>Floating Controls Collapsed</strong> — Minimal pure-screen footprint</sub>
+    </td>
+  </tr>
+</table>
+
+</details>
 
 ---
 

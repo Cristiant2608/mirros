@@ -11,6 +11,7 @@
     "pack:linux": "electron-builder --linux AppImage --x64 --publish never --config.directories.output=dist/linux",
     "version:check": "node scripts/version.mjs",
     "version:sync": "node scripts/version.mjs --write",
+    "capture:demo": "node scripts/capture-demo.mjs",
     "pretest": "node scripts/version.mjs",
     "prebuild": "node scripts/version.mjs",
     "verify:build-proxy": "node scripts/check-build-proxy.mjs",

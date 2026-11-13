@@ -4,6 +4,10 @@
 
 MirrOS lets you mirror, record, and control your iPhone over USB from Windows or Linux without jailbreak or App Store companion apps.
 
+![MirrOS Desktop Studio interactive demo](screenshots/mirros-demo.gif)
+
+> *All screenshots and animated previews in this guide use a simulated iPhone screen and contain no personal device data.*
+
 ## Requirements
 
 - **PC:** Windows 10/11 or Linux (x86_64) with USB data access (`usbmuxd` on Linux, Apple Devices or iTunes USB driver on Windows).
@@ -19,11 +23,24 @@ MirrOS lets you mirror, record, and control your iPhone over USB from Windows or
 
 ## Desktop & Floating UI (`v1.3.0`)
 
-MirrOS opens directly in a **compact floating phone window** with a collapsible side control rail:
+MirrOS opens directly in a **compact floating phone window** with a collapsible side control rail so you can keep your iPhone beside an editor, browser, or terminal:
+
+![Floating borderless phone workflow over desktop editor and terminal](screenshots/floating-usage.gif)
+
+![Floating phone pinned side-by-side in a developer workspace](screenshots/desktop-workflow.png)
 
 - **Top titlebar:** drag handle, device status indicator, battery telemetry badge, minimize/maximize/fullscreen (`F11`), `EN / ES` language toggle, and close button.
 - **Docked control rail:** collapse/expand tab, swipe left/right, Home (`Ctrl+H`), App Switcher (`Ctrl+M`), Control Center, Notification Center, rotate view (`90°`), fit height, open **Studio Panel**, pin always-on-top, PC audio mute, iPhone mute, screenshot (`Ctrl+P`), screen & audio recording (`Ctrl+Shift+R`), camera/microphone live viewfinder toggle, AOD / Standby mode, Wake (`Ctrl+U`), Lock (`Ctrl+L`), and safe disconnect.
 - **Studio Panel:** expands the full sidebar workspace with **Screen**, **Audio**, **Clipboard**, **Appearance**, and **Help** tabs (plus application launcher modal and private diagnostics export).
+
+| Mode / Tab | Preview |
+| :--- | :--- |
+| **Studio Workspace** | ![MirrOS Studio Screen View](screenshots/pantalla.png) |
+| **Floating Side Rail** | ![Floating phone with expanded controls](screenshots/telefono-flotante.png) |
+| **Landscape Floating Mode** | ![Landscape floating phone view](screenshots/telefono-horizontal.png) |
+| **Real-Time USB Audio** | ![MirrOS Audio settings tab](screenshots/audio.png) |
+| **Clipboard Sync** | ![MirrOS Clipboard transfer tab](screenshots/portapapeles.png) |
+| **Appearance, Themes & Language** | ![MirrOS Appearance and EN/ES settings](screenshots/apariencia.png) |
 
 ## Keyboard & Mouse Shortcuts
 

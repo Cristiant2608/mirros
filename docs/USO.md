@@ -26,9 +26,15 @@ Se recomienda iOS 17.4 o posterior para el túnel USB sin privilegios. El lanzad
 
 ## Pantalla y controles
 
+![Demo interactiva de MirrOS Studio](screenshots/mirros-demo.gif)
+
+![Flujo del teléfono flotante junto al editor de código y terminal](screenshots/floating-usage.gif)
+
+![Espacio de trabajo lado a lado con el teléfono flotante](screenshots/desktop-workflow.png)
+
 ![Pantalla de ejemplo de Mirros](screenshots/pantalla.png)
 
-Todas las capturas de esta guía muestran una pantalla generada: no contienen datos ni imágenes de un iPhone real.
+Todas las capturas y vistas animadas de esta guía muestran una pantalla generada: no contienen datos ni imágenes de un iPhone real.
 
 Clic para tocar, arrastrar para deslizar y rueda para desplazar. La rueda horizontal también se admite. El clic derecho vuelve a Inicio. Haz clic en el visor para enviar el teclado del PC; al salir del visor se libera la entrada.
 
