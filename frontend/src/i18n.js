@@ -48,6 +48,18 @@ const BACKEND_MESSAGE_PAIRS = [
   ['Pegado en el iPhone.', 'Pasted on iPhone.'],
   ['La pantalla se detuvo inesperadamente.', 'The screen stopped unexpectedly.'],
   ['Conecta tu iPhone primero.', 'Connect your iPhone first.'],
+  ['No se pudo enviar el gesto. Revisa la conexión.', 'Could not send gesture. Check connection.'],
+  ['Se interrumpió el control. Revisa la conexión.', 'Control connection interrupted. Check connection.'],
+  ['No se pudo girar el iPhone. Revisa la conexión.', 'Could not rotate the iPhone. Check connection.'],
+  ['No se pudo solicitar reposo al iPhone.', 'Could not switch the iPhone to standby mode.'],
+  ['No se pudo enviar el gesto al iPhone.', 'Could not send wake gesture to the iPhone.'],
+  ['No se pudo liberar cámara y micrófono en el iPhone.', 'Could not release camera and microphone on the iPhone.'],
+  ['Cierra primero la app Cámara o micrófono en el iPhone para reanudar la pantalla.', 'Close the Camera or microphone app on the iPhone first to resume screen mirroring.'],
+  ['No se pudo reanudar la transmisión de pantalla.', 'Could not resume screen mirroring.'],
+  ['No se pudo cambiar el aspecto en el iPhone.', 'Could not change iOS appearance on the iPhone.'],
+  ['No se pudo abrir el selector de aplicaciones.', 'Could not open the app switcher.'],
+  ['No se pudo abrir la aplicación en el iPhone.', 'Could not open the application on the iPhone.'],
+  ['No se pudo capturar la pantalla del iPhone.', 'Could not capture the iPhone camera viewfinder.'],
 ];
 
 const BACKEND_ES_TO_EN = Object.fromEntries(BACKEND_MESSAGE_PAIRS);

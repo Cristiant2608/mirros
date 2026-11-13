@@ -85,16 +85,16 @@ def write_report(report, path):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Exporta diagnóstico sin nombres, UDID, rutas ni portapapeles.')
-    parser.add_argument('--output', type=Path, help='Crear un JSON nuevo; no sobrescribe archivos existentes.')
-    parser.add_argument('--probe-usb', action='store_true', help='Consultar USB; exporta solo el número de dispositivos.')
+    parser = argparse.ArgumentParser(description='Export diagnostics without device names, UDIDs, paths, or clipboard contents.')
+    parser.add_argument('--output', type=Path, help='Create a new JSON file; does not overwrite existing files.')
+    parser.add_argument('--probe-usb', action='store_true', help='Probe USB devices; exports device count only.')
     args = parser.parse_args(argv)
     report = collect_report(args.probe_usb)
     if args.output:
         try:
             write_report(report, args.output)
         except OSError:
-            parser.exit(1, 'No se pudo crear el informe. Usa una ruta nueva en una carpeta con permisos.\n')
+            parser.exit(1, 'Could not write the diagnostics report. Use a new path in a writable directory.\n')
     else:
         print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0

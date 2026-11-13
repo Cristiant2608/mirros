@@ -183,6 +183,7 @@ pnpm start
 - [Guía de uso](docs/USO.md)
 - [Arquitectura y responsabilidades](docs/ARQUITECTURA.md)
 - [Compatibilidad y validación física](docs/COMPATIBILIDAD.md)
+- [Hoja de ruta (Roadmap)](docs/ROADMAP.md)
 - [Cómo contribuir](CONTRIBUTING.md)
 - [Política de seguridad](SECURITY.md)
 - [Historial de cambios](CHANGELOG.md)

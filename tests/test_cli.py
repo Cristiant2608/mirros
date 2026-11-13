@@ -102,8 +102,6 @@ class CliTests(unittest.TestCase):
 
 class RunnerUrlTests(unittest.TestCase):
     def test_url_with_software_and_quality(self):
-        captured_url = None
-
         def fake_start_process(cmd, **kwargs):
             return None
 

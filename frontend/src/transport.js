@@ -4,8 +4,8 @@ export function encodeControl(path, data, sequence) {
   const touch = path === '/touch' && ['contact', 'release'].includes(data.type);
   const key = path === '/key' && Array.isArray(data.usages);
   if (!touch && !key) return null;
-  if (touch && ![data.x, data.y].every(v => Number.isInteger(v) && v >= 0 && v <= 65535)) throw new Error('Coordenadas no válidas.');
-  if (key && (data.usages.length > 255 || !data.usages.every(v => Number.isInteger(v) && v >= 0 && v <= 255) || (data.detach && data.usages.length))) throw new Error('Teclas no válidas.');
+  if (touch && ![data.x, data.y].every(v => Number.isInteger(v) && v >= 0 && v <= 65535)) throw new Error('Invalid coordinates.');
+  if (key && (data.usages.length > 255 || !data.usages.every(v => Number.isInteger(v) && v >= 0 && v <= 255) || (data.detach && data.usages.length))) throw new Error('Invalid keys.');
   const bytes = new ArrayBuffer(touch ? 10 : 8 + data.usages.length * 2);
   const view = new DataView(bytes);
   view.setUint8(0, 1); view.setUint8(1, touch ? (data.type === 'contact' ? 1 : 2) : 3); view.setUint32(2, sequence);
@@ -17,7 +17,7 @@ export function encodeControl(path, data, sequence) {
 export function createTransport({WebSocket: Socket = globalThis.WebSocket, location = globalThis.location, fetch: request = globalThis.fetch, timeout = 3000} = {}) {
   let socket, opening, pending, sequence = 0, retryAt = 0, chain = Promise.resolve();
   const stats = {acknowledged: 0, httpFallbacks: 0, failures: 0, lastRoundTripMs: null, lastDispatchMs: null};
-  const failure = () => new Error('Se interrumpió el control. Revisa la conexión.');
+  const failure = () => new Error('Control connection interrupted. Check connection.');
   function disconnect() {
     const previous = socket; socket = null; retryAt = Date.now() + 5000;
     if (pending) { clearTimeout(pending.timer); pending.reject(failure()); pending = null; stats.failures++; }
@@ -56,7 +56,7 @@ export function createTransport({WebSocket: Socket = globalThis.WebSocket, locat
   }
   async function http(path, data) {
     const response = await request(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data), signal: AbortSignal.timeout(timeout)});
-    if (!response.ok) throw new Error('No se pudo enviar el gesto. Revisa la conexión.');
+    if (!response.ok) throw new Error('Could not send gesture. Check connection.');
   }
   async function send(path, data) {
     const id = sequence = (sequence + 1) >>> 0;

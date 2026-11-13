@@ -240,8 +240,8 @@ async def set_display_mode(server, mode: str):
             except Exception as error:
                 from mirros.diagnostics import record_diagnostic_error
                 record_diagnostic_error('aod_failed')
-                logging.getLogger(__name__).warning('No se pudo enviar bloqueo para modo AOD: %s', error)
-                return {'status': 'error', 'message': 'No se pudo solicitar reposo al iPhone.'}
+                logging.getLogger(__name__).warning('Failed to send lock command for AOD mode: %s', error)
+                return {'status': 'error', 'message': 'Could not switch the iPhone to standby mode.'}
         server._mirros_display_mode = 'aod'
         server._mirros_keep_awake = False
         return {'mode': 'aod', 'keepAwake': False}
@@ -290,12 +290,12 @@ async def wake_device(server):
                 finally:
                     await uhs.send_touchscreen(TOUCHSCREEN_STATE_RELEASE, start_x, cur_y)
             else:
-                raise RuntimeError('HID no disponible')
+                raise RuntimeError('HID unavailable')
     except Exception as error:
         from mirros.diagnostics import record_diagnostic_error
         record_diagnostic_error('wake_failed')
-        logging.getLogger(__name__).warning('No se pudo despertar el dispositivo: %s', error)
-        return {'status': 'error', 'message': 'No se pudo enviar el gesto al iPhone.'}
+        logging.getLogger(__name__).warning('Failed to wake device: %s', error)
+        return {'status': 'error', 'message': 'Could not send wake gesture to the iPhone.'}
     server._mirros_display_mode = 'dual'
     server._mirros_keep_awake = True
     event = getattr(server, '_mirros_keep_awake_event', None)
@@ -378,7 +378,7 @@ async def press_button_indigo(server, button_name: str) -> bool:
             await temp_indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
         return True
     except Exception as error:
-        logging.getLogger(__name__).warning('No se pudo enviar botón %s por IndigoHID: %s', button_name, error)
+        logging.getLogger(__name__).warning('Failed to send IndigoHID button %s: %s', button_name, error)
         return False
 
 
@@ -410,7 +410,7 @@ async def set_media_state(server, paused: bool, *, reason: str = 'manual', exit_
     """Pausa o reanuda la observación remota de CoreDevice para liberar cámara y micrófono en el iPhone."""
     from mirros.diagnostics import record_diagnostic_error
     if not isinstance(paused, bool):
-        return {'status': 'error', 'message': 'Estado multimedia no válido.'}
+        return {'status': 'error', 'message': 'Invalid media state.'}
     pause_reason = reason if reason in ('manual', 'auto_sensor') else 'manual'
     if paused:
         server._mirros_media_paused = True
@@ -434,8 +434,8 @@ async def set_media_state(server, paused: bool, *, reason: str = 'manual', exit_
             server._mirros_media_paused = False
             server._mirros_media_pause_reason = None
             record_diagnostic_error('media_pause_failed')
-            logging.getLogger(__name__).warning('No se pudo liberar la sesión multimedia: %s', error)
-            return {'status': 'error', 'paused': False, 'message': 'No se pudo liberar cámara y micrófono en el iPhone.'}
+            logging.getLogger(__name__).warning('Failed to release media session: %s', error)
+            return {'status': 'error', 'paused': False, 'message': 'Could not release camera and microphone on the iPhone.'}
         return {'status': 'ok', 'paused': True, 'reason': pause_reason}
 
     if exit_app:
@@ -478,12 +478,12 @@ async def set_media_state(server, paused: bool, *, reason: str = 'manual', exit_
                 'code': 'media_in_use',
                 'paused': True,
                 'reason': 'auto_sensor',
-                'message': 'Cierra primero la app Cámara o micrófono en el iPhone para reanudar la pantalla.',
+                'message': 'Close the Camera or microphone app on the iPhone first to resume screen mirroring.',
             }
         server._mirros_media_pause_reason = 'manual'
         record_diagnostic_error('media_pause_failed')
-        logging.getLogger(__name__).warning('No se pudo reanudar la sesión multimedia: %s', error)
-        return {'status': 'error', 'paused': True, 'reason': 'manual', 'message': 'No se pudo reanudar la transmisión de pantalla.'}
+        logging.getLogger(__name__).warning('Failed to resume media session: %s', error)
+        return {'status': 'error', 'paused': True, 'reason': 'manual', 'message': 'Could not resume screen mirroring.'}
     finally:
         server._mirros_media_resuming = False
 
@@ -497,7 +497,7 @@ async def get_ios_style(server):
 
 async def set_ios_style(server, style: str):
     if style not in ('light', 'dark'):
-        return {'status': 'error', 'message': 'Aspecto de iOS no válido.'}
+        return {'status': 'error', 'message': 'Invalid iOS appearance style.'}
     try:
         from pymobiledevice3.remote.core_device.configuration_service import ConfigurationService
         async with ConfigurationService(server._rsd) as cfg:
@@ -506,8 +506,8 @@ async def set_ios_style(server, style: str):
     except Exception as error:
         from mirros.diagnostics import record_diagnostic_error
         record_diagnostic_error('style_failed')
-        logging.getLogger(__name__).warning('No se pudo cambiar el aspecto de iOS a %s: %s', style, error)
-        return {'status': 'error', 'message': 'No se pudo cambiar el aspecto en el iPhone.'}
+        logging.getLogger(__name__).warning('Failed to set iOS appearance to %s: %s', style, error)
+        return {'status': 'error', 'message': 'Could not change iOS appearance on the iPhone.'}
 
 
 async def guarded_fresh_stream(server, original, force=False):
@@ -586,12 +586,12 @@ async def trigger_app_switcher(server):
                 await asyncio.sleep(0.05)
                 await indigo.send_button(usage_page, usage_code, HID_BUTTON_STATE_UP)
                 return {'status': 'ok', 'method': 'double-home'}
-            raise RuntimeError('HID no disponible')
+            raise RuntimeError('HID unavailable')
     except Exception as error:
         from mirros.diagnostics import record_diagnostic_error
         record_diagnostic_error('app_switcher_failed')
-        logging.getLogger(__name__).warning('No se pudo abrir el selector de apps: %s', error)
-        return {'status': 'error', 'message': 'No se pudo abrir el selector de aplicaciones.'}
+        logging.getLogger(__name__).warning('Failed to open app switcher: %s', error)
+        return {'status': 'error', 'message': 'Could not open the app switcher.'}
 
 
 async def list_device_apps(server):
@@ -614,7 +614,7 @@ async def list_device_apps(server):
 async def launch_device_app(server, bundle_id: str):
     """Abre una aplicación de usuario en el iPhone mediante CoreDevice."""
     if not isinstance(bundle_id, str) or not bundle_id.strip() or len(bundle_id.strip()) > 255 or any(c.isspace() for c in bundle_id.strip()):
-        return {'status': 'error', 'message': 'Identificador de aplicación no válido.'}
+        return {'status': 'error', 'message': 'Invalid application bundle identifier.'}
     clean_id = bundle_id.strip()
     try:
         if clean_id in SENSOR_BUNDLE_IDS and not getattr(server, '_mirros_media_paused', False):
@@ -630,8 +630,8 @@ async def launch_device_app(server, bundle_id: str):
     except Exception as error:
         from mirros.diagnostics import record_diagnostic_error
         record_diagnostic_error('app_launch_failed')
-        logging.getLogger(__name__).warning('No se pudo abrir la aplicación %s: %s', clean_id, error)
-        return {'status': 'error', 'message': 'No se pudo abrir la aplicación en el iPhone.'}
+        logging.getLogger(__name__).warning('Failed to launch app %s: %s', clean_id, error)
+        return {'status': 'error', 'message': 'Could not open the application on the iPhone.'}
 
 
 async def sensor_activity_loop(server):
@@ -843,7 +843,7 @@ async def get_battery_info(server):
             connected = bool(data.get('ExternalConnected', data.get('connected', True if cap is not None else False)))
             res = {'capacity': cap, 'charging': charging, 'connected': connected}
     except Exception as error:
-        logging.getLogger(__name__).debug('No se pudo consultar el estado de la batería: %s', error)
+        logging.getLogger(__name__).debug('Could not query battery status: %s', error)
         res = safe_fallback
 
     with contextlib.suppress(Exception):
@@ -1028,8 +1028,8 @@ async def orientation_connection(server, reader, writer, original):
             )
         except Exception as error:
             record_diagnostic_error('camera_frame_failed')
-            logging.getLogger(__name__).warning('No se pudo capturar el visor: %s', type(error).__name__)
-            write_json(writer, b'503 Service Unavailable', {'status': 'error', 'message': 'No se pudo capturar la pantalla del iPhone.'})
+            logging.getLogger(__name__).warning('Failed to capture camera viewfinder frame: %s', type(error).__name__)
+            write_json(writer, b'503 Service Unavailable', {'status': 'error', 'message': 'Could not capture the iPhone camera viewfinder.'})
     elif request == [b'POST', b'/camera-shutter']:
         ok = await press_button_indigo(server, 'volume-down')
         write_json(writer, b'200 OK' if ok else b'503 Service Unavailable', {'status': 'ok' if ok else 'error'})
@@ -1043,7 +1043,7 @@ async def orientation_connection(server, reader, writer, original):
             paused = None
             exit_app = False
         if not isinstance(paused, bool):
-            write_json(writer, b'400 Bad Request', {'status': 'error', 'message': 'Estado multimedia no válido.'})
+            write_json(writer, b'400 Bad Request', {'status': 'error', 'message': 'Invalid media state.'})
         else:
             result = await set_media_state(server, paused, reason='manual', exit_app=exit_app)
             status = (
@@ -1058,7 +1058,7 @@ async def orientation_connection(server, reader, writer, original):
             write_json(writer, b'200 OK', result)
         except Exception:
             record_diagnostic_error('style_failed')
-            write_json(writer, b'503 Service Unavailable', {'status': 'error', 'message': 'No se pudo consultar el aspecto de iOS.'})
+            write_json(writer, b'503 Service Unavailable', {'status': 'error', 'message': 'Could not query iOS appearance style.'})
     elif request == [b'POST', b'/style']:
         raw_body = await server._read_body(reader, headers)
         try:
@@ -1067,7 +1067,7 @@ async def orientation_connection(server, reader, writer, original):
         except Exception:
             style = None
         if style not in ('light', 'dark'):
-            write_json(writer, b'400 Bad Request', {'status': 'error', 'message': 'Aspecto de iOS no válido.'})
+            write_json(writer, b'400 Bad Request', {'status': 'error', 'message': 'Invalid iOS appearance style.'})
         else:
             result = await asyncio.wait_for(set_ios_style(server, style), 5)
             write_json(writer, b'503 Service Unavailable' if result.get('status') == 'error' else b'200 OK', result)
@@ -1083,7 +1083,7 @@ async def orientation_connection(server, reader, writer, original):
             write_json(writer, b'200 OK', apps)
         except Exception as error:
             record_diagnostic_error('apps_unavailable')
-            logging.getLogger(__name__).warning('No se pudo listar aplicaciones: %s', error)
+            logging.getLogger(__name__).warning('Failed to list installed apps: %s', error)
             write_json(writer, b'503 Service Unavailable', b'{"error":"apps_unavailable"}')
     elif request == [b'POST', b'/apps/launch']:
         raw_body = await server._read_body(reader, headers)

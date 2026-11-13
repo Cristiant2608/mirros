@@ -1,8 +1,13 @@
 # Releases & Versioning
 
-See also: [ACTUALIZACIONES.md (Spanish Update Mechanism Notes)](ACTUALIZACIONES.md) and [CHANGELOG](https://github.com/Cristiant2608/mirros/releases).
+See also: [ACTUALIZACIONES.md (Spanish Update Mechanism Notes)](ACTUALIZACIONES.md), [Roadmap](ROADMAP.md), and [CHANGELOG](https://github.com/Cristiant2608/mirros/releases).
 
 MirrOS keeps its semantic version synchronized across `package.json`, `pyproject.toml`, and `src/mirros/__init__.py` via `scripts/version.mjs` (`pnpm run version:check`).
+
+## Linux `.deb` & PyPI Distribution Automation
+
+- **Debian / Ubuntu `.deb`:** Configured in [`electron-builder.yml`](../electron-builder.yml) alongside `.AppImage` and staged automatically by [`packages.yml`](../.github/workflows/packages.yml) starting with the next tagged release after `1.3.0`.
+- **PyPI (`pip install mirros`):** Package build verification (`uv build` + `twine check`) and opt-in Trusted Publishing live in [`.github/workflows/pypi.yml`](../.github/workflows/pypi.yml) (`vars.MIRROS_PYPI_PUBLISH == 'true'` or manual `workflow_dispatch`).
 
 ## v1.3.0 — Unified Floating UI, Live Viewfinder, Recording & English-First Globalization
 
